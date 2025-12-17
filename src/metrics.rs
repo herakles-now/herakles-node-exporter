@@ -71,35 +71,35 @@ impl MemoryMetrics {
 
         let rss = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_rss_bytes",
+                "herakles_mem_process_rss_bytes",
                 "Resident Set Size per process in bytes",
             ),
             labels,
         )?;
         let pss = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_pss_bytes",
+                "herakles_mem_process_pss_bytes",
                 "Proportional Set Size per process in bytes",
             ),
             labels,
         )?;
         let uss = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_uss_bytes",
+                "herakles_mem_process_uss_bytes",
                 "Unique Set Size per process in bytes",
             ),
             labels,
         )?;
         let cpu_usage = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_cpu_percent",
+                "herakles_cpu_process_usage_percent",
                 "CPU usage per process in percent (delta over last scan)",
             ),
             labels,
         )?;
         let cpu_time = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_cpu_time_seconds",
+                "herakles_cpu_process_time_seconds",
                 "Total CPU time used per process",
             ),
             labels,
@@ -129,14 +129,14 @@ impl MemoryMetrics {
         )?;
         let agg_cpu_percent_sum = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_group_cpu_percent_sum",
+                "herakles_cpu_group_usage_percent_sum",
                 "Sum of CPU percent per subgroup",
             ),
             &["group", "subgroup", "uptime_in_seconds"],
         )?;
         let agg_cpu_time_sum = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_group_cpu_time_seconds_sum",
+                "herakles_cpu_group_time_seconds_sum",
                 "Sum of CPU time seconds per subgroup",
             ),
             &["group", "subgroup", "uptime_in_seconds"],
@@ -187,7 +187,7 @@ impl MemoryMetrics {
         )?;
         let top_cpu_percent = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_top_cpu_percent",
+                "herakles_cpu_top_process_usage_percent",
                 "Top-N CPU percent per subgroup",
             ),
             &[
@@ -201,7 +201,7 @@ impl MemoryMetrics {
         )?;
         let top_cpu_time = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_top_cpu_time_seconds",
+                "herakles_cpu_top_process_time_seconds",
                 "Top-N CPU time seconds per subgroup",
             ),
             &[
@@ -217,7 +217,7 @@ impl MemoryMetrics {
         // Percentage-of-subgroup metrics (use "comm" instead of "name")
         let top_cpu_percent_of_subgroup = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_top_cpu_percent_of_subgroup",
+                "herakles_cpu_top_process_percent_of_subgroup",
                 "Top-N CPU time as percentage of subgroup total CPU time",
             ),
             &[
@@ -231,7 +231,7 @@ impl MemoryMetrics {
         )?;
         let top_rss_percent_of_subgroup = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_top_rss_percent_of_subgroup",
+                "herakles_mem_top_process_rss_percent_of_subgroup",
                 "Top-N RSS as percentage of subgroup total RSS",
             ),
             &[
@@ -245,7 +245,7 @@ impl MemoryMetrics {
         )?;
         let top_pss_percent_of_subgroup = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_top_pss_percent_of_subgroup",
+                "herakles_mem_top_process_pss_percent_of_subgroup",
                 "Top-N PSS as percentage of subgroup total PSS",
             ),
             &[
@@ -259,7 +259,7 @@ impl MemoryMetrics {
         )?;
         let top_uss_percent_of_subgroup = GaugeVec::new(
             Opts::new(
-                "herakles_proc_mem_top_uss_percent_of_subgroup",
+                "herakles_mem_top_process_uss_percent_of_subgroup",
                 "Top-N USS as percentage of subgroup total USS",
             ),
             &[

@@ -35,14 +35,19 @@ GET /doc         - This documentation (plain text)
 
 AVAILABLE METRICS
 -----------------
-herakles_proc_mem_rss_bytes              - Resident Set Size per process
-herakles_proc_mem_pss_bytes              - Proportional Set Size per process
-herakles_proc_mem_uss_bytes              - Unique Set Size per process
-herakles_proc_mem_cpu_percent            - CPU usage per process
-herakles_proc_mem_cpu_time_seconds       - Total CPU time per process
+herakles_mem_process_rss_bytes           - Resident Set Size per process
+herakles_mem_process_pss_bytes           - Proportional Set Size per process
+herakles_mem_process_uss_bytes           - Unique Set Size per process
+herakles_cpu_process_usage_percent       - CPU usage per process
+herakles_cpu_process_time_seconds        - Total CPU time per process
 
-herakles_proc_mem_group_*_sum            - Aggregated metrics per subgroup
-herakles_proc_mem_top_*                  - Top-N metrics per subgroup
+herakles_mem_group_*                     - Aggregated memory metrics per subgroup
+herakles_cpu_group_*                     - Aggregated CPU metrics per subgroup
+herakles_mem_top_process_*               - Top-N memory metrics per subgroup
+herakles_cpu_top_process_*               - Top-N CPU metrics per subgroup
+herakles_mem_system_*                    - System-wide memory metrics
+herakles_cpu_system_*                    - System-wide CPU metrics
+herakles_exporter_*                      - Internal exporter metrics
 
 CONFIGURATION
 -------------
@@ -94,16 +99,16 @@ curl http://localhost:9215/health
 EXAMPLE PROMQL QUERIES
 ----------------------
 # Top 10 processes by USS memory
-topk(10, herakles_proc_mem_uss_bytes)
+topk(10, herakles_mem_process_uss_bytes)
 
 # Memory usage by group
-sum by (group) (herakles_proc_mem_rss_bytes)
+sum by (group) (herakles_mem_process_rss_bytes)
 
 # CPU usage by subgroup
-sum by (group, subgroup) (herakles_proc_mem_cpu_percent)
+sum by (group, subgroup) (herakles_cpu_process_usage_percent)
 
 # Process count per subgroup
-count by (group, subgroup) (herakles_proc_mem_uss_bytes)
+count by (group, subgroup) (herakles_mem_process_uss_bytes)
 
 PROMETHEUS SCRAPE CONFIG
 ------------------------
