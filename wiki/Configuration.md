@@ -455,4 +455,4 @@ enable_pprof: true
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

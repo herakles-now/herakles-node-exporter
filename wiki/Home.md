@@ -25,7 +25,7 @@ Welcome to the Herakles Process Memory Exporter documentation! This wiki provide
 
 ```bash
 # From source
-git clone https://github.com/herakles-io/herakles-node-exporter.git
+git clone https://github.com/cansp-dev/herakles-node-exporter.git
 cd herakles-node-exporter
 cargo build --release
 sudo cp target/release/herakles-node-exporter /usr/local/bin/
@@ -105,16 +105,16 @@ herakles_proc_mem_group_rss_bytes_sum{group="web",subgroup="nginx"} 419430400
 
 ## 🔗 Useful Links
 
-- [GitHub Repository](https://github.com/herakles-io/herakles-node-exporter)
+- [GitHub Repository](https://github.com/cansp-dev/herakles-node-exporter)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Dashboards](https://grafana.com/grafana/dashboards/)
 
 ## 📝 Getting Help
 
 - Check the [Troubleshooting](Troubleshooting.md) guide
-- Open an issue on [GitHub](https://github.com/herakles-io/herakles-node-exporter/issues)
+- Open an issue on [GitHub](https://github.com/cansp-dev/herakles-node-exporter/issues)
 - Contact: proc-mem@herakles.io
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

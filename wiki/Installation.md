@@ -21,7 +21,7 @@ herakles-node-exporter check --all
 
 ```bash
 # Clone the repository
-git clone https://github.com/herakles-io/herakles-node-exporter.git
+git clone https://github.com/cansp-dev/herakles-node-exporter.git
 cd herakles-node-exporter
 
 # Build optimized release binary
@@ -214,7 +214,7 @@ volumes:
 sudo tee /etc/systemd/system/herakles-node-exporter.service << 'EOF'
 [Unit]
 Description=Herakles Process Memory Exporter
-Documentation=https://github.com/herakles-io/herakles-node-exporter
+Documentation=https://github.com/cansp-dev/herakles-node-exporter
 After=network-online.target
 Wants=network-online.target
 
@@ -375,4 +375,4 @@ uname -r
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
