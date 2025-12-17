@@ -23,9 +23,9 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-musl
-            artifact_name: herakles-proc-mem-exporter-amd64-musl
+            artifact_name: herakles-node-exporter-amd64-musl
           - target: aarch64-unknown-linux-musl
-            artifact_name: herakles-proc-mem-exporter-arm64-musl
+            artifact_name: herakles-node-exporter-arm64-musl
 
     steps:
       - name: Checkout repository
@@ -62,7 +62,7 @@ jobs:
 
       - name: Rename binary
         run: |
-          cp target/${{ matrix.target }}/release/herakles-proc-mem-exporter ${{ matrix.artifact_name }}
+          cp target/${{ matrix.target }}/release/herakles-node-exporter ${{ matrix.artifact_name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -95,8 +95,8 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
           files: |
-            artifacts/herakles-proc-mem-exporter-amd64-musl/herakles-proc-mem-exporter-amd64-musl
-            artifacts/herakles-proc-mem-exporter-arm64-musl/herakles-proc-mem-exporter-arm64-musl
+            artifacts/herakles-node-exporter-amd64-musl/herakles-node-exporter-amd64-musl
+            artifacts/herakles-node-exporter-arm64-musl/herakles-node-exporter-arm64-musl
 
   build-docker:
     name: Build Docker Image
@@ -110,22 +110,22 @@ jobs:
       - name: Download amd64 binary
         uses: actions/download-artifact@v4.1.8
         with:
-          name: herakles-proc-mem-exporter-amd64-musl
+          name: herakles-node-exporter-amd64-musl
           path: .
 
       - name: Download arm64 binary
         uses: actions/download-artifact@v4.1.8
         with:
-          name: herakles-proc-mem-exporter-arm64-musl
+          name: herakles-node-exporter-arm64-musl
           path: .
 
       - name: Prepare binaries
         run: |
           mkdir -p docker-build/linux/amd64 docker-build/linux/arm64
-          mv herakles-proc-mem-exporter-amd64-musl/herakles-proc-mem-exporter-amd64-musl docker-build/linux/amd64/herakles-proc-mem-exporter
-          mv herakles-proc-mem-exporter-arm64-musl/herakles-proc-mem-exporter-arm64-musl docker-build/linux/arm64/herakles-proc-mem-exporter
-          chmod +x docker-build/linux/amd64/herakles-proc-mem-exporter
-          chmod +x docker-build/linux/arm64/herakles-proc-mem-exporter
+          mv herakles-node-exporter-amd64-musl/herakles-node-exporter-amd64-musl docker-build/linux/amd64/herakles-node-exporter
+          mv herakles-node-exporter-arm64-musl/herakles-node-exporter-arm64-musl docker-build/linux/arm64/herakles-node-exporter
+          chmod +x docker-build/linux/amd64/herakles-node-exporter
+          chmod +x docker-build/linux/arm64/herakles-node-exporter
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -161,7 +161,7 @@ jobs:
               adduser -D -u 1000 -G herakles herakles
 
           ARG TARGETPLATFORM
-          COPY --chmod=755 docker-build/${TARGETPLATFORM}/herakles-proc-mem-exporter /usr/local/bin/herakles-proc-mem-exporter
+          COPY --chmod=755 docker-build/${TARGETPLATFORM}/herakles-node-exporter /usr/local/bin/herakles-node-exporter
 
           USER herakles
 
@@ -170,7 +170,7 @@ jobs:
           HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
               CMD wget -q -O /dev/null http://localhost:9215/health || exit 1
 
-          ENTRYPOINT ["/usr/local/bin/herakles-proc-mem-exporter"]
+          ENTRYPOINT ["/usr/local/bin/herakles-node-exporter"]
           CMD []
           EOF
 
