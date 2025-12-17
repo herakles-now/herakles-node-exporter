@@ -17,7 +17,7 @@ pub fn command_config(
     let config = Config::default();
     let output = match output {
         Some(path) => path,
-        None => PathBuf::from("herakles-proc-mem-exporter.yaml"),
+        None => PathBuf::from("herakles-node-exporter.yaml"),
     };
 
     let content = match format {

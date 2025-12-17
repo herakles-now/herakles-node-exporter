@@ -1,4 +1,4 @@
-//! Configuration management for herakles-proc-mem-exporter.
+//! Configuration management for herakles-node-exporter.
 //!
 //! This module handles loading, merging, and validating configuration from files
 //! and CLI arguments. It supports YAML, JSON, and TOML formats.
@@ -335,9 +335,9 @@ pub fn load_config(path: Option<&str>) -> Result<Config, Box<dyn std::error::Err
             "/etc/herakles/proc-mem-exporter.yaml",
             "/etc/herakles/proc-mem-exporter.yml",
             "/etc/herakles/proc-mem-exporter.json",
-            "./herakles-proc-mem-exporter.yaml",
-            "./herakles-proc-mem-exporter.yml",
-            "./herakles-proc-mem-exporter.json",
+            "./herakles-node-exporter.yaml",
+            "./herakles-node-exporter.yml",
+            "./herakles-node-exporter.json",
         ];
 
         defaults

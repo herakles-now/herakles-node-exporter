@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 
 /// Helper to get the binary path
 fn binary_path() -> std::path::PathBuf {
-    std::path::PathBuf::from(env!("CARGO_BIN_EXE_herakles-proc-mem-exporter"))
+    std::path::PathBuf::from(env!("CARGO_BIN_EXE_herakles-node-exporter"))
 }
 
 #[test]

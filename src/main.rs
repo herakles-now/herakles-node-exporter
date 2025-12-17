@@ -1,4 +1,4 @@
-//! herakles-proc-mem-exporter - version 0.1.0
+//! herakles-node-exporter - version 0.1.0
 //!
 //! Professional memory metrics exporter with tracing logging.
 //! This is the main entry point that initializes the server and handles subcommands.
@@ -435,7 +435,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     setup_logging(&config, &args);
 
-    info!("Starting herakles-proc-mem-exporter");
+    info!("Starting herakles-node-exporter");
 
     let bind_ip_str = config.bind.as_deref().unwrap_or(DEFAULT_BIND_ADDR);
     let port = config.port.unwrap_or(DEFAULT_PORT);
@@ -464,7 +464,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let processes_total = Gauge::new(
         "herakles_proc_mem_processes_total",
-        "Number of processes currently exported by herakles-proc-mem-exporter",
+        "Number of processes currently exported by herakles-node-exporter",
     )?;
     let cache_update_duration = Gauge::new(
         "herakles_proc_mem_cache_update_duration_seconds",
@@ -634,7 +634,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })?;
 
         info!(
-            "herakles-proc-mem-exporter listening on https://{}:{}",
+            "herakles-node-exporter listening on https://{}:{}",
             bind_ip_str, port
         );
 
@@ -655,7 +655,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // TLS is disabled - use standard TCP listener
         let listener = TcpListener::bind(addr).await?;
         info!(
-            "herakles-proc-mem-exporter listening on http://{}:{}",
+            "herakles-node-exporter listening on http://{}:{}",
             bind_ip_str, port
         );
 
@@ -677,6 +677,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     background_task.abort();
     let _ = background_task.await;
 
-    info!("herakles-proc-mem-exporter stopped gracefully");
+    info!("herakles-node-exporter stopped gracefully");
     Ok(())
 }
