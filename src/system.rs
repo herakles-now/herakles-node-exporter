@@ -15,11 +15,15 @@ pub struct LoadAverage {
     pub fifteen_min: f64,
 }
 
-/// Extended memory information including available memory.
+/// Extended memory information including available memory, cached, buffers, and swap.
 #[derive(Debug, Clone, Copy)]
 pub struct ExtendedMemoryInfo {
     pub total_bytes: u64,
     pub available_bytes: u64,
+    pub cached_bytes: u64,
+    pub buffers_bytes: u64,
+    pub swap_total_bytes: u64,
+    pub swap_free_bytes: u64,
 }
 
 /// CPU statistics for calculating usage ratios.
@@ -81,7 +85,7 @@ pub fn read_load_average() -> Result<LoadAverage, String> {
     })
 }
 
-/// Reads extended memory information from /proc/meminfo including MemAvailable.
+/// Reads extended memory information from /proc/meminfo including MemAvailable, Cached, Buffers, and Swap.
 ///
 /// Returns total and available memory in bytes.
 pub fn read_extended_memory_info() -> Result<ExtendedMemoryInfo, String> {
@@ -90,6 +94,10 @@ pub fn read_extended_memory_info() -> Result<ExtendedMemoryInfo, String> {
 
     let mut total_bytes: Option<u64> = None;
     let mut available_bytes: Option<u64> = None;
+    let mut cached_bytes: Option<u64> = None;
+    let mut buffers_bytes: Option<u64> = None;
+    let mut swap_total_bytes: Option<u64> = None;
+    let mut swap_free_bytes: Option<u64> = None;
 
     for line in content.lines() {
         if line.starts_with("MemTotal:") {
@@ -106,19 +114,52 @@ pub fn read_extended_memory_info() -> Result<ExtendedMemoryInfo, String> {
                     available_bytes = Some(kb * 1024);
                 }
             }
+        } else if line.starts_with("Cached:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                if let Ok(kb) = parts[1].parse::<u64>() {
+                    cached_bytes = Some(kb * 1024);
+                }
+            }
+        } else if line.starts_with("Buffers:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                if let Ok(kb) = parts[1].parse::<u64>() {
+                    buffers_bytes = Some(kb * 1024);
+                }
+            }
+        } else if line.starts_with("SwapTotal:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                if let Ok(kb) = parts[1].parse::<u64>() {
+                    swap_total_bytes = Some(kb * 1024);
+                }
+            }
+        } else if line.starts_with("SwapFree:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                if let Ok(kb) = parts[1].parse::<u64>() {
+                    swap_free_bytes = Some(kb * 1024);
+                }
+            }
         }
 
-        if total_bytes.is_some() && available_bytes.is_some() {
+        if total_bytes.is_some() && available_bytes.is_some() && cached_bytes.is_some() 
+            && buffers_bytes.is_some() && swap_total_bytes.is_some() && swap_free_bytes.is_some() {
             break;
         }
     }
 
-    match (total_bytes, available_bytes) {
-        (Some(total), Some(available)) => Ok(ExtendedMemoryInfo {
+    match (total_bytes, available_bytes, cached_bytes, buffers_bytes, swap_total_bytes, swap_free_bytes) {
+        (Some(total), Some(available), Some(cached), Some(buffers), Some(swap_total), Some(swap_free)) => Ok(ExtendedMemoryInfo {
             total_bytes: total,
             available_bytes: available,
+            cached_bytes: cached,
+            buffers_bytes: buffers,
+            swap_total_bytes: swap_total,
+            swap_free_bytes: swap_free,
         }),
-        _ => Err("Failed to parse MemTotal or MemAvailable from /proc/meminfo".to_string()),
+        _ => Err("Failed to parse required fields from /proc/meminfo".to_string()),
     }
 }
 
@@ -184,11 +225,15 @@ impl CpuStatsCache {
     }
 
     /// Calculate CPU usage ratios by comparing current and previous stats.
-    /// Returns a HashMap with CPU name as key and usage ratio (0.0 to 1.0) as value.
-    pub fn calculate_usage_ratios(&self) -> Result<HashMap<String, f64>, String> {
+    /// Returns HashMaps with CPU name as key and usage ratios (0.0 to 1.0) as value.
+    /// Returns (usage_ratios, idle_ratios, iowait_ratios, steal_ratios).
+    pub fn calculate_usage_ratios(&self) -> Result<(HashMap<String, f64>, HashMap<String, f64>, HashMap<String, f64>, HashMap<String, f64>), String> {
         let current_stats = read_cpu_stats()?;
         
-        let mut ratios = HashMap::new();
+        let mut usage_ratios = HashMap::new();
+        let mut idle_ratios = HashMap::new();
+        let mut iowait_ratios = HashMap::new();
+        let mut steal_ratios = HashMap::new();
         
         // Try to get previous stats
         let prev_guard = self.previous.read().map_err(|e| format!("Failed to acquire lock: {}", e))?;
@@ -199,14 +244,21 @@ impl CpuStatsCache {
                 if let Some(previous) = prev_stats.get(cpu_name) {
                     let delta_total = current.total().saturating_sub(previous.total());
                     let delta_non_active = current.idle_total().saturating_sub(previous.idle_total());
+                    let delta_idle = current.idle.saturating_sub(previous.idle);
+                    let delta_iowait = current.iowait.saturating_sub(previous.iowait);
+                    let delta_steal = current.steal.saturating_sub(previous.steal);
                     
-                    let ratio = if delta_total > 0 {
-                        (delta_total - delta_non_active) as f64 / delta_total as f64
-                    } else {
-                        0.0
-                    };
-                    
-                    ratios.insert(cpu_name.clone(), ratio);
+                    if delta_total > 0 {
+                        let usage_ratio = (delta_total - delta_non_active) as f64 / delta_total as f64;
+                        let idle_ratio = delta_idle as f64 / delta_total as f64;
+                        let iowait_ratio = delta_iowait as f64 / delta_total as f64;
+                        let steal_ratio = delta_steal as f64 / delta_total as f64;
+                        
+                        usage_ratios.insert(cpu_name.clone(), usage_ratio);
+                        idle_ratios.insert(cpu_name.clone(), idle_ratio);
+                        iowait_ratios.insert(cpu_name.clone(), iowait_ratio);
+                        steal_ratios.insert(cpu_name.clone(), steal_ratio);
+                    }
                 }
             }
         }
@@ -217,8 +269,31 @@ impl CpuStatsCache {
         let mut cache_guard = self.previous.write().map_err(|e| format!("Failed to acquire write lock: {}", e))?;
         *cache_guard = Some(current_stats);
         
-        Ok(ratios)
+        Ok((usage_ratios, idle_ratios, iowait_ratios, steal_ratios))
     }
+}
+
+/// Reads PSI (Pressure Stall Information) from /proc/pressure files.
+/// Returns the "some" total value from the specified file.
+pub fn read_psi_some_total(path: &str) -> Result<f64, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+
+    for line in content.lines() {
+        if line.starts_with("some") {
+            // Format: "some avg10=0.00 avg60=0.00 avg300=0.00 total=123456789"
+            for part in line.split_whitespace() {
+                if let Some(total_str) = part.strip_prefix("total=") {
+                    if let Ok(total) = total_str.parse::<u64>() {
+                        // Convert microseconds to seconds
+                        return Ok(total as f64 / 1_000_000.0);
+                    }
+                }
+            }
+        }
+    }
+
+    Err(format!("Failed to parse 'some total' from {}", path))
 }
 
 #[cfg(test)]
