@@ -4,14 +4,14 @@
 //! exporter health statistics and buffer status.
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
-use herakles_proc_mem_exporter::HealthResponse;
+use herakles_node_exporter::HealthResponse;
 use std::fmt::Write as FmtWrite;
 use tracing::{debug, instrument};
 
 use crate::state::SharedState;
 
 /// Footer text for human-readable HTTP endpoints.
-pub const FOOTER_TEXT: &str = "Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io";
+pub const FOOTER_TEXT: &str = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io";
 
 /// Handler for the /health endpoint.
 #[instrument(skip(state))]

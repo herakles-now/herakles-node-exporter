@@ -1,4 +1,4 @@
-//! Prometheus metrics definitions for herakles-proc-mem-exporter.
+//! Prometheus metrics definitions for herakles-node-exporter.
 //!
 //! This module defines all the Prometheus metrics used to export process
 //! memory and CPU usage information.

@@ -17,12 +17,12 @@ Error: Permission denied reading /proc/1234/smaps
 
 1. **Run as root (not recommended for production):**
    ```bash
-   sudo herakles-proc-mem-exporter
+   sudo herakles-node-exporter
    ```
 
 2. **Add capability (recommended):**
    ```bash
-   sudo setcap cap_dac_read_search+ep /usr/local/bin/herakles-proc-mem-exporter
+   sudo setcap cap_dac_read_search+ep /usr/local/bin/herakles-node-exporter
    ```
 
 3. **Use systemd with capabilities:**
@@ -51,10 +51,10 @@ Error: Permission denied reading /proc/1234/smaps
 **Diagnosis:**
 ```bash
 # Check system requirements
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 
 # Check with debug logging
-herakles-proc-mem-exporter --log-level debug
+herakles-node-exporter --log-level debug
 ```
 
 **Common Causes:**
@@ -76,7 +76,7 @@ herakles-proc-mem-exporter --log-level debug
      - nonexistent-group
    
    # Solution: Check available groups
-   herakles-proc-mem-exporter subgroups
+   herakles-node-exporter subgroups
    ```
 
 3. **All processes filtered as "other":**
@@ -187,19 +187,19 @@ level=warn msg="Scrape of target failed" err="context deadline exceeded"
 curl http://localhost:9215/health
 
 # Look for cache errors
-herakles-proc-mem-exporter --log-level debug
+herakles-node-exporter --log-level debug
 ```
 
 **Solutions:**
 
 1. **Check for errors in logs:**
    ```bash
-   journalctl -u herakles-proc-mem-exporter -f
+   journalctl -u herakles-node-exporter -f
    ```
 
 2. **Restart the exporter:**
    ```bash
-   sudo systemctl restart herakles-proc-mem-exporter
+   sudo systemctl restart herakles-node-exporter
    ```
 
 3. **Verify /proc accessibility:**
@@ -213,20 +213,20 @@ herakles-proc-mem-exporter --log-level debug
 
 ```bash
 # CLI flag
-herakles-proc-mem-exporter --log-level debug
+herakles-node-exporter --log-level debug
 
 # Or via config
 log_level: "debug"
 
 # Environment variable
-RUST_LOG=debug herakles-proc-mem-exporter
+RUST_LOG=debug herakles-node-exporter
 ```
 
 ### Trace Logging
 
 For maximum verbosity:
 ```bash
-herakles-proc-mem-exporter --log-level trace
+herakles-node-exporter --log-level trace
 ```
 
 ### Debug Endpoints
@@ -345,7 +345,7 @@ time for i in $(seq 1 10); do cat /proc/self/smaps > /dev/null; done
 ### Check Command
 
 ```bash
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 ```
 
 ### Expected Output
@@ -430,23 +430,23 @@ subgroups = [
 
 1. **Check logs first:**
    ```bash
-   journalctl -u herakles-proc-mem-exporter --since "1 hour ago"
+   journalctl -u herakles-node-exporter --since "1 hour ago"
    ```
 
 2. **Enable debug mode:**
    ```bash
-   herakles-proc-mem-exporter --log-level debug
+   herakles-node-exporter --log-level debug
    ```
 
 3. **Run system check:**
    ```bash
-   herakles-proc-mem-exporter check --all
+   herakles-node-exporter check --all
    ```
 
 4. **Check configuration:**
    ```bash
-   herakles-proc-mem-exporter --check-config
-   herakles-proc-mem-exporter --show-config
+   herakles-node-exporter --check-config
+   herakles-node-exporter --show-config
    ```
 
 5. **Open GitHub issue:**
@@ -462,4 +462,4 @@ subgroups = [
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

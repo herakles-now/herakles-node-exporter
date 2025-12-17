@@ -14,8 +14,8 @@ Thank you for considering contributing to the Herakles Process Memory Exporter! 
 
 ```bash
 # Clone the repository
-git clone https://github.com/herakles-io/herakles-proc-mem-exporter.git
-cd herakles-proc-mem-exporter
+git clone https://github.com/cansp-dev/herakles-node-exporter.git
+cd herakles-node-exporter
 
 # Build debug version
 cargo build
@@ -226,11 +226,11 @@ cargo clippy -- -D warnings
 cargo build --release
 
 # Test with real data
-./target/release/herakles-proc-mem-exporter test
+./target/release/herakles-node-exporter test
 
 # Test with synthetic data
-./target/release/herakles-proc-mem-exporter generate-testdata -o /tmp/test.json
-./target/release/herakles-proc-mem-exporter -t /tmp/test.json &
+./target/release/herakles-node-exporter generate-testdata -o /tmp/test.json
+./target/release/herakles-node-exporter -t /tmp/test.json &
 curl http://localhost:9215/metrics | head -50
 ```
 
@@ -389,4 +389,4 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

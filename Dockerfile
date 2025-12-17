@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for herakles-proc-mem-exporter
+# Multi-stage Dockerfile for herakles-node-exporter
 # Optimized for minimal runtime image size with musl
 
 # Build stage - uses pre-built musl binaries from CI
@@ -16,7 +16,7 @@ RUN addgroup -g 1000 herakles && \
 # Copy the pre-built binary (injected by CI pipeline)
 # The binary is built with musl and statically linked
 ARG TARGETPLATFORM
-COPY --chmod=755 herakles-proc-mem-exporter /usr/local/bin/herakles-proc-mem-exporter
+COPY --chmod=755 herakles-node-exporter /usr/local/bin/herakles-node-exporter
 
 # Set up /proc access (read-only mount point for container runtime)
 # The actual /proc mount is done at container runtime via -v /proc:/host/proc:ro
@@ -32,7 +32,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget -q -O /dev/null http://localhost:9215/health || exit 1
 
 # Set entrypoint to the exporter binary
-ENTRYPOINT ["/usr/local/bin/herakles-proc-mem-exporter"]
+ENTRYPOINT ["/usr/local/bin/herakles-node-exporter"]
 
 # Default command (can be overridden)
 CMD []

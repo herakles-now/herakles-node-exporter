@@ -7,7 +7,7 @@
 //! # Usage
 //!
 //! ```rust
-//! use herakles_proc_mem_exporter::{AppConfig, HealthState};
+//! use herakles_node_exporter::{AppConfig, HealthState};
 //!
 //! // Create health state with configuration
 //! let config = AppConfig::default();

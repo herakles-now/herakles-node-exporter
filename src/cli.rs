@@ -1,4 +1,4 @@
-//! CLI arguments and subcommands for herakles-proc-mem-exporter.
+//! CLI arguments and subcommands for herakles-node-exporter.
 //!
 //! This module defines the command-line interface structure using the clap library,
 //! including all flags, options, and subcommands.
@@ -29,7 +29,7 @@ pub enum ConfigFormat {
 /// Main CLI arguments structure
 #[derive(Parser, Debug)]
 #[command(
-    name = "herakles-proc-mem-exporter",
+    name = "herakles-node-exporter",
     about = "Prometheus exporter for per-process RSS/PSS/USS and CPU metrics",
     long_about = "Prometheus exporter for per-process RSS/PSS/USS and CPU metrics.\n\n\
                   A high-performance Prometheus exporter for per-process memory and CPU metrics \
@@ -38,7 +38,7 @@ pub enum ConfigFormat {
     author = "Michael Moll <proc-mem@herakles.io> - Herakles IO",
     version = "0.1.0",
     propagate_version = true,
-    after_help = "Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io"
+    after_help = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io"
 )]
 pub struct Args {
     #[command(subcommand)]

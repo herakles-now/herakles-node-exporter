@@ -10,14 +10,14 @@ The exporter includes a test command that performs metrics collection without st
 
 ```bash
 # Single test iteration
-herakles-proc-mem-exporter test
+herakles-node-exporter test
 
 # Multiple iterations with verbose output
-herakles-proc-mem-exporter test -n 5 --verbose
+herakles-node-exporter test -n 5 --verbose
 
 # Output in different formats
-herakles-proc-mem-exporter test --format yaml
-herakles-proc-mem-exporter test --format json
+herakles-node-exporter test --format yaml
+herakles-node-exporter test --format json
 ```
 
 ### Sample Output
@@ -52,10 +52,10 @@ Generate a JSON file with synthetic process data:
 
 ```bash
 # Default settings
-herakles-proc-mem-exporter generate-testdata -o testdata.json
+herakles-node-exporter generate-testdata -o testdata.json
 
 # Custom parameters
-herakles-proc-mem-exporter generate-testdata \
+herakles-node-exporter generate-testdata \
   -o testdata.json \
   --min-per-subgroup 10 \
   --others-count 50
@@ -69,7 +69,7 @@ The generated file follows this JSON schema:
 {
   "metadata": {
     "generated_at": "2024-01-15T10:30:00Z",
-    "generator": "herakles-proc-mem-exporter",
+    "generator": "herakles-node-exporter",
     "version": "0.1.0"
   },
   "processes": [
@@ -107,7 +107,7 @@ Start the exporter with synthetic data instead of /proc:
 
 ```bash
 # Via CLI flag
-herakles-proc-mem-exporter -t testdata.json
+herakles-node-exporter -t testdata.json
 
 # Via config file
 # config.yaml
@@ -142,7 +142,7 @@ Create multiple files with increasing memory values:
 
 ```bash
 # Generate initial state
-herakles-proc-mem-exporter generate-testdata -o state1.json
+herakles-node-exporter generate-testdata -o state1.json
 
 # Manually modify values to simulate growth
 # state2.json - increase memory values by 10%
@@ -291,11 +291,11 @@ jobs:
         run: cargo test
       
       - name: Generate test data
-        run: ./target/release/herakles-proc-mem-exporter generate-testdata -o testdata.json
+        run: ./target/release/herakles-node-exporter generate-testdata -o testdata.json
       
       - name: Run with test data
         run: |
-          ./target/release/herakles-proc-mem-exporter -t testdata.json &
+          ./target/release/herakles-node-exporter -t testdata.json &
           sleep 5
           curl -f http://localhost:9215/metrics | grep herakles_proc_mem
           curl -f http://localhost:9215/health
@@ -316,14 +316,14 @@ build:
     - cargo build --release
   artifacts:
     paths:
-      - target/release/herakles-proc-mem-exporter
+      - target/release/herakles-node-exporter
 
 test:
   stage: test
   image: rust:1.75
   script:
-    - ./target/release/herakles-proc-mem-exporter generate-testdata -o testdata.json
-    - ./target/release/herakles-proc-mem-exporter -t testdata.json &
+    - ./target/release/herakles-node-exporter generate-testdata -o testdata.json
+    - ./target/release/herakles-node-exporter -t testdata.json &
     - sleep 5
     - curl -f http://localhost:9215/metrics
     - curl -f http://localhost:9215/health
@@ -345,8 +345,8 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                    ./target/release/herakles-proc-mem-exporter generate-testdata -o testdata.json
-                    ./target/release/herakles-proc-mem-exporter -t testdata.json &
+                    ./target/release/herakles-node-exporter generate-testdata -o testdata.json
+                    ./target/release/herakles-node-exporter -t testdata.json &
                     sleep 5
                     curl -f http://localhost:9215/metrics | grep -c herakles_proc_mem
                 '''
@@ -362,7 +362,7 @@ pipeline {
 
 ```bash
 # Validate config file
-herakles-proc-mem-exporter --check-config -c config.yaml
+herakles-node-exporter --check-config -c config.yaml
 
 # Expected output on success
 ✅ Configuration is valid
@@ -375,11 +375,11 @@ herakles-proc-mem-exporter --check-config -c config.yaml
 
 ```bash
 # Full system verification
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 
 # Individual checks
-herakles-proc-mem-exporter check --memory
-herakles-proc-mem-exporter check --proc
+herakles-node-exporter check --memory
+herakles-node-exporter check --proc
 ```
 
 ### Metrics Verification

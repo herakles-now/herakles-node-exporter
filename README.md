@@ -59,21 +59,21 @@ A high-performance Prometheus exporter for per-process memory and CPU metrics on
 
 ```bash
 # Clone the repository
-git clone https://github.com/herakles-io/herakles-proc-mem-exporter.git
-cd herakles-proc-mem-exporter
+git clone https://github.com/cansp-dev/herakles-node-exporter.git
+cd herakles-node-exporter
 
 # Build release binary
 cargo build --release
 
 # Install to /usr/local/bin
-sudo cp target/release/herakles-proc-mem-exporter /usr/local/bin/
+sudo cp target/release/herakles-node-exporter /usr/local/bin/
 ```
 
 ### From Source (Development Build)
 
 ```bash
 cargo build
-./target/debug/herakles-proc-mem-exporter --help
+./target/debug/herakles-node-exporter --help
 ```
 
 ### Debian/Ubuntu Package
@@ -86,40 +86,40 @@ cargo install cargo-deb
 cargo deb
 
 # Install the package
-sudo dpkg -i target/debian/herakles-proc-mem-exporter_*.deb
+sudo dpkg -i target/debian/herakles-node-exporter_*.deb
 ```
 
 ### Docker
 
 ```bash
 # Build Docker image
-docker build -t herakles-proc-mem-exporter .
+docker build -t herakles-node-exporter .
 
 # Run container
 docker run -d \
   --name herakles-exporter \
   -p 9215:9215 \
   -v /proc:/host/proc:ro \
-  herakles-proc-mem-exporter
+  herakles-node-exporter
 ```
 
 ## ⚡ Quick Start
 
 ```bash
 # Start with default settings (port 9215)
-herakles-proc-mem-exporter
+herakles-node-exporter
 
 # Start with custom port
-herakles-proc-mem-exporter -p 9216
+herakles-node-exporter -p 9216
 
 # Start with config file
-herakles-proc-mem-exporter -c /etc/herakles/config.yaml
+herakles-node-exporter -c /etc/herakles/config.yaml
 
 # Check system requirements
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 
 # View current configuration
-herakles-proc-mem-exporter --show-config
+herakles-node-exporter --show-config
 ```
 
 ## ⚙️ Configuration
@@ -128,7 +128,7 @@ herakles-proc-mem-exporter --show-config
 
 The exporter searches for configuration files in the following order:
 1. CLI specified: `-c /path/to/config.yaml`
-2. Current directory: `./herakles-proc-mem-exporter.yaml`
+2. Current directory: `./herakles-node-exporter.yaml`
 3. User config: `~/.config/herakles/config.yaml`
 4. System config: `/etc/herakles/config.yaml`
 
@@ -196,10 +196,10 @@ enable_pprof: false
 
 ```bash
 # Generate YAML config with comments
-herakles-proc-mem-exporter config --format yaml --commented -o config.yaml
+herakles-node-exporter config --format yaml --commented -o config.yaml
 
 # Generate minimal JSON config
-herakles-proc-mem-exporter config --format json -o config.json
+herakles-node-exporter config --format json -o config.json
 ```
 
 ## 🔒 SSL/TLS Configuration
@@ -222,7 +222,7 @@ tls_key_path: "/etc/herakles/certs/server.key"
 ### Enable TLS via CLI
 
 ```bash
-herakles-proc-mem-exporter \
+herakles-node-exporter \
   --enable-tls \
   --tls-cert /path/to/server.crt \
   --tls-key /path/to/server.key
@@ -237,7 +237,7 @@ openssl req -x509 -newkey rsa:4096 -nodes \
   -days 365 -subj "/CN=localhost"
 
 # Start exporter with TLS
-herakles-proc-mem-exporter \
+herakles-node-exporter \
   --enable-tls \
   --tls-cert server.crt \
   --tls-key server.key
@@ -251,7 +251,7 @@ docker run -d \
   -p 9215:9215 \
   -v /proc:/host/proc:ro \
   -v /path/to/certs:/certs:ro \
-  herakles-proc-mem-exporter \
+  herakles-node-exporter \
   --enable-tls \
   --tls-cert /certs/server.crt \
   --tls-key /certs/server.key
@@ -298,13 +298,13 @@ The exporter includes 140+ predefined subgroups covering:
 
 ```bash
 # List all subgroups
-herakles-proc-mem-exporter subgroups
+herakles-node-exporter subgroups
 
 # Filter by group
-herakles-proc-mem-exporter subgroups --group db
+herakles-node-exporter subgroups --group db
 
 # Show detailed matching rules
-herakles-proc-mem-exporter subgroups --verbose
+herakles-node-exporter subgroups --verbose
 ```
 
 ### Custom Subgroups
@@ -367,30 +367,30 @@ scrape_configs:
 
 ```bash
 # Run single test iteration
-herakles-proc-mem-exporter test
+herakles-node-exporter test
 
 # Run multiple iterations with verbose output
-herakles-proc-mem-exporter test -n 5 --verbose
+herakles-node-exporter test -n 5 --verbose
 ```
 
 ### Generate Synthetic Test Data
 
 ```bash
 # Generate test data file
-herakles-proc-mem-exporter generate-testdata -o testdata.json
+herakles-node-exporter generate-testdata -o testdata.json
 
 # Run exporter with test data
-herakles-proc-mem-exporter -t testdata.json
+herakles-node-exporter -t testdata.json
 ```
 
 ### Verify Installation
 
 ```bash
 # Check system requirements
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 
 # Validate configuration
-herakles-proc-mem-exporter --check-config
+herakles-node-exporter --check-config
 
 # Test metrics endpoint
 curl http://localhost:9215/metrics | head -50
@@ -403,7 +403,7 @@ version: '3.8'
 
 services:
   herakles-exporter:
-    image: herakles-proc-mem-exporter:latest
+    image: herakles-node-exporter:latest
     container_name: herakles-exporter
     ports:
       - "9215:9215"
@@ -434,7 +434,7 @@ After=network.target
 [Service]
 Type=simple
 User=prometheus
-ExecStart=/usr/bin/herakles-proc-mem-exporter -c /etc/herakles/config.yaml
+ExecStart=/usr/bin/herakles-node-exporter -c /etc/herakles/config.yaml
 Restart=always
 RestartSec=5
 
@@ -444,9 +444,9 @@ WantedBy=multi-user.target
 
 ```bash
 # Enable and start service
-sudo systemctl enable herakles-proc-mem-exporter
-sudo systemctl start herakles-proc-mem-exporter
-sudo systemctl status herakles-proc-mem-exporter
+sudo systemctl enable herakles-node-exporter
+sudo systemctl start herakles-node-exporter
+sudo systemctl status herakles-node-exporter
 ```
 
 ## 📈 Example PromQL Queries
@@ -471,7 +471,7 @@ count by (group, subgroup) (herakles_proc_mem_uss_bytes)
 ## 🔧 CLI Reference
 
 ```
-herakles-proc-mem-exporter [OPTIONS] [COMMAND]
+herakles-node-exporter [OPTIONS] [COMMAND]
 
 Commands:
   check               Validate configuration and system requirements
@@ -524,7 +524,7 @@ The library provides a health monitoring API for tracking internal buffer fill l
 ### Usage
 
 ```rust
-use herakles_proc_mem_exporter::{AppConfig, BufferHealthConfig, HealthState};
+use herakles_node_exporter::{AppConfig, BufferHealthConfig, HealthState};
 
 // Create configuration with custom thresholds
 let config = AppConfig {
@@ -592,4 +592,4 @@ at your option.
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

@@ -1,11 +1,11 @@
 [package]
-name = "herakles-proc-mem-exporter"
+name = "herakles-node-exporter"
 version = "0.1.0"
 description = "Prometheus exporter for per-process RSS/PSS/USS memory metrics"
 authors = ["Michael Moll <proc-mem@herakles.io>"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
-repository = "https://github.com/herakles-io/herakles-proc-mem-exporter"
+repository = "https://github.com/cansp-dev/herakles-node-exporter"
 readme = "README.md"
 keywords = ["prometheus", "exporter", "memory", "metrics", "process"]
 categories = ["command-line-utilities", "monitoring"]
@@ -69,7 +69,7 @@ strip = true
 tempfile = "3.23.0"
 
 [package.metadata.deb]
-name = "herakles-proc-mem-exporter"
+name = "herakles-node-exporter"
 maintainer = "Michael Moll <proc-mem@herakles.io>"
 copyright = "2024, Herakles IO"
 depends = "$auto"
@@ -77,13 +77,13 @@ section = "utils"
 priority = "optional"
 assets = [
   [
-    "target/release/herakles-proc-mem-exporter",
+    "target/release/herakles-node-exporter",
     "usr/bin/",
     "755",
   ],
   [
-    "examples/herakles-proc-mem-exporter.yaml",
-    "/etc/herakles-proc-mem-exporter/",
+    "examples/herakles-node-exporter.yaml",
+    "/etc/herakles-node-exporter/",
     "644",
   ],
   [
