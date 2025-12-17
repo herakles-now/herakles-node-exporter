@@ -295,19 +295,19 @@ top_n_others: 10
 ### List All Subgroups
 
 ```bash
-herakles-proc-mem-exporter subgroups
+herakles-node-exporter subgroups
 ```
 
 ### List with Detailed Matching Rules
 
 ```bash
-herakles-proc-mem-exporter subgroups --verbose
+herakles-node-exporter subgroups --verbose
 ```
 
 ### Filter by Group
 
 ```bash
-herakles-proc-mem-exporter subgroups --group db
+herakles-node-exporter subgroups --group db
 ```
 
 ### View Subgroups via HTTP
@@ -397,4 +397,4 @@ search_groups:
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

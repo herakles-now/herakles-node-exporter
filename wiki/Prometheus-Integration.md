@@ -181,7 +181,7 @@ scrape_configs:
   - job_name: 'herakles-proc-mem'
     consul_sd_configs:
       - server: 'consul.service.consul:8500'
-        services: ['herakles-proc-mem-exporter']
+        services: ['herakles-node-exporter']
     relabel_configs:
       - source_labels: [__meta_consul_node]
         target_label: instance

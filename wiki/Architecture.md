@@ -5,7 +5,7 @@ This document provides a technical overview of the Herakles Process Memory Expor
 ## Code Structure Overview
 
 ```
-herakles-proc-mem-exporter/
+herakles-node-exporter/
 ├── src/
 │   └── main.rs           # All application code in single file
 ├── data/
@@ -357,4 +357,4 @@ Benefits:
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

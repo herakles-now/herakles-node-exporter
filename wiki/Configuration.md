@@ -9,7 +9,7 @@ Configuration values are loaded and merged in the following order (later sources
 1. **Built-in defaults** - Hardcoded default values
 2. **System config file** - `/etc/herakles/config.yaml`
 3. **User config file** - `~/.config/herakles/config.yaml`
-4. **Local config file** - `./herakles-proc-mem-exporter.yaml`
+4. **Local config file** - `./herakles-node-exporter.yaml`
 5. **CLI-specified config** - `-c /path/to/config.yaml`
 6. **CLI flags** - Command-line arguments override all config files
 7. **Environment variables** - (Future support planned)
@@ -22,7 +22,7 @@ The exporter searches for configuration files in the following locations:
 |----------|-------------|
 | `/etc/herakles/config.yaml` | System-wide configuration |
 | `~/.config/herakles/config.yaml` | User-specific configuration |
-| `./herakles-proc-mem-exporter.yaml` | Local directory configuration |
+| `./herakles-node-exporter.yaml` | Local directory configuration |
 | CLI `-c /path/to/file` | Explicitly specified configuration |
 
 ## Supported Formats
@@ -178,7 +178,7 @@ tls_key_path: "/etc/herakles/certs/server.key"
 **TLS CLI Options:**
 
 ```bash
-herakles-proc-mem-exporter \
+herakles-node-exporter \
   --enable-tls \
   --tls-cert /path/to/server.crt \
   --tls-key /path/to/server.key
@@ -239,21 +239,21 @@ test_data_file: "/path/to/testdata.json"
 
 ```bash
 # Show effective merged configuration
-herakles-proc-mem-exporter --show-config
+herakles-node-exporter --show-config
 
 # Show in different formats
-herakles-proc-mem-exporter --show-config --config-format yaml
-herakles-proc-mem-exporter --show-config --config-format json
-herakles-proc-mem-exporter --show-config --config-format toml
+herakles-node-exporter --show-config --config-format yaml
+herakles-node-exporter --show-config --config-format json
+herakles-node-exporter --show-config --config-format toml
 
 # Show only user config file
-herakles-proc-mem-exporter --show-user-config
+herakles-node-exporter --show-user-config
 
 # Validate configuration
-herakles-proc-mem-exporter --check-config
+herakles-node-exporter --check-config
 
 # Generate configuration template
-herakles-proc-mem-exporter config --format yaml --commented -o config.yaml
+herakles-node-exporter config --format yaml --commented -o config.yaml
 ```
 
 ## Example Configurations
@@ -388,7 +388,7 @@ The exporter respects standard Rust logging environment variables:
 | `RUST_BACKTRACE` | Enable backtraces (1 = enabled) |
 
 ```bash
-RUST_LOG=debug herakles-proc-mem-exporter
+RUST_LOG=debug herakles-node-exporter
 ```
 
 ## Configuration Best Practices
@@ -455,4 +455,4 @@ enable_pprof: true
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io

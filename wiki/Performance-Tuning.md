@@ -183,7 +183,7 @@ The exporter automatically selects the best parser.
 
 ```bash
 # Check if smaps_rollup is available
-herakles-proc-mem-exporter check --memory
+herakles-node-exporter check --memory
 ```
 
 Output:
@@ -210,7 +210,7 @@ Typical scan times on different system sizes:
 
 ```bash
 # Test mode with timing
-herakles-proc-mem-exporter test -n 10 --verbose
+herakles-node-exporter test -n 10 --verbose
 
 # Check health endpoint for stats
 curl http://localhost:9215/health

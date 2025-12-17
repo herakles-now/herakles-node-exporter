@@ -12,7 +12,7 @@ This guide covers all installation methods for the Herakles Process Memory Expor
 
 ```bash
 # After installation, verify system compatibility
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 ```
 
 ## Method 1: From Source
@@ -21,21 +21,21 @@ herakles-proc-mem-exporter check --all
 
 ```bash
 # Clone the repository
-git clone https://github.com/herakles-io/herakles-proc-mem-exporter.git
-cd herakles-proc-mem-exporter
+git clone https://github.com/herakles-io/herakles-node-exporter.git
+cd herakles-node-exporter
 
 # Build optimized release binary
 cargo build --release
 
 # The binary is located at:
-ls -la target/release/herakles-proc-mem-exporter
+ls -la target/release/herakles-node-exporter
 
 # Install system-wide
-sudo cp target/release/herakles-proc-mem-exporter /usr/local/bin/
-sudo chmod +x /usr/local/bin/herakles-proc-mem-exporter
+sudo cp target/release/herakles-node-exporter /usr/local/bin/
+sudo chmod +x /usr/local/bin/herakles-node-exporter
 
 # Verify installation
-herakles-proc-mem-exporter --version
+herakles-node-exporter --version
 ```
 
 ### Development Build
@@ -63,25 +63,25 @@ cargo install cargo-deb
 cargo deb
 
 # The package is created at:
-ls -la target/debian/herakles-proc-mem-exporter_*.deb
+ls -la target/debian/herakles-node-exporter_*.deb
 ```
 
 ### Install the Package
 
 ```bash
 # Install the .deb package
-sudo dpkg -i target/debian/herakles-proc-mem-exporter_*.deb
+sudo dpkg -i target/debian/herakles-node-exporter_*.deb
 
 # Or with apt (handles dependencies)
-sudo apt install ./target/debian/herakles-proc-mem-exporter_*.deb
+sudo apt install ./target/debian/herakles-node-exporter_*.deb
 ```
 
 ### Package Contents
 
 The Debian package installs:
-- `/usr/bin/herakles-proc-mem-exporter` - Main binary
-- `/etc/herakles-proc-mem-exporter/herakles-proc-mem-exporter.yaml` - Config file
-- `/lib/systemd/system/herakles-proc-mem-exporter.service` - Systemd service
+- `/usr/bin/herakles-node-exporter` - Main binary
+- `/etc/herakles-node-exporter/herakles-node-exporter.yaml` - Config file
+- `/lib/systemd/system/herakles-node-exporter.service` - Systemd service
 
 ## Method 3: Docker
 
@@ -96,14 +96,14 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-COPY --from=builder /app/target/release/herakles-proc-mem-exporter /usr/local/bin/
+COPY --from=builder /app/target/release/herakles-node-exporter /usr/local/bin/
 EXPOSE 9215
-ENTRYPOINT ["herakles-proc-mem-exporter"]
+ENTRYPOINT ["herakles-node-exporter"]
 ```
 
 ```bash
 # Build the image
-docker build -t herakles-proc-mem-exporter:latest .
+docker build -t herakles-node-exporter:latest .
 ```
 
 ### Run Container
@@ -114,7 +114,7 @@ docker run -d \
   --name herakles-exporter \
   -p 9215:9215 \
   -v /proc:/host/proc:ro \
-  herakles-proc-mem-exporter
+  herakles-node-exporter
 
 # With custom config
 docker run -d \
@@ -122,7 +122,7 @@ docker run -d \
   -p 9215:9215 \
   -v /proc:/host/proc:ro \
   -v $(pwd)/config.yaml:/etc/herakles/config.yaml:ro \
-  herakles-proc-mem-exporter -c /etc/herakles/config.yaml
+  herakles-node-exporter -c /etc/herakles/config.yaml
 
 # With environment variables
 docker run -d \
@@ -130,7 +130,7 @@ docker run -d \
   -p 9215:9215 \
   -v /proc:/host/proc:ro \
   -e RUST_LOG=info \
-  herakles-proc-mem-exporter
+  herakles-node-exporter
 ```
 
 ## Method 4: Docker Compose
@@ -143,7 +143,7 @@ version: '3.8'
 
 services:
   herakles-exporter:
-    image: herakles-proc-mem-exporter:latest
+    image: herakles-node-exporter:latest
     build: .
     container_name: herakles-exporter
     ports:
@@ -161,7 +161,7 @@ version: '3.8'
 
 services:
   herakles-exporter:
-    image: herakles-proc-mem-exporter:latest
+    image: herakles-node-exporter:latest
     build: .
     container_name: herakles-exporter
     ports:
@@ -211,10 +211,10 @@ volumes:
 
 ```bash
 # Create service file
-sudo tee /etc/systemd/system/herakles-proc-mem-exporter.service << 'EOF'
+sudo tee /etc/systemd/system/herakles-node-exporter.service << 'EOF'
 [Unit]
 Description=Herakles Process Memory Exporter
-Documentation=https://github.com/herakles-io/herakles-proc-mem-exporter
+Documentation=https://github.com/herakles-io/herakles-node-exporter
 After=network-online.target
 Wants=network-online.target
 
@@ -222,7 +222,7 @@ Wants=network-online.target
 Type=simple
 User=prometheus
 Group=prometheus
-ExecStart=/usr/local/bin/herakles-proc-mem-exporter -c /etc/herakles/config.yaml
+ExecStart=/usr/local/bin/herakles-node-exporter -c /etc/herakles/config.yaml
 Restart=always
 RestartSec=5
 TimeoutStopSec=30
@@ -265,11 +265,11 @@ EOF
 sudo systemctl daemon-reload
 
 # Enable and start service
-sudo systemctl enable herakles-proc-mem-exporter
-sudo systemctl start herakles-proc-mem-exporter
+sudo systemctl enable herakles-node-exporter
+sudo systemctl start herakles-node-exporter
 
 # Check status
-sudo systemctl status herakles-proc-mem-exporter
+sudo systemctl status herakles-node-exporter
 ```
 
 ## Post-Installation
@@ -277,7 +277,7 @@ sudo systemctl status herakles-proc-mem-exporter
 ### 1. Verify System Check
 
 ```bash
-herakles-proc-mem-exporter check --all
+herakles-node-exporter check --all
 ```
 
 Expected output:
@@ -307,17 +307,17 @@ Expected output:
 
 ```bash
 # Show effective configuration
-herakles-proc-mem-exporter --show-config
+herakles-node-exporter --show-config
 
 # Validate configuration
-herakles-proc-mem-exporter --check-config
+herakles-node-exporter --check-config
 ```
 
 ### 3. Test Metrics Collection
 
 ```bash
 # Start exporter in foreground
-herakles-proc-mem-exporter --log-level debug
+herakles-node-exporter --log-level debug
 
 # In another terminal, fetch metrics
 curl http://localhost:9215/metrics | head -50
@@ -333,7 +333,7 @@ curl http://localhost:9215/health
 ```bash
 # Error: Permission denied reading /proc/*/smaps
 # Solution: Run with appropriate capabilities
-sudo setcap cap_dac_read_search+ep /usr/local/bin/herakles-proc-mem-exporter
+sudo setcap cap_dac_read_search+ep /usr/local/bin/herakles-node-exporter
 ```
 
 ### Port Already in Use
@@ -343,7 +343,7 @@ sudo setcap cap_dac_read_search+ep /usr/local/bin/herakles-proc-mem-exporter
 sudo lsof -i :9215
 
 # Use a different port
-herakles-proc-mem-exporter -p 9216
+herakles-node-exporter -p 9216
 ```
 
 ### Rust Build Errors
@@ -375,4 +375,4 @@ uname -r
 
 ## 🔗 Project & Support
 
-Project: https://github.com/herakles-io/herakles-proc-mem-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/herakles-io/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
