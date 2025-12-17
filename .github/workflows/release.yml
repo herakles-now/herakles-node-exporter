@@ -65,7 +65,7 @@ jobs:
       - name: Debug - List target directory
         run: |
           echo "Listing target directory contents:"
-          ls -la target/${{ matrix.target }}/release/ || echo "Directory not found"
+          ls -la target/${{ matrix.target }}/release/ || echo "Directory does not exist"
           echo ""
           echo "Looking for herakles-node-exporter binary:"
           find target/${{ matrix.target }}/release/ -name "*herakles*" -type f || echo "No matching files found"
