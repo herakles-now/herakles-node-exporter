@@ -317,13 +317,13 @@ Check these metrics:
 
 ```promql
 # Cache update duration
-herakles_proc_mem_cache_update_duration_seconds
+herakles_exporter_cache_update_duration_seconds
 
 # Number of exported processes
-herakles_proc_mem_processes_total
+herakles_exporter_processes_total
 
 # Scrape duration (time to serve /metrics)
-herakles_proc_mem_scrape_duration_seconds
+herakles_exporter_scrape_duration_seconds
 ```
 
 ### Alerting on Performance
@@ -333,7 +333,7 @@ groups:
   - name: herakles-performance
     rules:
       - alert: HeraklesSlowCacheUpdate
-        expr: herakles_proc_mem_cache_update_duration_seconds > 5
+        expr: herakles_exporter_cache_update_duration_seconds > 5
         for: 5m
         labels:
           severity: warning
@@ -342,7 +342,7 @@ groups:
           description: "Cache update takes {{ $value }}s (threshold: 5s)"
 
       - alert: HeraklesCacheUpdateFailed
-        expr: herakles_proc_mem_cache_update_success == 0
+        expr: herakles_exporter_cache_update_success == 0
         for: 5m
         labels:
           severity: critical

@@ -459,23 +459,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let metrics = MemoryMetrics::new(&registry)?;
     let scrape_duration = Gauge::new(
-        "herakles_proc_mem_scrape_duration_seconds",
+        "herakles_exporter_scrape_duration_seconds",
         "Time spent serving /metrics request (reading from cache)",
     )?;
     let processes_total = Gauge::new(
-        "herakles_proc_mem_processes_total",
+        "herakles_exporter_processes_total",
         "Number of processes currently exported by herakles-node-exporter",
     )?;
     let cache_update_duration = Gauge::new(
-        "herakles_proc_mem_cache_update_duration_seconds",
+        "herakles_exporter_cache_update_duration_seconds",
         "Time spent updating the process metrics cache in background",
     )?;
     let cache_update_success = Gauge::new(
-        "herakles_proc_mem_cache_update_success",
+        "herakles_exporter_cache_update_success",
         "Whether the last cache update was successful (1) or failed (0)",
     )?;
     let cache_updating = Gauge::new(
-        "herakles_proc_mem_cache_updating",
+        "herakles_exporter_cache_updating",
         "Whether cache update is currently in progress (1) or idle (0)",
     )?;
 

@@ -22,11 +22,11 @@ A high-performance Prometheus exporter for per-process memory and CPU metrics on
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `herakles_proc_mem_rss_bytes` | Resident Set Size per process | pid, name, group, subgroup |
-| `herakles_proc_mem_pss_bytes` | Proportional Set Size per process | pid, name, group, subgroup |
-| `herakles_proc_mem_uss_bytes` | Unique Set Size per process | pid, name, group, subgroup |
-| `herakles_proc_mem_cpu_percent` | CPU usage percentage | pid, name, group, subgroup |
-| `herakles_proc_mem_cpu_time_seconds` | Total CPU time used | pid, name, group, subgroup |
+| `herakles_mem_process_rss_bytes` | Resident Set Size per process | pid, name, group, subgroup |
+| `herakles_mem_process_pss_bytes` | Proportional Set Size per process | pid, name, group, subgroup |
+| `herakles_mem_process_uss_bytes` | Unique Set Size per process | pid, name, group, subgroup |
+| `herakles_cpu_process_usage_percent` | CPU usage percentage | pid, name, group, subgroup |
+| `herakles_cpu_process_time_seconds` | Total CPU time used | pid, name, group, subgroup |
 | `herakles_mem_group_*` | Aggregated memory metrics per subgroup | group, subgroup |
 | `herakles_mem_top_process_*` | Top-N memory metrics per subgroup | group, subgroup, rank, pid, comm |
 | `herakles_cpu_group_*` | Aggregated CPU metrics per subgroup | group, subgroup |
@@ -453,19 +453,19 @@ sudo systemctl status herakles-node-exporter
 
 ```promql
 # Top 10 processes by USS memory
-topk(10, herakles_proc_mem_uss_bytes)
+topk(10, herakles_mem_process_uss_bytes)
 
 # Memory usage by group
-sum by (group) (herakles_proc_mem_rss_bytes)
+sum by (group) (herakles_mem_process_rss_bytes)
 
 # CPU usage by subgroup
-sum by (group, subgroup) (herakles_proc_mem_cpu_percent)
+sum by (group, subgroup) (herakles_cpu_process_usage_percent)
 
 # Memory growth rate (per minute)
-rate(herakles_proc_mem_rss_bytes[5m]) * 60
+rate(herakles_mem_process_rss_bytes[5m]) * 60
 
 # Process count per subgroup
-count by (group, subgroup) (herakles_proc_mem_uss_bytes)
+count by (group, subgroup) (herakles_mem_process_uss_bytes)
 ```
 
 ## 🔧 CLI Reference

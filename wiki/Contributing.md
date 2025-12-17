@@ -170,7 +170,7 @@ fn new(registry: &Registry) -> Result<Self, Box<dyn std::error::Error>> {
     
     let new_metric = GaugeVec::new(
         Opts::new(
-            "herakles_proc_mem_new_metric",
+            "herakles_mem_process_new_metric",
             "Description of the new metric",
         ),
         &["label1", "label2"],
@@ -203,7 +203,7 @@ state.metrics.new_metric
 
 ### Naming Convention
 
-- Prefix: `herakles_proc_mem_`
+- Prefix: `herakles_<module>_` (e.g., `herakles_mem_`, `herakles_cpu_`, `herakles_exporter_`)
 - Use snake_case
 - Be descriptive but concise
 - Include unit in name (e.g., `_bytes`, `_seconds`, `_percent`)

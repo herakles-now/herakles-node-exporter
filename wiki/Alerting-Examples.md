@@ -57,7 +57,7 @@ groups:
     rules:
       # Individual process high memory
       - alert: HeraklesProcessHighMemory
-        expr: herakles_proc_mem_rss_bytes > 4294967296  # > 4GB
+        expr: herakles_mem_process_rss_bytes > 4294967296  # > 4GB
         for: 10m
         labels:
           severity: warning
@@ -71,7 +71,7 @@ groups:
 
       # Critical memory usage (> 8GB)
       - alert: HeraklesProcessCriticalMemory
-        expr: herakles_proc_mem_rss_bytes > 8589934592  # > 8GB
+        expr: herakles_mem_process_rss_bytes > 8589934592  # > 8GB
         for: 5m
         labels:
           severity: critical
@@ -84,7 +84,7 @@ groups:
 
       # Subgroup total memory high
       - alert: HeraklesSubgroupHighMemory
-        expr: herakles_proc_mem_group_rss_bytes_sum > 17179869184  # > 16GB
+        expr: herakles_mem_group_rss_bytes > 17179869184  # > 16GB
         for: 15m
         labels:
           severity: warning
@@ -104,8 +104,8 @@ groups:
       # Fast memory growth (potential leak)
       - alert: HeraklesProcessMemoryGrowth
         expr: |
-          (herakles_proc_mem_rss_bytes - herakles_proc_mem_rss_bytes offset 1h)
-          / herakles_proc_mem_rss_bytes offset 1h * 100 > 50
+          (herakles_mem_process_rss_bytes - herakles_mem_process_rss_bytes offset 1h)
+          / herakles_mem_process_rss_bytes offset 1h * 100 > 50
         for: 30m
         labels:
           severity: warning
@@ -114,14 +114,14 @@ groups:
           description: |
             Process {{ $labels.name }} (PID: {{ $labels.pid }}) 
             memory has grown by {{ $value | printf "%.1f" }}% in the last hour.
-            Current: {{ with query "herakles_proc_mem_rss_bytes{pid='%s'}" $labels.pid }}
+            Current: {{ with query "herakles_mem_process_rss_bytes{pid='%s'}" $labels.pid }}
               {{ . | first | value | humanize1024 }}
             {{ end }}
 
       # Steady memory increase over 6 hours
       - alert: HeraklesProcessMemoryLeak
         expr: |
-          deriv(herakles_proc_mem_rss_bytes[6h]) > 1048576
+          deriv(herakles_mem_process_rss_bytes[6h]) > 1048576
         for: 1h
         labels:
           severity: warning
@@ -143,7 +143,7 @@ groups:
       # Database memory thresholds
       - alert: HeraklesPostgresHighMemory
         expr: |
-          herakles_proc_mem_group_rss_bytes_sum{subgroup="postgres"} > 34359738368
+          herakles_mem_group_rss_bytes{subgroup="postgres"} > 34359738368
         for: 10m
         labels:
           severity: warning
@@ -157,7 +157,7 @@ groups:
       # Redis memory threshold
       - alert: HeraklesRedisHighMemory
         expr: |
-          herakles_proc_mem_group_rss_bytes_sum{subgroup="redis"} > 8589934592
+          herakles_mem_group_rss_bytes{subgroup="redis"} > 8589934592
         for: 5m
         labels:
           severity: warning
@@ -169,7 +169,7 @@ groups:
       # Elasticsearch memory threshold
       - alert: HeraklesElasticsearchHighMemory
         expr: |
-          herakles_proc_mem_group_rss_bytes_sum{subgroup="elasticsearch"} > 68719476736
+          herakles_mem_group_rss_bytes{subgroup="elasticsearch"} > 68719476736
         for: 10m
         labels:
           severity: warning
@@ -186,7 +186,7 @@ groups:
     rules:
       # High CPU usage
       - alert: HeraklesProcessHighCPU
-        expr: herakles_proc_mem_cpu_percent > 80
+        expr: herakles_cpu_process_usage_percent > 80
         for: 10m
         labels:
           severity: warning
@@ -199,9 +199,9 @@ groups:
       # CPU spike (sudden increase)
       - alert: HeraklesProcessCPUSpike
         expr: |
-          herakles_proc_mem_cpu_percent > 50
+          herakles_cpu_process_usage_percent > 50
           and
-          herakles_proc_mem_cpu_percent > (herakles_proc_mem_cpu_percent offset 10m) * 3
+          herakles_cpu_process_usage_percent > (herakles_cpu_process_usage_percent offset 10m) * 3
         for: 5m
         labels:
           severity: warning
@@ -209,13 +209,13 @@ groups:
           summary: "CPU spike detected for {{ $labels.name }}"
           description: |
             Process {{ $labels.name }} CPU usage spiked from 
-            {{ with query "herakles_proc_mem_cpu_percent{pid='%s'} offset 10m" $labels.pid }}
+            {{ with query "herakles_cpu_process_usage_percent{pid='%s'} offset 10m" $labels.pid }}
               {{ . | first | value | printf "%.1f" }}%
             {{ end }} to {{ $value | printf "%.1f" }}%.
 
       # Subgroup CPU alert
       - alert: HeraklesSubgroupHighCPU
-        expr: herakles_proc_mem_group_cpu_percent_sum > 200
+        expr: herakles_cpu_group_usage_percent_sum > 200
         for: 10m
         labels:
           severity: warning
@@ -231,7 +231,7 @@ groups:
     rules:
       # Too many processes in subgroup
       - alert: HeraklesSubgroupProcessCount
-        expr: count by (group, subgroup) (herakles_proc_mem_uss_bytes) > 50
+        expr: count by (group, subgroup) (herakles_mem_process_uss_bytes) > 50
         for: 10m
         labels:
           severity: warning
@@ -245,8 +245,8 @@ groups:
       - alert: HeraklesProcessCountChange
         expr: |
           abs(
-            count(herakles_proc_mem_uss_bytes) 
-            - count(herakles_proc_mem_uss_bytes offset 30m)
+            count(herakles_mem_process_uss_bytes) 
+            - count(herakles_mem_process_uss_bytes offset 30m)
           ) > 20
         for: 5m
         labels:
@@ -255,14 +255,14 @@ groups:
           summary: "Significant change in process count"
           description: |
             Process count changed by {{ $value }} in the last 30 minutes.
-            Current: {{ with query "count(herakles_proc_mem_uss_bytes)" }}
+            Current: {{ with query "count(herakles_mem_process_uss_bytes)" }}
               {{ . | first | value }}
             {{ end }}
 
       # No processes in expected subgroup
       - alert: HeraklesSubgroupMissing
         expr: |
-          absent(herakles_proc_mem_uss_bytes{subgroup="postgres"}) == 1
+          absent(herakles_mem_process_uss_bytes{subgroup="postgres"}) == 1
         for: 5m
         labels:
           severity: critical
@@ -280,7 +280,7 @@ groups:
     rules:
       # Cache update failing
       - alert: HeraklesCacheUpdateFailed
-        expr: herakles_proc_mem_cache_update_success == 0
+        expr: herakles_exporter_cache_update_success == 0
         for: 5m
         labels:
           severity: critical
@@ -290,7 +290,7 @@ groups:
 
       # Slow cache updates
       - alert: HeraklesSlowCacheUpdate
-        expr: herakles_proc_mem_cache_update_duration_seconds > 10
+        expr: herakles_exporter_cache_update_duration_seconds > 10
         for: 5m
         labels:
           severity: warning
