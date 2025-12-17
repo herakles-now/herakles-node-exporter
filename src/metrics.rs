@@ -531,23 +531,23 @@ impl MemoryMetrics {
     }
 
     /// Sets CPU usage ratio metrics for each CPU core and total.
-    pub fn set_system_cpu_usage_ratios(&self, cpu_ratios: &std::collections::HashMap<String, f64>, cpu_idle_ratios: &std::collections::HashMap<String, f64>, cpu_iowait_ratios: &std::collections::HashMap<String, f64>, cpu_steal_ratios: &std::collections::HashMap<String, f64>) {
-        for (cpu_name, ratio) in cpu_ratios {
+    pub fn set_system_cpu_usage_ratios(&self, cpu_ratios: &crate::system::CpuRatios) {
+        for (cpu_name, ratio) in &cpu_ratios.usage {
             self.system_cpu_usage_ratio
                 .with_label_values(&[cpu_name])
                 .set(*ratio);
         }
-        for (cpu_name, ratio) in cpu_idle_ratios {
+        for (cpu_name, ratio) in &cpu_ratios.idle {
             self.system_cpu_idle_ratio
                 .with_label_values(&[cpu_name])
                 .set(*ratio);
         }
-        for (cpu_name, ratio) in cpu_iowait_ratios {
+        for (cpu_name, ratio) in &cpu_ratios.iowait {
             self.system_cpu_iowait_ratio
                 .with_label_values(&[cpu_name])
                 .set(*ratio);
         }
-        for (cpu_name, ratio) in cpu_steal_ratios {
+        for (cpu_name, ratio) in &cpu_ratios.steal {
             self.system_cpu_steal_ratio
                 .with_label_values(&[cpu_name])
                 .set(*ratio);

@@ -217,6 +217,15 @@ pub struct CpuStatsCache {
     previous: RwLock<Option<HashMap<String, CpuStat>>>,
 }
 
+/// CPU usage ratios returned from calculate_usage_ratios.
+#[derive(Debug, Clone)]
+pub struct CpuRatios {
+    pub usage: HashMap<String, f64>,
+    pub idle: HashMap<String, f64>,
+    pub iowait: HashMap<String, f64>,
+    pub steal: HashMap<String, f64>,
+}
+
 impl CpuStatsCache {
     pub fn new() -> Self {
         Self {
@@ -225,9 +234,8 @@ impl CpuStatsCache {
     }
 
     /// Calculate CPU usage ratios by comparing current and previous stats.
-    /// Returns HashMaps with CPU name as key and usage ratios (0.0 to 1.0) as value.
-    /// Returns (usage_ratios, idle_ratios, iowait_ratios, steal_ratios).
-    pub fn calculate_usage_ratios(&self) -> Result<(HashMap<String, f64>, HashMap<String, f64>, HashMap<String, f64>, HashMap<String, f64>), String> {
+    /// Returns CpuRatios struct with all ratio types.
+    pub fn calculate_usage_ratios(&self) -> Result<CpuRatios, String> {
         let current_stats = read_cpu_stats()?;
         
         let mut usage_ratios = HashMap::new();
@@ -269,7 +277,12 @@ impl CpuStatsCache {
         let mut cache_guard = self.previous.write().map_err(|e| format!("Failed to acquire write lock: {}", e))?;
         *cache_guard = Some(current_stats);
         
-        Ok((usage_ratios, idle_ratios, iowait_ratios, steal_ratios))
+        Ok(CpuRatios {
+            usage: usage_ratios,
+            idle: idle_ratios,
+            iowait: iowait_ratios,
+            steal: steal_ratios,
+        })
     }
 }
 

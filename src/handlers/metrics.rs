@@ -422,8 +422,8 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
 
             // Set CPU usage ratio metrics (including idle, iowait, steal)
             match state.system_cpu_cache.calculate_usage_ratios() {
-                Ok((cpu_ratios, idle_ratios, iowait_ratios, steal_ratios)) => {
-                    state.metrics.set_system_cpu_usage_ratios(&cpu_ratios, &idle_ratios, &iowait_ratios, &steal_ratios);
+                Ok(cpu_ratios) => {
+                    state.metrics.set_system_cpu_usage_ratios(&cpu_ratios);
                 }
                 Err(e) => {
                     warn!("Failed to calculate CPU usage ratios: {}", e);
