@@ -111,19 +111,26 @@ jobs:
         uses: actions/download-artifact@v4.1.8
         with:
           name: herakles-node-exporter-amd64-musl
-          path: .
+          path: ./artifacts/amd64
 
       - name: Download arm64 binary
         uses: actions/download-artifact@v4.1.8
         with:
           name: herakles-node-exporter-arm64-musl
-          path: .
+          path: ./artifacts/arm64
+
+      - name: Debug - List downloaded artifacts
+        run: |
+          echo "Listing artifacts directory structure:"
+          ls -la artifacts/
+          ls -la artifacts/amd64/
+          ls -la artifacts/arm64/
 
       - name: Prepare binaries
         run: |
           mkdir -p docker-build/linux/amd64 docker-build/linux/arm64
-          mv herakles-node-exporter-amd64-musl/herakles-node-exporter-amd64-musl docker-build/linux/amd64/herakles-node-exporter
-          mv herakles-node-exporter-arm64-musl/herakles-node-exporter-arm64-musl docker-build/linux/arm64/herakles-node-exporter
+          mv artifacts/amd64/herakles-node-exporter-amd64-musl docker-build/linux/amd64/herakles-node-exporter
+          mv artifacts/arm64/herakles-node-exporter-arm64-musl docker-build/linux/arm64/herakles-node-exporter
           chmod +x docker-build/linux/amd64/herakles-node-exporter
           chmod +x docker-build/linux/arm64/herakles-node-exporter
 
