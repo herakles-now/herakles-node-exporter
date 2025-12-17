@@ -1,0 +1,25 @@
+# Build artifacts
+target/
+docker-build/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation
+*.md
+wiki/
+LICENSE*
+
+# Test data
+testdata*.json
+data/
+
+# CI/CD files (not needed in image)
+.github/
