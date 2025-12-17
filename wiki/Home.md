@@ -72,7 +72,7 @@ scrape_configs:
 ### 5. Verify Metrics
 
 ```bash
-curl http://localhost:9215/metrics | grep herakles_proc_mem
+curl http://localhost:9215/metrics | grep -E "herakles_(mem|cpu|exporter)_"
 ```
 
 ## 📖 Quick Reference
@@ -92,15 +92,15 @@ This provides instant access to:
 ## 📊 Sample Output
 
 ```
-# HELP herakles_proc_mem_rss_bytes Resident Set Size per process in bytes
-# TYPE herakles_proc_mem_rss_bytes gauge
-herakles_proc_mem_rss_bytes{pid="1234",name="postgres",group="db",subgroup="postgres"} 524288000
-herakles_proc_mem_rss_bytes{pid="5678",name="nginx",group="web",subgroup="nginx"} 104857600
+# HELP herakles_mem_process_rss_bytes Resident Set Size per process in bytes
+# TYPE herakles_mem_process_rss_bytes gauge
+herakles_mem_process_rss_bytes{pid="1234",name="postgres",group="db",subgroup="postgres"} 524288000
+herakles_mem_process_rss_bytes{pid="5678",name="nginx",group="web",subgroup="nginx"} 104857600
 
-# HELP herakles_proc_mem_group_rss_bytes_sum Sum of RSS bytes per subgroup
-# TYPE herakles_proc_mem_group_rss_bytes_sum gauge
-herakles_proc_mem_group_rss_bytes_sum{group="db",subgroup="postgres"} 2147483648
-herakles_proc_mem_group_rss_bytes_sum{group="web",subgroup="nginx"} 419430400
+# HELP herakles_mem_group_rss_bytes Sum of RSS bytes per subgroup
+# TYPE herakles_mem_group_rss_bytes gauge
+herakles_mem_group_rss_bytes{group="db",subgroup="postgres"} 2147483648
+herakles_mem_group_rss_bytes{group="web",subgroup="nginx"} 419430400
 ```
 
 ## 🔗 Useful Links

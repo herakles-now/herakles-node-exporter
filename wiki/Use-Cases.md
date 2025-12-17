@@ -27,17 +27,17 @@ min_uss_kb: 1024
 
 ```promql
 # Total PostgreSQL memory
-herakles_proc_mem_group_rss_bytes_sum{subgroup="postgres"}
+herakles_mem_group_rss_bytes{subgroup="postgres"}
 
 # Individual backend processes
-herakles_proc_mem_rss_bytes{subgroup="postgres"}
+herakles_mem_process_rss_bytes{subgroup="postgres"}
 
 # Connection count (approximate by process count)
-count(herakles_proc_mem_uss_bytes{subgroup="postgres", name="postgres"})
+count(herakles_mem_process_uss_bytes{subgroup="postgres", name="postgres"})
 
 # Memory per connection (average)
-herakles_proc_mem_group_rss_bytes_sum{subgroup="postgres"}
-  / count(herakles_proc_mem_uss_bytes{subgroup="postgres"})
+herakles_mem_group_rss_bytes{subgroup="postgres"}
+  / count(herakles_mem_process_uss_bytes{subgroup="postgres"})
 ```
 
 **Alerts:**
@@ -45,8 +45,8 @@ herakles_proc_mem_group_rss_bytes_sum{subgroup="postgres"}
 ```yaml
 - alert: PostgresHighMemoryPerConnection
   expr: |
-    herakles_proc_mem_group_rss_bytes_sum{subgroup="postgres"}
-    / count(herakles_proc_mem_uss_bytes{subgroup="postgres"})
+    herakles_mem_group_rss_bytes{subgroup="postgres"}
+    / count(herakles_mem_process_uss_bytes{subgroup="postgres"})
     > 104857600  # > 100MB per connection
   for: 10m
   annotations:
@@ -65,10 +65,10 @@ top_n_subgroup: 10
 
 ```promql
 # MySQL memory usage
-herakles_proc_mem_group_rss_bytes_sum{subgroup="mysql"}
+herakles_mem_group_rss_bytes{subgroup="mysql"}
 
 # Memory growth
-rate(herakles_proc_mem_rss_bytes{subgroup="mysql"}[1h])
+rate(herakles_mem_process_rss_bytes{subgroup="mysql"}[1h])
 ```
 
 ### Redis Monitoring
@@ -85,11 +85,11 @@ top_n_subgroup: 5
 
 ```promql
 # Redis memory (compare with Redis INFO memory)
-herakles_proc_mem_rss_bytes{subgroup="redis"}
+herakles_mem_process_rss_bytes{subgroup="redis"}
 
 # Redis memory efficiency (RSS vs used_memory)
 # Combine with redis_exporter metrics
-herakles_proc_mem_rss_bytes{subgroup="redis", name="redis-server"}
+herakles_mem_process_rss_bytes{subgroup="redis", name="redis-server"}
   / on(instance) redis_memory_used_bytes
 ```
 
@@ -122,13 +122,13 @@ top_n_others: 20
 
 ```promql
 # Container runtime memory
-herakles_proc_mem_rss_bytes{group="container"}
+herakles_mem_process_rss_bytes{group="container"}
 
 # Kubelet memory
-herakles_proc_mem_rss_bytes{subgroup="kubelet"}
+herakles_mem_process_rss_bytes{subgroup="kubelet"}
 
 # Total container overhead
-sum(herakles_proc_mem_rss_bytes{group="container"})
+sum(herakles_mem_process_rss_bytes{group="container"})
 ```
 
 ### Docker Host Monitoring
@@ -144,10 +144,10 @@ top_n_subgroup: 10
 
 ```promql
 # Docker daemon memory
-herakles_proc_mem_rss_bytes{name=~"dockerd|containerd"}
+herakles_mem_process_rss_bytes{name=~"dockerd|containerd"}
 
 # Memory overhead trend
-rate(herakles_proc_mem_rss_bytes{name="dockerd"}[1h])
+rate(herakles_mem_process_rss_bytes{name="dockerd"}[1h])
 ```
 
 ## Java Application Monitoring
@@ -188,14 +188,14 @@ min_uss_kb: 102400  # 100MB minimum
 
 ```promql
 # Total JVM memory
-sum by (subgroup) (herakles_proc_mem_rss_bytes{group="java"})
+sum by (subgroup) (herakles_mem_process_rss_bytes{group="java"})
 
 # JVM memory as percentage of system memory
-sum(herakles_proc_mem_rss_bytes{group="java"}) 
+sum(herakles_mem_process_rss_bytes{group="java"}) 
   / on() node_memory_MemTotal_bytes * 100
 
 # Detect memory growth (potential leak)
-deriv(herakles_proc_mem_rss_bytes{group="java"}[1h]) > 0
+deriv(herakles_mem_process_rss_bytes{group="java"}[1h]) > 0
 ```
 
 ## Memory Leak Detection
@@ -216,16 +216,16 @@ top_n_subgroup: 10
 
 ```promql
 # Processes with consistent 1-hour growth
-deriv(herakles_proc_mem_rss_bytes[1h]) > 1048576  # > 1MB/s growth
+deriv(herakles_mem_process_rss_bytes[1h]) > 1048576  # > 1MB/s growth
 
 # Memory growth percentage over 24 hours
-(herakles_proc_mem_rss_bytes - herakles_proc_mem_rss_bytes offset 24h)
-  / herakles_proc_mem_rss_bytes offset 24h * 100
+(herakles_mem_process_rss_bytes - herakles_mem_process_rss_bytes offset 24h)
+  / herakles_mem_process_rss_bytes offset 24h * 100
   > 20  # > 20% growth
 
 # Long-term growth trend
-predict_linear(herakles_proc_mem_rss_bytes[6h], 86400)
-  > herakles_proc_mem_rss_bytes * 2  # Will double in 24h
+predict_linear(herakles_mem_process_rss_bytes[6h], 86400)
+  > herakles_mem_process_rss_bytes * 2  # Will double in 24h
 ```
 
 **Alerting:**
@@ -236,9 +236,9 @@ groups:
     rules:
       - alert: PossibleMemoryLeak
         expr: |
-          deriv(herakles_proc_mem_rss_bytes[6h]) > 524288  # > 512KB/s
+          deriv(herakles_mem_process_rss_bytes[6h]) > 524288  # > 512KB/s
           and
-          herakles_proc_mem_rss_bytes > 1073741824  # > 1GB
+          herakles_mem_process_rss_bytes > 1073741824  # > 1GB
         for: 1h
         labels:
           severity: warning
@@ -259,30 +259,30 @@ Plan for future memory requirements.
 
 ```promql
 # Current memory usage by group
-sum by (group) (herakles_proc_mem_rss_bytes)
+sum by (group) (herakles_mem_process_rss_bytes)
 
 # Predict memory in 7 days
-predict_linear(sum(herakles_proc_mem_rss_bytes)[7d:1h], 604800)
+predict_linear(sum(herakles_mem_process_rss_bytes)[7d:1h], 604800)
 
 # Memory growth rate (per day)
-deriv(sum(herakles_proc_mem_rss_bytes)[7d]) * 86400
+deriv(sum(herakles_mem_process_rss_bytes)[7d]) * 86400
 
 # Days until memory exhaustion
 (node_memory_MemAvailable_bytes 
-  - sum(herakles_proc_mem_rss_bytes))
-  / (deriv(sum(herakles_proc_mem_rss_bytes)[7d]) * 86400)
+  - sum(herakles_mem_process_rss_bytes))
+  / (deriv(sum(herakles_mem_process_rss_bytes)[7d]) * 86400)
 ```
 
 ### Process Growth Tracking
 
 ```promql
 # Process count trend
-count(herakles_proc_mem_uss_bytes) 
-  - count(herakles_proc_mem_uss_bytes offset 7d)
+count(herakles_mem_process_uss_bytes) 
+  - count(herakles_mem_process_uss_bytes offset 7d)
 
 # Average memory per process over time
-sum(herakles_proc_mem_rss_bytes) 
-  / count(herakles_proc_mem_uss_bytes)
+sum(herakles_mem_process_rss_bytes) 
+  / count(herakles_mem_process_uss_bytes)
 ```
 
 ## Cost Optimization
@@ -295,31 +295,31 @@ Find over-provisioned or inefficient processes.
 
 ```promql
 # Large processes with low CPU (potential over-provisioning)
-herakles_proc_mem_rss_bytes > 4294967296  # > 4GB
+herakles_mem_process_rss_bytes > 4294967296  # > 4GB
 and
-herakles_proc_mem_cpu_percent < 5
+herakles_cpu_process_usage_percent < 5
 
 # High shared memory ratio (potential for optimization)
-(herakles_proc_mem_rss_bytes - herakles_proc_mem_uss_bytes) 
-  / herakles_proc_mem_rss_bytes * 100 > 50
+(herakles_mem_process_rss_bytes - herakles_mem_process_uss_bytes) 
+  / herakles_mem_process_rss_bytes * 100 > 50
 
 # Dormant processes (high memory, no CPU)
-herakles_proc_mem_rss_bytes > 1073741824  # > 1GB
+herakles_mem_process_rss_bytes > 1073741824  # > 1GB
 and
-rate(herakles_proc_mem_cpu_time_seconds[1h]) == 0
+rate(herakles_cpu_process_time_seconds[1h]) == 0
 ```
 
 ### Resource Right-Sizing
 
 ```promql
 # Memory headroom per subgroup
-(herakles_proc_mem_rss_bytes - herakles_proc_mem_uss_bytes)
-  / herakles_proc_mem_rss_bytes * 100
+(herakles_mem_process_rss_bytes - herakles_mem_process_uss_bytes)
+  / herakles_mem_process_rss_bytes * 100
 
 # Subgroups by memory efficiency
 sort_desc(
-  herakles_proc_mem_uss_bytes 
-    / herakles_proc_mem_rss_bytes
+  herakles_mem_process_uss_bytes 
+    / herakles_mem_process_rss_bytes
 )
 ```
 
@@ -354,13 +354,13 @@ top_n_subgroup: 5
 
 ```promql
 # Memory by tenant
-sum by (group) (herakles_proc_mem_rss_bytes{group=~"tenant-.*"})
+sum by (group) (herakles_mem_process_rss_bytes{group=~"tenant-.*"})
 
 # Compare tenant resource usage
-topk(10, sum by (group) (herakles_proc_mem_rss_bytes{group=~"tenant-.*"}))
+topk(10, sum by (group) (herakles_mem_process_rss_bytes{group=~"tenant-.*"}))
 
 # Detect noisy neighbor
-sum by (group) (herakles_proc_mem_cpu_percent{group=~"tenant-.*"}) > 100
+sum by (group) (herakles_cpu_process_usage_percent{group=~"tenant-.*"}) > 100
 ```
 
 **Alerting:**
@@ -368,7 +368,7 @@ sum by (group) (herakles_proc_mem_cpu_percent{group=~"tenant-.*"}) > 100
 ```yaml
 - alert: TenantExcessiveMemory
   expr: |
-    sum by (group) (herakles_proc_mem_rss_bytes{group=~"tenant-.*"}) > 17179869184
+    sum by (group) (herakles_mem_process_rss_bytes{group=~"tenant-.*"}) > 17179869184
   for: 10m
   annotations:
     summary: "Tenant {{ $labels.group }} using excessive memory"
@@ -403,16 +403,16 @@ top_n_subgroup: 10
 
 ```promql
 # Layer-by-layer memory breakdown
-sum by (group) (herakles_proc_mem_rss_bytes{group=~"web|db|cache|messaging"})
+sum by (group) (herakles_mem_process_rss_bytes{group=~"web|db|cache|messaging"})
 
 # Request processing overhead (proxy/web layer)
-herakles_proc_mem_rss_bytes{group="web"}
+herakles_mem_process_rss_bytes{group="web"}
 
 # Data layer memory
-herakles_proc_mem_rss_bytes{group="db"}
+herakles_mem_process_rss_bytes{group="db"}
 
 # Caching efficiency (cache layer)
-herakles_proc_mem_rss_bytes{group="cache"}
+herakles_mem_process_rss_bytes{group="cache"}
 ```
 
 ## Microservices Architecture
@@ -435,14 +435,14 @@ subgroups = [
 
 ```promql
 # Memory per service
-sum by (subgroup) (herakles_proc_mem_rss_bytes{group="services"})
+sum by (subgroup) (herakles_mem_process_rss_bytes{group="services"})
 
 # Service replica count
-count by (subgroup) (herakles_proc_mem_uss_bytes{group="services"})
+count by (subgroup) (herakles_mem_process_uss_bytes{group="services"})
 
 # Memory per replica
-sum by (subgroup) (herakles_proc_mem_rss_bytes{group="services"})
-  / count by (subgroup) (herakles_proc_mem_uss_bytes{group="services"})
+sum by (subgroup) (herakles_mem_process_rss_bytes{group="services"})
+  / count by (subgroup) (herakles_mem_process_uss_bytes{group="services"})
 ```
 
 ## Best Practices Summary

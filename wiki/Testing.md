@@ -182,7 +182,7 @@ services:
     command: >
       sh -c "
         sleep 30 &&
-        curl -s http://prometheus:9090/api/v1/query?query=herakles_proc_mem_rss_bytes |
+        curl -s http://prometheus:9090/api/v1/query?query=herakles_mem_process_rss_bytes |
         grep -q 'postgres' && echo 'Test PASSED' || echo 'Test FAILED'
       "
 ```
@@ -210,10 +210,10 @@ docker-compose -f docker-compose.test.yml up -d
 sleep 60
 
 # Query Prometheus
-curl 'http://localhost:9090/api/v1/query?query=herakles_proc_mem_rss_bytes' | jq .
+curl 'http://localhost:9090/api/v1/query?query=herakles_mem_process_rss_bytes' | jq .
 
 # Verify specific metrics exist
-curl -s 'http://localhost:9090/api/v1/query?query=herakles_proc_mem_group_rss_bytes_sum' | \
+curl -s 'http://localhost:9090/api/v1/query?query=herakles_mem_group_rss_bytes' | \
   jq '.data.result | length'
 
 # Cleanup
@@ -297,7 +297,7 @@ jobs:
         run: |
           ./target/release/herakles-node-exporter -t testdata.json &
           sleep 5
-          curl -f http://localhost:9215/metrics | grep herakles_proc_mem
+          curl -f http://localhost:9215/metrics | grep -E "herakles_(mem|cpu|exporter)_"
           curl -f http://localhost:9215/health
 ```
 
@@ -348,7 +348,7 @@ pipeline {
                     ./target/release/herakles-node-exporter generate-testdata -o testdata.json
                     ./target/release/herakles-node-exporter -t testdata.json &
                     sleep 5
-                    curl -f http://localhost:9215/metrics | grep -c herakles_proc_mem
+                    curl -f http://localhost:9215/metrics | grep -cE "herakles_(mem|cpu|exporter)_"
                 '''
             }
         }
@@ -386,12 +386,12 @@ herakles-node-exporter check --proc
 
 ```bash
 # Check metrics are being exported
-curl -s http://localhost:9215/metrics | grep -E '^herakles_proc_mem_' | wc -l
+curl -s http://localhost:9215/metrics | grep -E '^herakles_(mem|cpu|exporter)_' | wc -l
 
 # Verify specific metric types
-curl -s http://localhost:9215/metrics | grep 'herakles_proc_mem_rss_bytes{'
-curl -s http://localhost:9215/metrics | grep 'herakles_proc_mem_group_'
-curl -s http://localhost:9215/metrics | grep 'herakles_proc_mem_top_'
+curl -s http://localhost:9215/metrics | grep 'herakles_mem_process_rss_bytes{'
+curl -s http://localhost:9215/metrics | grep 'herakles_(mem|cpu)_group_'
+curl -s http://localhost:9215/metrics | grep 'herakles_(mem|cpu)_top_process_'
 ```
 
 ### Health Verification

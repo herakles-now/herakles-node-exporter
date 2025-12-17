@@ -179,7 +179,7 @@ level=warn msg="Scrape of target failed" err="context deadline exceeded"
 **Symptoms:**
 - Metrics not changing
 - Health endpoint shows failed updates
-- `herakles_proc_mem_cache_update_success = 0`
+- `herakles_exporter_cache_update_success = 0`
 
 **Diagnosis:**
 ```bash
@@ -308,13 +308,13 @@ number of done scans: 450 | last scan: 14:32:15 | uptime: 2.5h
 
 ```promql
 # Cache update time
-herakles_proc_mem_cache_update_duration_seconds
+herakles_exporter_cache_update_duration_seconds
 
 # Scrape duration
-herakles_proc_mem_scrape_duration_seconds
+herakles_exporter_scrape_duration_seconds
 
 # Process count
-herakles_proc_mem_processes_total
+herakles_exporter_processes_total
 ```
 
 ### System-Level Profiling

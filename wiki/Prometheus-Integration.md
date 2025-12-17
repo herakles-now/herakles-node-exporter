@@ -201,27 +201,27 @@ groups:
     rules:
       # Total memory by group
       - record: herakles:proc_mem_rss_bytes_by_group:sum
-        expr: sum by (group) (herakles_proc_mem_rss_bytes)
+        expr: sum by (group) (herakles_mem_process_rss_bytes)
       
       # Total memory by subgroup
       - record: herakles:proc_mem_rss_bytes_by_subgroup:sum
-        expr: sum by (group, subgroup) (herakles_proc_mem_rss_bytes)
+        expr: sum by (group, subgroup) (herakles_mem_process_rss_bytes)
       
       # Process count by group
       - record: herakles:proc_count_by_group:count
-        expr: count by (group) (herakles_proc_mem_uss_bytes)
+        expr: count by (group) (herakles_mem_process_uss_bytes)
       
       # Average memory per process by subgroup
       - record: herakles:proc_mem_rss_bytes_by_subgroup:avg
-        expr: avg by (group, subgroup) (herakles_proc_mem_rss_bytes)
+        expr: avg by (group, subgroup) (herakles_mem_process_rss_bytes)
       
       # Total CPU by group
       - record: herakles:proc_cpu_percent_by_group:sum
-        expr: sum by (group) (herakles_proc_mem_cpu_percent)
+        expr: sum by (group) (herakles_cpu_process_usage_percent)
       
       # Memory growth rate
       - record: herakles:proc_mem_rss_bytes:rate5m
-        expr: rate(herakles_proc_mem_rss_bytes[5m])
+        expr: rate(herakles_mem_process_rss_bytes[5m])
 ```
 
 ### Pre-calculated Alerting Metrics
@@ -233,15 +233,15 @@ groups:
     rules:
       # Top 10 memory consumers
       - record: herakles:proc_mem_top10_rss:bytes
-        expr: topk(10, herakles_proc_mem_rss_bytes)
+        expr: topk(10, herakles_mem_process_rss_bytes)
       
       # Processes exceeding thresholds
       - record: herakles:proc_high_memory:count
-        expr: count(herakles_proc_mem_rss_bytes > 1073741824)  # > 1GB
+        expr: count(herakles_mem_process_rss_bytes > 1073741824)  # > 1GB
       
       # Processes with high CPU
       - record: herakles:proc_high_cpu:count
-        expr: count(herakles_proc_mem_cpu_percent > 80)
+        expr: count(herakles_cpu_process_usage_percent > 80)
 ```
 
 ## Common PromQL Queries
@@ -250,101 +250,101 @@ groups:
 
 ```promql
 # Top 10 processes by RSS memory
-topk(10, herakles_proc_mem_rss_bytes)
+topk(10, herakles_mem_process_rss_bytes)
 
 # Top 10 processes by USS (unique) memory
-topk(10, herakles_proc_mem_uss_bytes)
+topk(10, herakles_mem_process_uss_bytes)
 
 # Memory usage by group (pie chart)
-sum by (group) (herakles_proc_mem_rss_bytes)
+sum by (group) (herakles_mem_process_rss_bytes)
 
 # Memory usage by subgroup
-sum by (group, subgroup) (herakles_proc_mem_rss_bytes)
+sum by (group, subgroup) (herakles_mem_process_rss_bytes)
 
 # Memory as percentage of total (requires node_exporter)
-sum by (group) (herakles_proc_mem_rss_bytes) 
+sum by (group) (herakles_mem_process_rss_bytes) 
   / on() group_left() node_memory_MemTotal_bytes * 100
 
 # Memory growth rate (bytes/minute)
-rate(herakles_proc_mem_rss_bytes[5m]) * 60
+rate(herakles_mem_process_rss_bytes[5m]) * 60
 
 # Memory growth percentage over 1 hour
-(herakles_proc_mem_rss_bytes - herakles_proc_mem_rss_bytes offset 1h) 
-  / herakles_proc_mem_rss_bytes offset 1h * 100
+(herakles_mem_process_rss_bytes - herakles_mem_process_rss_bytes offset 1h) 
+  / herakles_mem_process_rss_bytes offset 1h * 100
 
 # Shared memory ratio (RSS - USS) / RSS
-(herakles_proc_mem_rss_bytes - herakles_proc_mem_uss_bytes) 
-  / herakles_proc_mem_rss_bytes * 100
+(herakles_mem_process_rss_bytes - herakles_mem_process_uss_bytes) 
+  / herakles_mem_process_rss_bytes * 100
 ```
 
 ### CPU Analysis
 
 ```promql
 # Top 10 processes by CPU usage
-topk(10, herakles_proc_mem_cpu_percent)
+topk(10, herakles_cpu_process_usage_percent)
 
 # CPU usage by group
-sum by (group) (herakles_proc_mem_cpu_percent)
+sum by (group) (herakles_cpu_process_usage_percent)
 
 # CPU usage by subgroup
-sum by (group, subgroup) (herakles_proc_mem_cpu_percent)
+sum by (group, subgroup) (herakles_cpu_process_usage_percent)
 
 # CPU time rate (seconds/second)
-rate(herakles_proc_mem_cpu_time_seconds[5m])
+rate(herakles_cpu_process_time_seconds[5m])
 
 # Processes with CPU > 50%
-herakles_proc_mem_cpu_percent > 50
+herakles_cpu_process_usage_percent > 50
 
 # Average CPU per subgroup
-avg by (group, subgroup) (herakles_proc_mem_cpu_percent)
+avg by (group, subgroup) (herakles_cpu_process_usage_percent)
 ```
 
 ### Process Discovery
 
 ```promql
 # Count of processes per group
-count by (group) (herakles_proc_mem_uss_bytes)
+count by (group) (herakles_mem_process_uss_bytes)
 
 # Count of processes per subgroup
-count by (group, subgroup) (herakles_proc_mem_uss_bytes)
+count by (group, subgroup) (herakles_mem_process_uss_bytes)
 
 # All processes in a specific subgroup
-herakles_proc_mem_uss_bytes{subgroup="postgres"}
+herakles_mem_process_uss_bytes{subgroup="postgres"}
 
 # Processes by name pattern
-herakles_proc_mem_uss_bytes{name=~".*worker.*"}
+herakles_mem_process_uss_bytes{name=~".*worker.*"}
 
 # New processes (appeared in last hour)
-herakles_proc_mem_uss_bytes unless herakles_proc_mem_uss_bytes offset 1h
+herakles_mem_process_uss_bytes unless herakles_mem_process_uss_bytes offset 1h
 ```
 
 ### Capacity Planning
 
 ```promql
 # Projected memory in 24 hours
-herakles_proc_mem_rss_bytes 
-  + (deriv(herakles_proc_mem_rss_bytes[6h]) * 86400)
+herakles_mem_process_rss_bytes 
+  + (deriv(herakles_mem_process_rss_bytes[6h]) * 86400)
 
 # Memory headroom (requires node_exporter)
 node_memory_MemAvailable_bytes 
-  - sum(herakles_proc_mem_rss_bytes)
+  - sum(herakles_mem_process_rss_bytes)
 
 # Days until memory exhaustion
 node_memory_MemAvailable_bytes 
-  / (deriv(sum(herakles_proc_mem_rss_bytes)[24h]) * 86400)
+  / (deriv(sum(herakles_mem_process_rss_bytes)[24h]) * 86400)
 ```
 
 ### Aggregated Subgroup Queries
 
 ```promql
 # Use pre-aggregated metrics for efficiency
-herakles_proc_mem_group_rss_bytes_sum
+herakles_mem_group_rss_bytes
 
 # Top subgroups by memory
-topk(10, herakles_proc_mem_group_rss_bytes_sum)
+topk(10, herakles_mem_group_rss_bytes)
 
 # CPU time sum per subgroup
-herakles_proc_mem_group_cpu_time_seconds_sum
+herakles_cpu_group_time_seconds_sum
 ```
 
 ## Grafana Dashboard Template
@@ -415,7 +415,7 @@ Here's a basic Grafana dashboard JSON template:
       "type": "piechart",
       "targets": [
         {
-          "expr": "sum by (group) (herakles_proc_mem_rss_bytes)",
+          "expr": "sum by (group) (herakles_mem_process_rss_bytes)",
           "legendFormat": "{{group}}"
         }
       ]
@@ -469,7 +469,7 @@ Here's a basic Grafana dashboard JSON template:
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(herakles_proc_mem_rss_bytes)",
+          "expr": "sum(herakles_mem_process_rss_bytes)",
           "legendFormat": "Total RSS"
         }
       ]
@@ -554,7 +554,7 @@ Here's a basic Grafana dashboard JSON template:
       "type": "timeseries",
       "targets": [
         {
-          "expr": "topk(10, herakles_proc_mem_rss_bytes)",
+          "expr": "topk(10, herakles_mem_process_rss_bytes)",
           "legendFormat": "{{name}} (pid={{pid}})"
         }
       ]
@@ -612,7 +612,7 @@ Here's a basic Grafana dashboard JSON template:
 # prometheus.yml - Drop PID label
 metric_relabel_configs:
   - source_labels: [__name__]
-    regex: 'herakles_proc_mem_.*'
+    regex: 'herakles_(mem|cpu|exporter)_.*'
     action: keep
   - source_labels: [pid]
     regex: '.*'
@@ -628,7 +628,7 @@ groups:
     rules:
       # Pre-aggregate to reduce storage
       - record: herakles:memory_by_group:sum
-        expr: sum by (group) (herakles_proc_mem_rss_bytes)
+        expr: sum by (group) (herakles_mem_process_rss_bytes)
 ```
 
 ## Next Steps
