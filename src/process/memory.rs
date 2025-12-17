@@ -130,7 +130,7 @@ pub fn parse_memory_for_process(
 pub fn read_vmswap(proc_path: &Path) -> Result<u64, std::io::Error> {
     let status_path = proc_path.join("status");
     let content = fs::read_to_string(status_path)?;
-    
+
     for line in content.lines() {
         if let Some(v) = line.strip_prefix("VmSwap:") {
             if let Some(kb) = parse_kb_value(v) {
@@ -138,7 +138,7 @@ pub fn read_vmswap(proc_path: &Path) -> Result<u64, std::io::Error> {
             }
         }
     }
-    
+
     // If VmSwap is not present in status (kernel < 2.6.34 or no swap), return 0
     Ok(0)
 }

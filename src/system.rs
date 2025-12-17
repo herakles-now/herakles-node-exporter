@@ -42,7 +42,14 @@ pub struct CpuStat {
 impl CpuStat {
     /// Calculate total CPU time (all fields).
     pub fn total(&self) -> u64 {
-        self.user + self.nice + self.system + self.idle + self.iowait + self.irq + self.softirq + self.steal
+        self.user
+            + self.nice
+            + self.system
+            + self.idle
+            + self.iowait
+            + self.irq
+            + self.softirq
+            + self.steal
     }
 
     /// Calculate non-active time (idle + iowait).
@@ -144,14 +151,33 @@ pub fn read_extended_memory_info() -> Result<ExtendedMemoryInfo, String> {
             }
         }
 
-        if total_bytes.is_some() && available_bytes.is_some() && cached_bytes.is_some() 
-            && buffers_bytes.is_some() && swap_total_bytes.is_some() && swap_free_bytes.is_some() {
+        if total_bytes.is_some()
+            && available_bytes.is_some()
+            && cached_bytes.is_some()
+            && buffers_bytes.is_some()
+            && swap_total_bytes.is_some()
+            && swap_free_bytes.is_some()
+        {
             break;
         }
     }
 
-    match (total_bytes, available_bytes, cached_bytes, buffers_bytes, swap_total_bytes, swap_free_bytes) {
-        (Some(total), Some(available), Some(cached), Some(buffers), Some(swap_total), Some(swap_free)) => Ok(ExtendedMemoryInfo {
+    match (
+        total_bytes,
+        available_bytes,
+        cached_bytes,
+        buffers_bytes,
+        swap_total_bytes,
+        swap_free_bytes,
+    ) {
+        (
+            Some(total),
+            Some(available),
+            Some(cached),
+            Some(buffers),
+            Some(swap_total),
+            Some(swap_free),
+        ) => Ok(ExtendedMemoryInfo {
             total_bytes: total,
             available_bytes: available,
             cached_bytes: cached,
@@ -181,7 +207,7 @@ pub fn read_cpu_stats() -> Result<HashMap<String, CpuStat>, String> {
             }
 
             let cpu_name = parts[0].to_string();
-            
+
             // Parse CPU time fields
             let user = parts[1].parse::<u64>().unwrap_or(0);
             let nice = parts[2].parse::<u64>().unwrap_or(0);
@@ -190,18 +216,25 @@ pub fn read_cpu_stats() -> Result<HashMap<String, CpuStat>, String> {
             let iowait = parts[5].parse::<u64>().unwrap_or(0);
             let irq = parts[6].parse::<u64>().unwrap_or(0);
             let softirq = parts[7].parse::<u64>().unwrap_or(0);
-            let steal = if parts.len() > 8 { parts[8].parse::<u64>().unwrap_or(0) } else { 0 };
+            let steal = if parts.len() > 8 {
+                parts[8].parse::<u64>().unwrap_or(0)
+            } else {
+                0
+            };
 
-            stats.insert(cpu_name, CpuStat {
-                user,
-                nice,
-                system,
-                idle,
-                iowait,
-                irq,
-                softirq,
-                steal,
-            });
+            stats.insert(
+                cpu_name,
+                CpuStat {
+                    user,
+                    nice,
+                    system,
+                    idle,
+                    iowait,
+                    irq,
+                    softirq,
+                    steal,
+                },
+            );
         }
     }
 
@@ -237,31 +270,36 @@ impl CpuStatsCache {
     /// Returns CpuRatios struct with all ratio types.
     pub fn calculate_usage_ratios(&self) -> Result<CpuRatios, String> {
         let current_stats = read_cpu_stats()?;
-        
+
         let mut usage_ratios = HashMap::new();
         let mut idle_ratios = HashMap::new();
         let mut iowait_ratios = HashMap::new();
         let mut steal_ratios = HashMap::new();
-        
+
         // Try to get previous stats
-        let prev_guard = self.previous.read().map_err(|e| format!("Failed to acquire lock: {}", e))?;
-        
+        let prev_guard = self
+            .previous
+            .read()
+            .map_err(|e| format!("Failed to acquire lock: {}", e))?;
+
         if let Some(prev_stats) = prev_guard.as_ref() {
             // Calculate deltas for each CPU
             for (cpu_name, current) in &current_stats {
                 if let Some(previous) = prev_stats.get(cpu_name) {
                     let delta_total = current.total().saturating_sub(previous.total());
-                    let delta_non_active = current.idle_total().saturating_sub(previous.idle_total());
+                    let delta_non_active =
+                        current.idle_total().saturating_sub(previous.idle_total());
                     let delta_idle = current.idle.saturating_sub(previous.idle);
                     let delta_iowait = current.iowait.saturating_sub(previous.iowait);
                     let delta_steal = current.steal.saturating_sub(previous.steal);
-                    
+
                     if delta_total > 0 {
-                        let usage_ratio = (delta_total - delta_non_active) as f64 / delta_total as f64;
+                        let usage_ratio =
+                            (delta_total - delta_non_active) as f64 / delta_total as f64;
                         let idle_ratio = delta_idle as f64 / delta_total as f64;
                         let iowait_ratio = delta_iowait as f64 / delta_total as f64;
                         let steal_ratio = delta_steal as f64 / delta_total as f64;
-                        
+
                         usage_ratios.insert(cpu_name.clone(), usage_ratio);
                         idle_ratios.insert(cpu_name.clone(), idle_ratio);
                         iowait_ratios.insert(cpu_name.clone(), iowait_ratio);
@@ -270,13 +308,16 @@ impl CpuStatsCache {
                 }
             }
         }
-        
+
         drop(prev_guard);
-        
+
         // Update cache with current stats
-        let mut cache_guard = self.previous.write().map_err(|e| format!("Failed to acquire write lock: {}", e))?;
+        let mut cache_guard = self
+            .previous
+            .write()
+            .map_err(|e| format!("Failed to acquire write lock: {}", e))?;
         *cache_guard = Some(current_stats);
-        
+
         Ok(CpuRatios {
             usage: usage_ratios,
             idle: idle_ratios,
@@ -289,8 +330,8 @@ impl CpuStatsCache {
 /// Reads PSI (Pressure Stall Information) from /proc/pressure files.
 /// Returns the "some" total value from the specified file.
 pub fn read_psi_some_total(path: &str) -> Result<f64, String> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    let content =
+        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
 
     for line in content.lines() {
         if line.starts_with("some") {
