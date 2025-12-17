@@ -65,60 +65,97 @@ herakles_proc_mem_cpu_time_seconds{pid="5678",name="nginx",group="web",subgroup=
 
 These metrics provide totals for each group/subgroup combination.
 
+### Memory Aggregates (Renamed)
+
 | Metric | Type | Description |
 |--------|------|-------------|
-| `herakles_proc_mem_group_rss_bytes_sum` | Gauge | Sum of RSS bytes per subgroup |
-| `herakles_proc_mem_group_pss_bytes_sum` | Gauge | Sum of PSS bytes per subgroup |
-| `herakles_proc_mem_group_uss_bytes_sum` | Gauge | Sum of USS bytes per subgroup |
-| `herakles_proc_mem_group_cpu_percent_sum` | Gauge | Sum of CPU percent per subgroup |
-| `herakles_proc_mem_group_cpu_time_seconds_sum` | Gauge | Sum of CPU time per subgroup |
+| `herakles_mem_group_rss_bytes` | Gauge | Sum of RSS bytes per subgroup |
+| `herakles_mem_group_pss_bytes` | Gauge | Sum of PSS bytes per subgroup |
+| `herakles_mem_group_uss_bytes` | Gauge | Sum of USS bytes per subgroup |
+| `herakles_mem_group_swap_bytes` | Gauge | Sum of swap usage per subgroup |
+| `herakles_proc_mem_group_cpu_percent_sum` | Gauge | Sum of CPU percent per subgroup (legacy) |
+| `herakles_proc_mem_group_cpu_time_seconds_sum` | Gauge | Sum of CPU time per subgroup (legacy) |
+
+### CPU Aggregates (New)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `herakles_cpu_group_usage_ratio` | Gauge | CPU usage ratio per subgroup (0.0 to 1.0) |
+| `herakles_cpu_group_seconds_total` | Gauge | Total CPU time seconds per subgroup |
 
 **Labels:**
 - `group` - Classification group
 - `subgroup` - Classification subgroup
+- `mode` - CPU mode (user, for cpu_group_seconds_total)
 
 **Example output:**
 
 ```
-# HELP herakles_proc_mem_group_rss_bytes_sum Sum of RSS bytes per subgroup
-# TYPE herakles_proc_mem_group_rss_bytes_sum gauge
-herakles_proc_mem_group_rss_bytes_sum{group="db",subgroup="postgres"} 2147483648
-herakles_proc_mem_group_rss_bytes_sum{group="db",subgroup="mysql"} 1073741824
-herakles_proc_mem_group_rss_bytes_sum{group="web",subgroup="nginx"} 419430400
+# HELP herakles_mem_group_rss_bytes Sum of RSS bytes per subgroup
+# TYPE herakles_mem_group_rss_bytes gauge
+herakles_mem_group_rss_bytes{group="db",subgroup="postgres"} 2147483648
+herakles_mem_group_rss_bytes{group="db",subgroup="mysql"} 1073741824
+herakles_mem_group_rss_bytes{group="web",subgroup="nginx"} 419430400
 
-# HELP herakles_proc_mem_group_cpu_percent_sum Sum of CPU percent per subgroup
-# TYPE herakles_proc_mem_group_cpu_percent_sum gauge
-herakles_proc_mem_group_cpu_percent_sum{group="db",subgroup="postgres"} 45.6
-herakles_proc_mem_group_cpu_percent_sum{group="web",subgroup="nginx"} 12.3
+# HELP herakles_cpu_group_usage_ratio CPU usage ratio per subgroup
+# TYPE herakles_cpu_group_usage_ratio gauge
+herakles_cpu_group_usage_ratio{group="db",subgroup="postgres"} 0.456
+herakles_cpu_group_usage_ratio{group="web",subgroup="nginx"} 0.123
+
+# HELP herakles_cpu_group_seconds_total Total CPU time seconds per subgroup
+# TYPE herakles_cpu_group_seconds_total gauge
+herakles_cpu_group_seconds_total{group="db",subgroup="postgres",mode="user"} 12345.67
+herakles_cpu_group_seconds_total{group="web",subgroup="nginx",mode="user"} 6789.12
 ```
 
 ## Top-N Metrics per Subgroup
 
 These metrics show the top N processes by USS within each subgroup.
 
+### Memory Top-N Metrics (Renamed with 'comm' label)
+
 | Metric | Type | Description |
 |--------|------|-------------|
-| `herakles_proc_mem_top_rss_bytes` | Gauge | Top-N RSS per subgroup |
-| `herakles_proc_mem_top_pss_bytes` | Gauge | Top-N PSS per subgroup |
-| `herakles_proc_mem_top_uss_bytes` | Gauge | Top-N USS per subgroup |
-| `herakles_proc_mem_top_cpu_percent` | Gauge | Top-N CPU percent per subgroup |
-| `herakles_proc_mem_top_cpu_time_seconds` | Gauge | Top-N CPU time per subgroup |
+| `herakles_mem_top_process_rss_bytes` | Gauge | Top-N RSS per subgroup |
+| `herakles_mem_top_process_pss_bytes` | Gauge | Top-N PSS per subgroup |
+| `herakles_mem_top_process_uss_bytes` | Gauge | Top-N USS per subgroup |
+| `herakles_proc_mem_top_cpu_percent` | Gauge | Top-N CPU percent per subgroup (legacy) |
+| `herakles_proc_mem_top_cpu_time_seconds` | Gauge | Top-N CPU time per subgroup (legacy) |
+
+### CPU Top-N Metrics (New)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `herakles_cpu_top_process_usage_ratio` | Gauge | Top-3 CPU usage ratio per subgroup (0.0 to 1.0) |
+| `herakles_cpu_top_process_seconds_total` | Gauge | Top-3 CPU time seconds per subgroup |
 
 **Labels:**
 - `group` - Classification group
 - `subgroup` - Classification subgroup
 - `rank` - Ranking position (1, 2, 3, ...)
 - `pid` - Process ID
-- `name` - Process name
+- `comm` - Process name (from /proc/[pid]/comm) - used in new metrics
+- `name` - Process name - used in legacy metrics
+- `mode` - CPU mode (user, for cpu_top_process_seconds_total)
 
 **Example output:**
 
 ```
-# HELP herakles_proc_mem_top_uss_bytes Top-N USS per subgroup
-# TYPE herakles_proc_mem_top_uss_bytes gauge
-herakles_proc_mem_top_uss_bytes{group="db",subgroup="postgres",rank="1",pid="1234",name="postgres"} 314572800
-herakles_proc_mem_top_uss_bytes{group="db",subgroup="postgres",rank="2",pid="1235",name="postgres"} 157286400
-herakles_proc_mem_top_uss_bytes{group="db",subgroup="postgres",rank="3",pid="1236",name="postgres"} 104857600
+# HELP herakles_mem_top_process_uss_bytes Top-N USS per subgroup
+# TYPE herakles_mem_top_process_uss_bytes gauge
+herakles_mem_top_process_uss_bytes{group="db",subgroup="postgres",rank="1",pid="1234",comm="postgres"} 314572800
+herakles_mem_top_process_uss_bytes{group="db",subgroup="postgres",rank="2",pid="1235",comm="postgres"} 157286400
+herakles_mem_top_process_uss_bytes{group="db",subgroup="postgres",rank="3",pid="1236",comm="postgres"} 104857600
+
+# HELP herakles_cpu_top_process_usage_ratio Top-3 CPU usage ratio per subgroup
+# TYPE herakles_cpu_top_process_usage_ratio gauge
+herakles_cpu_top_process_usage_ratio{group="db",subgroup="postgres",rank="1",pid="1234",comm="postgres"} 0.125
+herakles_cpu_top_process_usage_ratio{group="web",subgroup="nginx",rank="1",pid="5678",comm="nginx"} 0.023
+
+# HELP herakles_cpu_top_process_seconds_total Top-3 CPU time seconds per subgroup
+# TYPE herakles_cpu_top_process_seconds_total gauge
+herakles_cpu_top_process_seconds_total{group="db",subgroup="postgres",rank="1",pid="1234",comm="postgres",mode="user"} 3456.78
+herakles_cpu_top_process_seconds_total{group="web",subgroup="nginx",rank="1",pid="5678",comm="nginx",mode="user"} 789.12
 ```
 
 ## Percentage-of-Subgroup Metrics
@@ -137,9 +174,77 @@ These metrics show each top-N process as a percentage of the subgroup total.
 ```
 # HELP herakles_proc_mem_top_uss_percent_of_subgroup Top-N USS as percentage of subgroup total
 # TYPE herakles_proc_mem_top_uss_percent_of_subgroup gauge
-herakles_proc_mem_top_uss_percent_of_subgroup{group="db",subgroup="postgres",rank="1",pid="1234",name="postgres"} 54.5
-herakles_proc_mem_top_uss_percent_of_subgroup{group="db",subgroup="postgres",rank="2",pid="1235",name="postgres"} 27.3
-herakles_proc_mem_top_uss_percent_of_subgroup{group="db",subgroup="postgres",rank="3",pid="1236",name="postgres"} 18.2
+herakles_proc_mem_top_uss_percent_of_subgroup{group="db",subgroup="postgres",rank="1",pid="1234",comm="postgres"} 54.5
+herakles_proc_mem_top_uss_percent_of_subgroup{group="db",subgroup="postgres",rank="2",pid="1235",comm="postgres"} 27.3
+herakles_proc_mem_top_uss_percent_of_subgroup{group="db",subgroup="postgres",rank="3",pid="1236",comm="postgres"} 18.2
+```
+
+## System-Wide Metrics
+
+These metrics provide information about overall system resources.
+
+### Memory System Metrics (Renamed & Enhanced)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `herakles_mem_system_total_bytes` | Gauge | Total system memory in bytes |
+| `herakles_mem_system_available_bytes` | Gauge | Available system memory in bytes |
+| `herakles_mem_system_used_ratio` | Gauge | Memory used ratio (0.0 to 1.0) |
+| `herakles_mem_system_cached_bytes` | Gauge | Page cache memory in bytes |
+| `herakles_mem_system_buffers_bytes` | Gauge | Buffer cache memory in bytes |
+| `herakles_mem_system_swap_used_ratio` | Gauge | Swap used ratio (0.0 to 1.0) |
+| `herakles_mem_system_psi_wait_seconds_total` | Gauge | Memory Pressure Stall Information (PSI) total seconds |
+
+### CPU System Metrics (Renamed & Enhanced)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `herakles_cpu_system_usage_ratio` | Gauge | CPU usage ratio per core and total (0.0 to 1.0) |
+| `herakles_cpu_system_idle_ratio` | Gauge | CPU idle ratio per core and total (0.0 to 1.0) |
+| `herakles_cpu_system_iowait_ratio` | Gauge | CPU IO-wait ratio per core and total (0.0 to 1.0) |
+| `herakles_cpu_system_steal_ratio` | Gauge | CPU steal time ratio per core and total (0.0 to 1.0) |
+| `herakles_cpu_system_load_1` | Gauge | System load average over 1 minute |
+| `herakles_cpu_system_load_5` | Gauge | System load average over 5 minutes |
+| `herakles_cpu_system_load_15` | Gauge | System load average over 15 minutes |
+| `herakles_cpu_system_psi_wait_seconds_total` | Gauge | CPU Pressure Stall Information (PSI) total seconds |
+
+**Labels:**
+- `cpu` - CPU identifier (e.g., "cpu" for total, "cpu0", "cpu1" for individual cores)
+
+**Example output:**
+
+```
+# HELP herakles_mem_system_total_bytes Total system memory in bytes
+# TYPE herakles_mem_system_total_bytes gauge
+herakles_mem_system_total_bytes 16777216000
+
+# HELP herakles_mem_system_cached_bytes Page cache memory in bytes
+# TYPE herakles_mem_system_cached_bytes gauge
+herakles_mem_system_cached_bytes 4194304000
+
+# HELP herakles_mem_system_swap_used_ratio Swap used ratio
+# TYPE herakles_mem_system_swap_used_ratio gauge
+herakles_mem_system_swap_used_ratio 0.15
+
+# HELP herakles_cpu_system_usage_ratio CPU usage ratio per core and total
+# TYPE herakles_cpu_system_usage_ratio gauge
+herakles_cpu_system_usage_ratio{cpu="cpu"} 0.45
+herakles_cpu_system_usage_ratio{cpu="cpu0"} 0.60
+herakles_cpu_system_usage_ratio{cpu="cpu1"} 0.30
+
+# HELP herakles_cpu_system_idle_ratio CPU idle ratio per core and total
+# TYPE herakles_cpu_system_idle_ratio gauge
+herakles_cpu_system_idle_ratio{cpu="cpu"} 0.50
+herakles_cpu_system_idle_ratio{cpu="cpu0"} 0.35
+herakles_cpu_system_idle_ratio{cpu="cpu1"} 0.65
+
+# HELP herakles_cpu_system_load_1 System load average over 1 minute
+# TYPE herakles_cpu_system_load_1 gauge
+herakles_cpu_system_load_1 1.52
+
+# HELP herakles_cpu_system_psi_wait_seconds_total CPU Pressure Stall Information total seconds
+# TYPE herakles_cpu_system_psi_wait_seconds_total gauge
+herakles_cpu_system_psi_wait_seconds_total 12.345678
 ```
 
 ## Exporter Internal Metrics

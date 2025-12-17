@@ -27,20 +27,31 @@ A high-performance Prometheus exporter for per-process memory and CPU metrics on
 | `herakles_proc_mem_uss_bytes` | Unique Set Size per process | pid, name, group, subgroup |
 | `herakles_proc_mem_cpu_percent` | CPU usage percentage | pid, name, group, subgroup |
 | `herakles_proc_mem_cpu_time_seconds` | Total CPU time used | pid, name, group, subgroup |
-| `herakles_proc_mem_group_*_sum` | Aggregated metrics per subgroup | group, subgroup |
-| `herakles_proc_mem_top_*` | Top-N metrics per subgroup | group, subgroup, rank, pid, name |
+| `herakles_mem_group_*` | Aggregated memory metrics per subgroup | group, subgroup |
+| `herakles_mem_top_process_*` | Top-N memory metrics per subgroup | group, subgroup, rank, pid, comm |
+| `herakles_cpu_group_*` | Aggregated CPU metrics per subgroup | group, subgroup |
+| `herakles_cpu_top_process_*` | Top-N CPU metrics per subgroup | group, subgroup, rank, pid, comm |
 
 ### System Metrics
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `herakles_system_memory_total_bytes` | Total system memory in bytes | - |
-| `herakles_system_memory_available_bytes` | Available system memory in bytes | - |
-| `herakles_system_memory_used_ratio` | Memory used ratio (0.0 to 1.0) | - |
-| `herakles_system_cpu_usage_ratio` | CPU usage ratio per core and total | cpu |
-| `herakles_system_load1` | System load average over 1 minute | - |
-| `herakles_system_load5` | System load average over 5 minutes | - |
-| `herakles_system_load15` | System load average over 15 minutes | - |
+| `herakles_mem_system_total_bytes` | Total system memory in bytes | - |
+| `herakles_mem_system_available_bytes` | Available system memory in bytes | - |
+| `herakles_mem_system_used_ratio` | Memory used ratio (0.0 to 1.0) | - |
+| `herakles_mem_system_cached_bytes` | Page cache memory in bytes | - |
+| `herakles_mem_system_buffers_bytes` | Buffer cache memory in bytes | - |
+| `herakles_mem_system_swap_used_ratio` | Swap used ratio (0.0 to 1.0) | - |
+| `herakles_mem_system_psi_wait_seconds_total` | Memory pressure stall total seconds | - |
+| `herakles_mem_group_swap_bytes` | Swap usage per subgroup | group, subgroup |
+| `herakles_cpu_system_usage_ratio` | CPU usage ratio per core and total | cpu |
+| `herakles_cpu_system_idle_ratio` | CPU idle ratio per core and total | cpu |
+| `herakles_cpu_system_iowait_ratio` | CPU IO-wait ratio per core and total | cpu |
+| `herakles_cpu_system_steal_ratio` | CPU steal time ratio per core and total | cpu |
+| `herakles_cpu_system_load_1` | System load average over 1 minute | - |
+| `herakles_cpu_system_load_5` | System load average over 5 minutes | - |
+| `herakles_cpu_system_load_15` | System load average over 15 minutes | - |
+| `herakles_cpu_system_psi_wait_seconds_total` | CPU pressure stall total seconds | - |
 
 ## 📦 Installation
 

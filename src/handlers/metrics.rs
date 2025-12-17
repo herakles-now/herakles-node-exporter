@@ -124,6 +124,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 let mut uss_sum: u64 = 0;
                 let mut cpu_percent_sum: f64 = 0.0;
                 let mut cpu_time_sum: f64 = 0.0;
+                let mut swap_sum: u64 = 0;
 
                 for p in &list {
                     rss_sum += p.rss;
@@ -131,6 +132,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     uss_sum += p.uss;
                     cpu_percent_sum += p.cpu_percent as f64;
                     cpu_time_sum += p.cpu_time_seconds as f64;
+                    swap_sum += p.vmswap;
                 }
 
                 let group_ref: &str = group.as_ref();
@@ -169,7 +171,29 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .agg_cpu_time_sum
                         .with_label_values(&[group_ref, subgroup_ref, &uptime_seconds])
                         .set(cpu_time_sum);
+                    
+                    // New CPU group metrics (without uptime label)
+                    // CPU usage ratio: cpu_percent / 100 to get 0-1 range
+                    state
+                        .metrics
+                        .cpu_group_usage_ratio
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(cpu_percent_sum / 100.0);
+                    
+                    // CPU seconds total with mode=user (we don't track kernel time separately)
+                    state
+                        .metrics
+                        .cpu_group_seconds_total
+                        .with_label_values(&[group_ref, subgroup_ref, "user"])
+                        .set(cpu_time_sum);
                 }
+                
+                // Set memory group swap metric
+                state
+                    .metrics
+                    .mem_group_swap_bytes
+                    .with_label_values(&[group_ref, subgroup_ref])
+                    .set(swap_sum as f64);
 
                 // Sort by USS for Top-N selection
                 list.sort_by_key(|p| std::cmp::Reverse(p.uss));
@@ -331,6 +355,36 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                             ])
                             .set(pct);
                     }
+                    
+                    // New CPU top process metrics (without uptime label)
+                    if enable_cpu {
+                        // CPU usage ratio (0-1 range)
+                        state
+                            .metrics
+                            .cpu_top_process_usage_ratio
+                            .with_label_values(&[
+                                group_ref,
+                                subgroup_ref,
+                                &rank_s,
+                                &pid_s,
+                                name_s,
+                            ])
+                            .set(p.cpu_percent as f64 / 100.0);
+                        
+                        // CPU seconds total with mode=user
+                        state
+                            .metrics
+                            .cpu_top_process_seconds_total
+                            .with_label_values(&[
+                                group_ref,
+                                subgroup_ref,
+                                &rank_s,
+                                &pid_s,
+                                name_s,
+                                "user",
+                            ])
+                            .set(p.cpu_time_seconds as f64);
+                    }
                 }
             }
 
@@ -355,6 +409,10 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     state.metrics.set_system_memory_metrics(
                         mem_info.total_bytes,
                         mem_info.available_bytes,
+                        mem_info.cached_bytes,
+                        mem_info.buffers_bytes,
+                        mem_info.swap_total_bytes,
+                        mem_info.swap_free_bytes,
                     );
                 }
                 Err(e) => {
@@ -362,7 +420,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
             }
 
-            // Set CPU usage ratio metrics
+            // Set CPU usage ratio metrics (including idle, iowait, steal)
             match state.system_cpu_cache.calculate_usage_ratios() {
                 Ok(cpu_ratios) => {
                     state.metrics.set_system_cpu_usage_ratios(&cpu_ratios);
@@ -371,6 +429,11 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     warn!("Failed to calculate CPU usage ratios: {}", e);
                 }
             }
+
+            // Set PSI (Pressure Stall Information) metrics
+            let cpu_psi_total = system::read_psi_some_total("/proc/pressure/cpu").unwrap_or(0.0);
+            let memory_psi_total = system::read_psi_some_total("/proc/pressure/memory").unwrap_or(0.0);
+            state.metrics.set_psi_metrics(cpu_psi_total, memory_psi_total);
 
             // Encode metrics in Prometheus text format
             let families = state.registry.gather();
