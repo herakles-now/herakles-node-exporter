@@ -1,4 +1,4 @@
-//! CLI command implementations for herakles-proc-mem-exporter.
+//! CLI command implementations for herakles-node-exporter.
 //!
 //! This module provides implementations for all CLI subcommands:
 //! - `check`: System validation

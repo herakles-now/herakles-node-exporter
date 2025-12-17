@@ -48,7 +48,7 @@ CONFIGURATION
 -------------
 Config file locations (in order):
 1. CLI specified: -c /path/to/config.yaml
-2. Current directory: ./herakles-proc-mem-exporter.yaml
+2. Current directory: ./herakles-node-exporter.yaml
 3. User config: ~/.config/herakles/config.yaml
 4. System config: /etc/herakles/config.yaml
 
@@ -67,20 +67,20 @@ TLS/SSL Configuration:
 
 CLI COMMANDS
 ------------
-herakles-proc-mem-exporter                    - Start the exporter
-herakles-proc-mem-exporter check --all        - Validate system requirements
-herakles-proc-mem-exporter config -o config.yaml - Generate config file
-herakles-proc-mem-exporter test               - Test metrics collection
-herakles-proc-mem-exporter subgroups          - List available subgroups
-herakles-proc-mem-exporter --help             - Show all CLI options
+herakles-node-exporter                    - Start the exporter
+herakles-node-exporter check --all        - Validate system requirements
+herakles-node-exporter config -o config.yaml - Generate config file
+herakles-node-exporter test               - Test metrics collection
+herakles-node-exporter subgroups          - List available subgroups
+herakles-node-exporter --help             - Show all CLI options
 
 EXAMPLE USAGE
 -------------
 # Start exporter
-herakles-proc-mem-exporter
+herakles-node-exporter
 
 # Start exporter with TLS
-herakles-proc-mem-exporter --enable-tls --tls-cert /path/to/cert.pem --tls-key /path/to/key.pem
+herakles-node-exporter --enable-tls --tls-cert /path/to/cert.pem --tls-key /path/to/key.pem
 
 # View this documentation
 curl http://localhost:9215/doc
@@ -116,7 +116,7 @@ scrape_configs:
 
 MORE INFORMATION
 ----------------
-GitHub: https://github.com/herakles-io/herakles-proc-mem-exporter
+GitHub: https://github.com/cansp-dev/herakles-node-exporter
 Documentation: See /config and /subgroups endpoints for runtime info
 
 {}
