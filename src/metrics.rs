@@ -51,15 +51,15 @@ pub struct MemoryMetrics {
     pub system_load15: Gauge,
     pub system_cpu_psi_wait_seconds_total: Gauge,
     pub system_memory_psi_wait_seconds_total: Gauge,
-    
+
     // CPU group metrics
     pub cpu_group_usage_ratio: GaugeVec,
     pub cpu_group_seconds_total: GaugeVec,
-    
+
     // CPU top process metrics
     pub cpu_top_process_usage_ratio: GaugeVec,
     pub cpu_top_process_seconds_total: GaugeVec,
-    
+
     // Memory group swap metrics
     pub mem_group_swap_bytes: GaugeVec,
 }
@@ -144,7 +144,10 @@ impl MemoryMetrics {
 
         // Top-N metrics per subgroup (renamed with "comm" label instead of "name")
         let top_rss = GaugeVec::new(
-            Opts::new("herakles_mem_top_process_rss_bytes", "Top-N RSS per subgroup"),
+            Opts::new(
+                "herakles_mem_top_process_rss_bytes",
+                "Top-N RSS per subgroup",
+            ),
             &[
                 "group",
                 "subgroup",
@@ -155,7 +158,10 @@ impl MemoryMetrics {
             ],
         )?;
         let top_pss = GaugeVec::new(
-            Opts::new("herakles_mem_top_process_pss_bytes", "Top-N PSS per subgroup"),
+            Opts::new(
+                "herakles_mem_top_process_pss_bytes",
+                "Top-N PSS per subgroup",
+            ),
             &[
                 "group",
                 "subgroup",
@@ -166,7 +172,10 @@ impl MemoryMetrics {
             ],
         )?;
         let top_uss = GaugeVec::new(
-            Opts::new("herakles_mem_top_process_uss_bytes", "Top-N USS per subgroup"),
+            Opts::new(
+                "herakles_mem_top_process_uss_bytes",
+                "Top-N USS per subgroup",
+            ),
             &[
                 "group",
                 "subgroup",
@@ -292,7 +301,7 @@ impl MemoryMetrics {
             "herakles_mem_system_psi_wait_seconds_total",
             "Memory Pressure Stall Information (PSI) - some total seconds from /proc/pressure/memory",
         )?;
-        
+
         // System-wide CPU metrics (renamed)
         let system_cpu_usage_ratio = GaugeVec::new(
             Opts::new(
@@ -338,7 +347,7 @@ impl MemoryMetrics {
             "herakles_cpu_system_psi_wait_seconds_total",
             "CPU Pressure Stall Information (PSI) - some total seconds from /proc/pressure/cpu",
         )?;
-        
+
         // CPU group metrics
         let cpu_group_usage_ratio = GaugeVec::new(
             Opts::new(
@@ -354,7 +363,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup", "mode"],
         )?;
-        
+
         // CPU top process metrics (with comm label)
         let cpu_top_process_usage_ratio = GaugeVec::new(
             Opts::new(
@@ -370,7 +379,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup", "rank", "pid", "comm", "mode"],
         )?;
-        
+
         // Memory group swap metrics
         let mem_group_swap_bytes = GaugeVec::new(
             Opts::new(
@@ -497,7 +506,7 @@ impl MemoryMetrics {
         self.system_cpu_idle_ratio.reset();
         self.system_cpu_iowait_ratio.reset();
         self.system_cpu_steal_ratio.reset();
-        
+
         // Reset group and top process metrics
         self.cpu_group_usage_ratio.reset();
         self.cpu_group_seconds_total.reset();
@@ -507,12 +516,21 @@ impl MemoryMetrics {
     }
 
     /// Sets system memory metrics (total, available, used ratio, cached, buffers, swap).
-    pub fn set_system_memory_metrics(&self, total_bytes: u64, available_bytes: u64, cached_bytes: u64, buffers_bytes: u64, swap_total_bytes: u64, swap_free_bytes: u64) {
+    pub fn set_system_memory_metrics(
+        &self,
+        total_bytes: u64,
+        available_bytes: u64,
+        cached_bytes: u64,
+        buffers_bytes: u64,
+        swap_total_bytes: u64,
+        swap_free_bytes: u64,
+    ) {
         self.system_memory_total_bytes.set(total_bytes as f64);
-        self.system_memory_available_bytes.set(available_bytes as f64);
+        self.system_memory_available_bytes
+            .set(available_bytes as f64);
         self.system_memory_cached_bytes.set(cached_bytes as f64);
         self.system_memory_buffers_bytes.set(buffers_bytes as f64);
-        
+
         // Calculate used ratio: 1 - (available / total)
         if total_bytes > 0 {
             let used_ratio = 1.0 - (available_bytes as f64 / total_bytes as f64);
@@ -520,10 +538,11 @@ impl MemoryMetrics {
         } else {
             self.system_memory_used_ratio.set(0.0);
         }
-        
+
         // Calculate swap used ratio: (total - free) / total
         if swap_total_bytes > 0 {
-            let swap_used_ratio = (swap_total_bytes - swap_free_bytes) as f64 / swap_total_bytes as f64;
+            let swap_used_ratio =
+                (swap_total_bytes - swap_free_bytes) as f64 / swap_total_bytes as f64;
             self.system_memory_swap_used_ratio.set(swap_used_ratio);
         } else {
             self.system_memory_swap_used_ratio.set(0.0);
@@ -564,7 +583,8 @@ impl MemoryMetrics {
     /// Sets PSI metrics (Pressure Stall Information).
     pub fn set_psi_metrics(&self, cpu_psi_total: f64, memory_psi_total: f64) {
         self.system_cpu_psi_wait_seconds_total.set(cpu_psi_total);
-        self.system_memory_psi_wait_seconds_total.set(memory_psi_total);
+        self.system_memory_psi_wait_seconds_total
+            .set(memory_psi_total);
     }
 
     /// Sets metric values for a specific process with classification.

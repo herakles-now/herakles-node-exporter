@@ -49,8 +49,8 @@ use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
-    read_process_name, read_vmswap, should_include_process, BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES,
-    MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
+    read_process_name, read_vmswap, should_include_process, BufferConfig, CLK_TCK,
+    MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
 };
 use state::{AppState, SharedState};
 use system::CpuStatsCache;
