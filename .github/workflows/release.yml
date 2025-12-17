@@ -58,10 +58,27 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build with cross
-        run: cross build --release --target ${{ matrix.target }}
+        run: |
+          set -x
+          cross build --release --target ${{ matrix.target }}
+
+      - name: Debug - List target directory
+        run: |
+          echo "Listing target directory contents:"
+          ls -la target/${{ matrix.target }}/release/ || echo "Directory not found"
+          echo ""
+          echo "Looking for herakles-node-exporter binary:"
+          find target/${{ matrix.target }}/release/ -name "*herakles*" -type f || echo "No matching files found"
 
       - name: Rename binary
         run: |
+          set -e
+          if [ ! -f "target/${{ matrix.target }}/release/herakles-node-exporter" ]; then
+            echo "ERROR: Binary not found at expected location: target/${{ matrix.target }}/release/herakles-node-exporter"
+            echo "Contents of target/${{ matrix.target }}/release/:"
+            ls -la target/${{ matrix.target }}/release/ || echo "Directory does not exist"
+            exit 1
+          fi
           cp target/${{ matrix.target }}/release/herakles-node-exporter ${{ matrix.artifact_name }}
 
       - name: Upload artifact
