@@ -4,7 +4,7 @@
 //! to HTTP handlers and used by the background cache update task.
 
 use ahash::AHashMap as HashMap;
-use herakles_proc_mem_exporter::HealthState;
+use herakles_node_exporter::HealthState;
 use prometheus::{Gauge, Registry};
 use std::sync::{Arc, RwLock as StdRwLock};
 use tokio::sync::{Notify, RwLock};

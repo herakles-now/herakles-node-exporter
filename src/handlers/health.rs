@@ -4,7 +4,7 @@
 //! exporter health statistics and buffer status.
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
-use herakles_proc_mem_exporter::HealthResponse;
+use herakles_node_exporter::HealthResponse;
 use std::fmt::Write as FmtWrite;
 use tracing::{debug, instrument};
 

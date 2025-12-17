@@ -3,7 +3,7 @@
 //! These tests verify the behavior of `HealthState::get_health()` with
 //! various configurations and buffer states.
 
-use herakles_proc_mem_exporter::{AppConfig, BufferHealthConfig, HealthState};
+use herakles_node_exporter::{AppConfig, BufferHealthConfig, HealthState};
 
 /// Helper function to create a default configuration.
 fn default_config() -> AppConfig {

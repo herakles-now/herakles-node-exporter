@@ -18,7 +18,7 @@ use ahash::AHashMap as HashMap;
 use axum::{routing::get, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
-use herakles_proc_mem_exporter::{AppConfig as HealthAppConfig, BufferHealthConfig, HealthState};
+use herakles_node_exporter::{AppConfig as HealthAppConfig, BufferHealthConfig, HealthState};
 use prometheus::{Gauge, Registry};
 use rayon::prelude::*;
 use std::collections::HashSet;
