@@ -471,35 +471,46 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             // Collect and update eBPF-based metrics (if enabled)
             if let Some(ref ebpf) = state.ebpf {
                 if ebpf.is_enabled() {
-                    // Collect process network I/O statistics
-                    if state.config.enable_ebpf_network.unwrap_or(true) {
+                    // Read eBPF data once
+                    let net_stats_opt = if state.config.enable_ebpf_network.unwrap_or(true) {
                         match ebpf.read_process_net_stats() {
-                            Ok(net_stats) => {
-                                if !net_stats.is_empty() {
-                                    debug!("Collected {} process network I/O stats from eBPF", net_stats.len());
-                                    state.metrics.update_process_network_metrics(&net_stats);
+                            Ok(stats) => {
+                                if !stats.is_empty() {
+                                    debug!("Collected {} process network I/O stats from eBPF", stats.len());
+                                    state.metrics.update_process_network_metrics(&stats);
+                                    Some(stats)
+                                } else {
+                                    Some(Vec::new())
                                 }
                             }
                             Err(e) => {
                                 warn!("Failed to read eBPF process network stats: {}", e);
+                                None
                             }
                         }
-                    }
+                    } else {
+                        None
+                    };
 
-                    // Collect process block I/O statistics
-                    if state.config.enable_ebpf_disk.unwrap_or(true) {
+                    let blkio_stats_opt = if state.config.enable_ebpf_disk.unwrap_or(true) {
                         match ebpf.read_process_blkio_stats() {
-                            Ok(blkio_stats) => {
-                                if !blkio_stats.is_empty() {
-                                    debug!("Collected {} process block I/O stats from eBPF", blkio_stats.len());
-                                    state.metrics.update_process_blkio_metrics(&blkio_stats);
+                            Ok(stats) => {
+                                if !stats.is_empty() {
+                                    debug!("Collected {} process block I/O stats from eBPF", stats.len());
+                                    state.metrics.update_process_blkio_metrics(&stats);
+                                    Some(stats)
+                                } else {
+                                    Some(Vec::new())
                                 }
                             }
                             Err(e) => {
                                 warn!("Failed to read eBPF process block I/O stats: {}", e);
+                                None
                             }
                         }
-                    }
+                    } else {
+                        None
+                    };
 
                     // Collect TCP connection statistics
                     if state.config.enable_tcp_tracking.unwrap_or(true) {
@@ -513,18 +524,18 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         }
                     }
 
-                    // Aggregate I/O metrics by subgroup and update top-N
-                    if state.config.enable_ebpf_network.unwrap_or(true) || state.config.enable_ebpf_disk.unwrap_or(true) {
-                        let net_stats = ebpf.read_process_net_stats().unwrap_or_default();
-                        let blkio_stats = ebpf.read_process_blkio_stats().unwrap_or_default();
+                    // Aggregate I/O metrics by subgroup and update top-N (reuse collected data)
+                    if net_stats_opt.is_some() || blkio_stats_opt.is_some() {
+                        let net_stats = net_stats_opt.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
+                        let blkio_stats = blkio_stats_opt.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
                         
                         // Calculate aggregations
-                        let (net_agg, blkio_agg) = crate::ebpf::aggregate_io_by_subgroup(&net_stats, &blkio_stats);
+                        let (net_agg, blkio_agg) = crate::ebpf::aggregate_io_by_subgroup(net_stats, blkio_stats);
                         state.metrics.update_io_aggregations(&net_agg, &blkio_agg);
                         
                         // Calculate top-N processes
                         let top_n = state.config.top_n_subgroup.unwrap_or(3);
-                        let (top_net, top_blkio) = crate::ebpf::calculate_top_io_processes(&net_stats, &blkio_stats, top_n);
+                        let (top_net, top_blkio) = crate::ebpf::calculate_top_io_processes(net_stats, blkio_stats, top_n);
                         state.metrics.update_top_io_processes(&top_net, &top_blkio);
                     }
                 }
