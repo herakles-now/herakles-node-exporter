@@ -117,13 +117,57 @@ When the `ebpf` feature is enabled and eBPF is configured, these additional metr
 | `herakles_io_system_psi_wait_seconds_total` | I/O Pressure Stall Information (PSI) | - |
 
 **eBPF Requirements:**
-- Linux kernel >= 4.18 (for CO-RE eBPF support)
+- Linux kernel >= 4.18 (for CO-RE eBPF support with BTF)
 - BTF (BPF Type Format) support: `/sys/kernel/btf/vmlinux` must exist
 - CAP_BPF + CAP_PERFMON capabilities (or root access)
-- Build dependencies: clang >= 10, llvm >= 10, libbpf-dev
+- Build dependencies: clang >= 10, llvm >= 10, libbpf-dev, linux-headers, bpftool
 - Compile with `--features ebpf` flag
 
-**Note:** eBPF functionality is currently in development. The infrastructure is in place, but requires the actual eBPF C programs from `ultimate-exporter` to be fully operational. When eBPF is not available or fails to initialize, the exporter gracefully continues with all standard metrics.
+**Building with eBPF support:**
+
+```bash
+# Install required system packages (Ubuntu/Debian)
+sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) bpftool
+
+# Build with eBPF feature
+cargo build --release --features ebpf
+
+# The build process will automatically:
+# 1. Generate vmlinux.h from your kernel's BTF information
+# 2. Compile the eBPF C programs to BPF bytecode
+# 3. Embed the compiled programs into the Rust binary
+```
+
+**Configuration:**
+
+Enable eBPF in your configuration file:
+
+```yaml
+# Enable eBPF process I/O tracking
+enable_ebpf: true
+```
+
+Or via environment variable:
+```bash
+HERAKLES_ENABLE_EBPF=true herakles-node-exporter
+```
+
+**Graceful Degradation:**
+
+If eBPF initialization fails (missing kernel support, insufficient permissions, or disabled feature), the exporter continues with all standard metrics. eBPF metrics will simply be absent from the output. Check the logs for eBPF status:
+
+```bash
+# eBPF successfully initialized:
+INFO ✅ eBPF programs loaded and attached successfully
+INFO    - Network RX/TX tracking enabled
+INFO    - Block I/O tracking enabled
+INFO    - TCP state tracking enabled
+
+# eBPF not available:
+WARN ⚠️  Failed to initialize eBPF: [reason] - running without eBPF metrics
+```
+
+**Note:** When eBPF is not available or fails to initialize, the exporter gracefully continues with all standard metrics.
 
 
 ## 📦 Installation
@@ -730,6 +774,79 @@ Options:
   -h, --help                         Print help
   -V, --version                      Print version
 ```
+
+## 🔍 eBPF Troubleshooting
+
+### Common eBPF Issues and Solutions
+
+**1. eBPF fails to initialize**
+
+Check the logs for specific errors:
+```bash
+# Look for eBPF initialization messages
+herakles-node-exporter | grep -i ebpf
+```
+
+Common causes:
+- **Missing BTF support**: Verify `/sys/kernel/btf/vmlinux` exists
+  ```bash
+  ls -lh /sys/kernel/btf/vmlinux
+  # If missing: rebuild kernel with CONFIG_DEBUG_INFO_BTF=y
+  ```
+
+- **Insufficient permissions**: Run with CAP_BPF + CAP_PERFMON or root
+  ```bash
+  # As root
+  sudo herakles-node-exporter --enable-ebpf
+  
+  # Or with capabilities
+  sudo setcap cap_bpf,cap_perfmon=ep /usr/local/bin/herakles-node-exporter
+  herakles-node-exporter --enable-ebpf
+  ```
+
+- **Old kernel**: Requires Linux >= 4.18 for BTF support
+  ```bash
+  uname -r
+  # Upgrade if kernel version < 4.18
+  ```
+
+**2. Build fails with eBPF feature**
+
+Ensure all build dependencies are installed:
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) bpftool
+
+# Fedora/RHEL
+sudo dnf install -y clang llvm libbpf-devel kernel-devel bpftool
+
+# Arch Linux
+sudo pacman -S clang llvm libbpf linux-headers bpf
+```
+
+**3. eBPF metrics are missing**
+
+Verify eBPF is enabled in configuration:
+```yaml
+enable_ebpf: true
+```
+
+Check the `/health` endpoint for eBPF status:
+```bash
+curl http://localhost:9215/health | grep -i ebpf
+```
+
+**4. Performance issues with eBPF**
+
+Monitor eBPF performance statistics via `/health` endpoint:
+- `events_per_sec`: Event processing rate
+- `map_usage_percent`: BPF map utilization
+- `lost_events`: Events dropped due to buffer overruns
+
+If overhead is too high, consider:
+- Disabling specific eBPF features (e.g., `disable-ebpf-network`)
+- Reducing `top_n_subgroup` to limit per-process tracking
+- Increasing system resources
 
 ## 📚 Documentation
 
