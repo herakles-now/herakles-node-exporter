@@ -157,7 +157,6 @@ impl EbpfManager {
             start_time: now,
             last_event_count: 0,
             last_check: now,
-            #[cfg(feature = "ebpf")]
             links,
         })
     }
