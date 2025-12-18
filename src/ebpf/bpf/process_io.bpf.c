@@ -126,13 +126,28 @@ int BPF_KPROBE(trace_dev_queue_xmit, struct sk_buff *skb) {
     return 0;
 }
 
-// Block I/O request tracepoint
-SEC("tracepoint/block/block_rq_issue")
-int trace_block_rq_issue(struct trace_event_raw_block_rq_issue *ctx) {
+// Block I/O request raw tracepoint (kernel-agnostic)
+SEC("raw_tracepoint/block_rq_issue")
+int raw_trace_block_rq_issue(struct bpf_raw_tracepoint_args *ctx) {
     u32 pid = get_current_pid();
-    u32 dev = ctx->dev;
-    u32 bytes = ctx->bytes;
-    u32 rwbs = ctx->rwbs;
+    
+    // Raw tracepoint args: (struct request *rq)
+    struct request *rq = (struct request *)ctx->args[0];
+    
+    // NOTE: Device number extraction is challenging with raw tracepoints due to
+    // kernel structure changes between versions. For now, we use dev=0 as a
+    // placeholder. All I/O is tracked but not separated by device.
+    // Future improvement: Use BTF-based field lookup or alternative approach.
+    dev_t dev = 0;
+    
+    // Read operation size (in bytes) - __data_len field
+    unsigned int data_len = 0;
+    bpf_probe_read_kernel(&data_len, sizeof(data_len), &rq->__data_len);
+    
+    // Determine if read or write operation from cmd_flags
+    unsigned int cmd_flags = 0;
+    bpf_probe_read_kernel(&cmd_flags, sizeof(cmd_flags), &rq->cmd_flags);
+    bool is_write = (cmd_flags & 1);  // REQ_OP_WRITE = 1
     
     struct io_key key = {
         .pid = pid,
@@ -142,17 +157,17 @@ int trace_block_rq_issue(struct trace_event_raw_block_rq_issue *ctx) {
     struct blkio_stats *stats = bpf_map_lookup_elem(&blkio_stats_map, &key);
     if (!stats) {
         struct blkio_stats new_stats = {0};
-        if (rwbs & 1) { // Write operation
-            new_stats.write_bytes = bytes;
+        if (is_write) {
+            new_stats.write_bytes = data_len;
             new_stats.write_ops = 1;
-        } else { // Read operation
-            new_stats.read_bytes = bytes;
+        } else {
+            new_stats.read_bytes = data_len;
             new_stats.read_ops = 1;
         }
         bpf_map_update_elem(&blkio_stats_map, &key, &new_stats, BPF_ANY);
     } else {
-        if (rwbs & 1) { // Write
-            __sync_fetch_and_add(&stats->write_bytes, bytes);
+        if (is_write) {
+            __sync_fetch_and_add(&stats->write_bytes, data_len);
             __sync_fetch_and_add(&stats->write_ops, 1);
             
             u32 idx = EVENT_BLKIO_WRITE;
@@ -160,8 +175,8 @@ int trace_block_rq_issue(struct trace_event_raw_block_rq_issue *ctx) {
             if (counter) {
                 __sync_fetch_and_add(counter, 1);
             }
-        } else { // Read
-            __sync_fetch_and_add(&stats->read_bytes, bytes);
+        } else {
+            __sync_fetch_and_add(&stats->read_bytes, data_len);
             __sync_fetch_and_add(&stats->read_ops, 1);
             
             u32 idx = EVENT_BLKIO_READ;
