@@ -93,8 +93,13 @@ fn compile_ebpf_programs() {
         panic!("eBPF compilation failed. See output above for details.");
     }
     
-    println!("cargo:rustc-env=EBPF_OBJECT_PATH={}", bpf_obj.display());
-    println!("cargo:warning=✅ eBPF program compiled successfully: {}", bpf_obj.display());
+    // Copy the compiled eBPF object to src tree for embedding with include_bytes!()
+    let embedded_obj = PathBuf::from("src/ebpf/bpf/process_io.bpf.o");
+    std::fs::copy(&bpf_obj, &embedded_obj)
+        .expect("Failed to copy eBPF object to src tree");
+
+    println!("cargo:rustc-env=EBPF_OBJECT_PATH={}", embedded_obj.display());
+    println!("cargo:warning=✅ eBPF object embedded at: {}", embedded_obj.display());
     
     fn check_tool(tool: &str, arg: &str) {
         let output = Command::new(tool)
