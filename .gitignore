@@ -1,1 +1,5 @@
 /target
+
+# eBPF generated files
+src/ebpf/bpf/vmlinux.h
+*.bpf.o
