@@ -164,13 +164,25 @@ pub struct Args {
     #[arg(long)]
     pub enable_ebpf_network: bool,
 
+    /// Disable eBPF-based per-process network I/O tracking
+    #[arg(long)]
+    pub disable_ebpf_network: bool,
+
     /// Enable eBPF-based per-process disk I/O tracking
     #[arg(long)]
     pub enable_ebpf_disk: bool,
 
+    /// Disable eBPF-based per-process disk I/O tracking
+    #[arg(long)]
+    pub disable_ebpf_disk: bool,
+
     /// Enable TCP connection state tracking via eBPF
     #[arg(long)]
     pub enable_tcp_tracking: bool,
+
+    /// Disable TCP connection state tracking via eBPF
+    #[arg(long)]
+    pub disable_tcp_tracking: bool,
 }
 
 /// Subcommands for additional functionality
