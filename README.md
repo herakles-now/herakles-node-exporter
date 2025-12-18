@@ -720,6 +720,10 @@ Options:
       --enable-tls                   Enable HTTPS/TLS
       --tls-cert <FILE>              Path to TLS certificate (PEM)
       --tls-key <FILE>               Path to TLS private key (PEM)
+      --enable-ebpf                  Enable eBPF-based per-process I/O tracking
+      --enable-ebpf-network          Enable eBPF-based per-process network I/O tracking
+      --enable-ebpf-disk             Enable eBPF-based per-process disk I/O tracking
+      --enable-tcp-tracking          Enable TCP connection state tracking via eBPF
   -h, --help                         Print help
   -V, --version                      Print version
 ```
