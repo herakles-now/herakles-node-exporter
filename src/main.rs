@@ -513,6 +513,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let health_state = Arc::new(HealthState::new(health_config));
 
+    // Initialize eBPF manager if enabled
+    let ebpf = if config.enable_ebpf.unwrap_or(false) {
+        info!("eBPF enabled in configuration, attempting to initialize...");
+        match ebpf::EbpfManager::new() {
+            Ok(manager) => {
+                if manager.is_enabled() {
+                    info!("✅ eBPF initialized successfully - process I/O tracking enabled");
+                } else {
+                    warn!("⚠️  eBPF initialization returned disabled state - running without eBPF metrics");
+                }
+                Some(Arc::new(manager))
+            }
+            Err(e) => {
+                warn!("⚠️  Failed to initialize eBPF: {} - running without eBPF metrics", e);
+                None
+            }
+        }
+    } else {
+        debug!("eBPF disabled in configuration");
+        None
+    };
+
     let state = Arc::new(AppState {
         registry,
         metrics,
@@ -529,6 +551,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         health_state,
         cache_ready: Arc::new(Notify::new()),
         system_cpu_cache: CpuStatsCache::new(),
+        ebpf,
     });
 
     // Perform initial cache population

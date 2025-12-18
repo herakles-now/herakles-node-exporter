@@ -11,6 +11,7 @@ use tokio::sync::{Notify, RwLock};
 
 use crate::cache::MetricsCache;
 use crate::config::Config;
+use crate::ebpf::EbpfManager;
 use crate::health_stats::HealthStats;
 use crate::metrics::MemoryMetrics;
 use crate::process::{BufferConfig, CpuEntry};
@@ -39,4 +40,6 @@ pub struct AppState {
     pub cache_ready: Arc<Notify>,
     /// CPU statistics cache for calculating usage ratios.
     pub system_cpu_cache: CpuStatsCache,
+    /// eBPF manager for process I/O tracking (optional).
+    pub ebpf: Option<Arc<EbpfManager>>,
 }

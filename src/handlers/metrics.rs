@@ -468,6 +468,78 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
             }
 
+            // Collect and update eBPF-based metrics (if enabled)
+            if let Some(ref ebpf) = state.ebpf {
+                if ebpf.is_enabled() {
+                    // Collect process network I/O statistics
+                    if state.config.enable_ebpf_network.unwrap_or(true) {
+                        match ebpf.read_process_net_stats() {
+                            Ok(net_stats) => {
+                                if !net_stats.is_empty() {
+                                    debug!("Collected {} process network I/O stats from eBPF", net_stats.len());
+                                    state.metrics.update_process_network_metrics(&net_stats);
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to read eBPF process network stats: {}", e);
+                            }
+                        }
+                    }
+
+                    // Collect process block I/O statistics
+                    if state.config.enable_ebpf_disk.unwrap_or(true) {
+                        match ebpf.read_process_blkio_stats() {
+                            Ok(blkio_stats) => {
+                                if !blkio_stats.is_empty() {
+                                    debug!("Collected {} process block I/O stats from eBPF", blkio_stats.len());
+                                    state.metrics.update_process_blkio_metrics(&blkio_stats);
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to read eBPF process block I/O stats: {}", e);
+                            }
+                        }
+                    }
+
+                    // Collect TCP connection statistics
+                    if state.config.enable_tcp_tracking.unwrap_or(true) {
+                        match ebpf.read_tcp_stats() {
+                            Ok(tcp_stats) => {
+                                state.metrics.update_tcp_metrics(&tcp_stats);
+                            }
+                            Err(e) => {
+                                warn!("Failed to read eBPF TCP stats: {}", e);
+                            }
+                        }
+                    }
+
+                    // Aggregate I/O metrics by subgroup and update top-N
+                    if state.config.enable_ebpf_network.unwrap_or(true) || state.config.enable_ebpf_disk.unwrap_or(true) {
+                        let net_stats = ebpf.read_process_net_stats().unwrap_or_default();
+                        let blkio_stats = ebpf.read_process_blkio_stats().unwrap_or_default();
+                        
+                        // Calculate aggregations
+                        let (net_agg, blkio_agg) = crate::ebpf::aggregate_io_by_subgroup(&net_stats, &blkio_stats);
+                        state.metrics.update_io_aggregations(&net_agg, &blkio_agg);
+                        
+                        // Calculate top-N processes
+                        let top_n = state.config.top_n_subgroup.unwrap_or(3);
+                        let (top_net, top_blkio) = crate::ebpf::calculate_top_io_processes(&net_stats, &blkio_stats, top_n);
+                        state.metrics.update_top_io_processes(&top_net, &top_blkio);
+                    }
+                }
+            }
+
+            // Collect I/O PSI metric
+            match crate::collectors::diskstats::read_psi_io() {
+                Ok(psi_io) => {
+                    state.metrics.system_io_psi_wait_seconds_total.set(psi_io);
+                }
+                Err(e) => {
+                    debug!("Failed to read I/O PSI (may not be available on this system): {}", e);
+                }
+            }
+
             // Encode metrics in Prometheus text format
             let families = state.registry.gather();
 

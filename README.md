@@ -96,6 +96,35 @@ A high-performance Prometheus exporter for comprehensive Linux system monitoring
 | `herakles_network_transmit_errs_total` | Network device transmit errors | device |
 | `herakles_network_transmit_drop_total` | Network device transmit drops | device |
 
+### eBPF-based Process I/O Metrics (Optional Feature)
+
+When the `ebpf` feature is enabled and eBPF is configured, these additional metrics provide per-process I/O tracking:
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_net_process_bytes_total` | TCP/UDP bytes per process from eBPF | pid, comm, group, subgroup, direction (rx/tx) |
+| `herakles_net_process_packets_total` | TCP/UDP packets per process from eBPF | pid, comm, group, subgroup, direction (rx/tx) |
+| `herakles_net_process_dropped_total` | Dropped packets per process from eBPF | pid, comm, group, subgroup |
+| `herakles_io_process_bytes_total` | Block I/O bytes per process/device from eBPF | pid, comm, device, group, subgroup, direction (read/write) |
+| `herakles_io_process_iops_total` | I/O operations per process/device from eBPF | pid, comm, device, group, subgroup, direction (read/write) |
+| `node_tcp_connections` | TCP connections by state from eBPF | state |
+| `herakles_io_group_read_bytes_total` | Aggregated disk read bytes per subgroup | group, subgroup |
+| `herakles_io_group_write_bytes_total` | Aggregated disk write bytes per subgroup | group, subgroup |
+| `herakles_net_group_rx_bytes_total` | Aggregated network RX bytes per subgroup | group, subgroup |
+| `herakles_net_group_tx_bytes_total` | Aggregated network TX bytes per subgroup | group, subgroup |
+| `herakles_io_top_process_bytes` | Top-N disk I/O processes | group, subgroup, rank, pid, comm, op (read/write) |
+| `herakles_net_top_process_bytes` | Top-N network I/O processes | group, subgroup, rank, pid, comm, dir (rx/tx) |
+| `herakles_io_system_psi_wait_seconds_total` | I/O Pressure Stall Information (PSI) | - |
+
+**eBPF Requirements:**
+- Linux kernel >= 4.18 (for CO-RE eBPF support)
+- BTF (BPF Type Format) support: `/sys/kernel/btf/vmlinux` must exist
+- CAP_BPF + CAP_PERFMON capabilities (or root access)
+- Build dependencies: clang >= 10, llvm >= 10, libbpf-dev
+- Compile with `--features ebpf` flag
+
+**Note:** eBPF functionality is currently in development. The infrastructure is in place, but requires the actual eBPF C programs from `ultimate-exporter` to be fully operational. When eBPF is not available or fails to initialize, the exporter gracefully continues with all standard metrics.
+
 
 ## 📦 Installation
 
@@ -318,6 +347,101 @@ scrape_configs:
       # For private/custom CA certificates:
       ca_file: /path/to/ca.crt
 ```
+
+## 🔬 eBPF Configuration (Optional Advanced Feature)
+
+The exporter supports optional eBPF-based per-process I/O tracking for advanced monitoring scenarios. This feature requires special kernel support and is disabled by default.
+
+### Prerequisites
+
+1. **Linux Kernel**: >= 4.18 with BTF support
+2. **BTF**: `/sys/kernel/btf/vmlinux` must exist
+3. **Capabilities**: CAP_BPF + CAP_PERFMON (or run as root)
+4. **Build Tools** (compile time):
+   - clang >= 10
+   - llvm >= 10
+   - libbpf-dev
+   - linux-headers
+
+### Build with eBPF Support
+
+```bash
+# Install build dependencies (Ubuntu/Debian)
+sudo apt-get install clang llvm libbpf-dev linux-headers-$(uname -r)
+
+# Build with eBPF feature enabled
+cargo build --release --features ebpf
+
+# Or for development
+cargo build --features ebpf
+```
+
+### Enable eBPF via Configuration File
+
+```yaml
+# /etc/herakles/config.yaml
+port: 9215
+bind: "0.0.0.0"
+
+# eBPF Configuration
+enable_ebpf: true                  # Master eBPF enable switch
+enable_ebpf_network: true          # Enable per-process network I/O tracking
+enable_ebpf_disk: true             # Enable per-process disk I/O tracking
+enable_tcp_tracking: true          # Enable TCP connection state tracking
+```
+
+### Run with Required Capabilities
+
+```bash
+# Option 1: Run as root (not recommended for production)
+sudo herakles-node-exporter
+
+# Option 2: Grant specific capabilities (recommended)
+sudo setcap 'cap_bpf,cap_perfmon=+ep' /usr/local/bin/herakles-node-exporter
+herakles-node-exporter
+
+# Option 3: Run in Docker with capabilities
+docker run -d \
+  --name herakles-exporter \
+  --cap-add CAP_BPF \
+  --cap-add CAP_PERFMON \
+  -p 9215:9215 \
+  -v /proc:/host/proc:ro \
+  -v /sys/kernel/btf:/sys/kernel/btf:ro \
+  herakles-node-exporter --enable-ebpf
+```
+
+### Verify eBPF Status
+
+```bash
+# Check if BTF is available
+ls -l /sys/kernel/btf/vmlinux
+
+# Check kernel version
+uname -r
+
+# Start with debug logging to see eBPF initialization
+herakles-node-exporter --log-level debug
+```
+
+### Graceful Degradation
+
+The exporter is designed to work without eBPF:
+- If eBPF initialization fails (old kernel, missing BTF, insufficient permissions), the exporter logs a warning and continues
+- All standard metrics (memory, CPU, system-level disk/network) continue to work normally
+- eBPF metrics are simply not exported when unavailable
+- No impact on performance or reliability of non-eBPF features
+
+### Current Implementation Status
+
+**⚠️ Development Note**: The eBPF integration is currently in development. The Rust infrastructure and metric definitions are complete, but the actual eBPF C programs need to be integrated from the `ultimate-exporter` project. When fully implemented, this will provide:
+- Real-time per-process network I/O tracking (bytes, packets, dropped)
+- Real-time per-process block I/O tracking (bytes, IOPS per device)
+- TCP connection state tracking via eBPF
+- Aggregated I/O metrics per process subgroup
+- Top-N I/O consumer rankings
+
+Until the eBPF C programs are integrated, eBPF metrics will return empty values, and the exporter will log that eBPF is not yet implemented.
 
 ## 🏷️ Subgroups System
 

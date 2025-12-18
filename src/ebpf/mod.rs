@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 /// Process network I/O statistics from eBPF.
 #[derive(Debug, Clone, Default)]
