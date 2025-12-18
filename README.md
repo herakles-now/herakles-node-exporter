@@ -141,22 +141,22 @@ cargo build --release --features ebpf
 
 **Configuration:**
 
-eBPF is **enabled by default** in the configuration. To explicitly disable it:
+eBPF is **enabled by default** in the configuration. To disable it, create a configuration file:
 
 ```yaml
-# Disable eBPF process I/O tracking (if not needed)
+# config.yaml
 enable_ebpf: false
 ```
 
-Or via command-line flag:
+And run with:
 ```bash
-# Run without eBPF (even if compiled with the feature)
-herakles-node-exporter --no-config  # disables eBPF in default config
+herakles-node-exporter --config config.yaml
 ```
 
-Or via environment variable:
+You can also use the command-line to see the current configuration:
 ```bash
-HERAKLES_ENABLE_EBPF=false herakles-node-exporter
+# Show the default configuration (eBPF enabled)
+herakles-node-exporter --show-config --no-config
 ```
 
 **Graceful Degradation:**
