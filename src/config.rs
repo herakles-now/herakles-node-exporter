@@ -86,6 +86,16 @@ pub struct Config {
     pub tls_cert_path: Option<String>,
     #[serde(alias = "tls-key-path")]
     pub tls_key_path: Option<String>,
+
+    // eBPF Configuration
+    #[serde(alias = "enable-ebpf")]
+    pub enable_ebpf: Option<bool>,
+    #[serde(alias = "enable-ebpf-network")]
+    pub enable_ebpf_network: Option<bool>,
+    #[serde(alias = "enable-ebpf-disk")]
+    pub enable_ebpf_disk: Option<bool>,
+    #[serde(alias = "enable-tcp-tracking")]
+    pub enable_tcp_tracking: Option<bool>,
 }
 
 impl Default for Config {
@@ -123,6 +133,10 @@ impl Default for Config {
             enable_tls: Some(false),
             tls_cert_path: None,
             tls_key_path: None,
+            enable_ebpf: Some(false),
+            enable_ebpf_network: Some(true),
+            enable_ebpf_disk: Some(true),
+            enable_tcp_tracking: Some(true),
         }
     }
 }

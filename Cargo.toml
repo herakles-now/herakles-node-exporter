@@ -12,6 +12,8 @@ categories = ["command-line-utilities", "monitoring"]
 
 [features]
 default = []
+# Enable eBPF-based metrics collection
+ebpf = ["libbpf-rs", "libbpf-sys"]
 # Enable actix-web health server example
 health-actix = ["actix-web"]
 
@@ -51,8 +53,14 @@ actix-web = { version = "4", optional = true }
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 tokio-rustls = "0.26"
 
+# eBPF support (optional - feature gated)
+libbpf-rs = { version = "0.24", optional = true }
+libbpf-sys = { version = "1.4", optional = true }
+regex = "1.10"
+
 [build-dependencies]
 vergen = { version = "8.0", features = ["build", "git", "gitcl"] }
+which = "6.0"
 
 [profile.dev]
 opt-level = 0
