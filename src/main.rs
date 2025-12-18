@@ -229,6 +229,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                     Some(name) => name,
                     None => {
                         debug!("Skipping process {}: could not read name", entry.pid);
+                        state.health_stats.record_proc_read_error();
                         skipped_count.fetch_add(1, Ordering::Relaxed);
                         return None;
                     }
@@ -280,6 +281,11 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                     }
                     Err(e) => {
                         debug!("Skipping process {}: failed to parse memory: {}", name, e);
+                        state.health_stats.record_parsing_error();
+                        // Check if it's a permission denied error
+                        if e.to_string().contains("Permission denied") || e.to_string().contains("permission") {
+                            state.health_stats.record_permission_denied();
+                        }
                         skipped_count.fetch_add(1, Ordering::Relaxed);
                         None
                     }
@@ -358,6 +364,23 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     state
         .health_stats
         .record_exporter_resources(exporter_mem_mb, exporter_cpu_pct);
+
+    // Update FD usage
+    if let Ok((open, max)) = system::get_fd_usage() {
+        state.health_stats.update_fd_usage(open, max);
+    }
+
+    // Update eBPF performance stats
+    if let Some(ref ebpf_manager) = state.ebpf {
+        let perf_stats = ebpf_manager.get_performance_stats();
+        if perf_stats.enabled {
+            state.health_stats.record_ebpf_events_per_sec(perf_stats.events_per_sec);
+            state.health_stats.ebpf_map_usage_percent.add_sample(perf_stats.map_usage_percent);
+            state.health_stats.ebpf_overhead_cpu_percent.add_sample(perf_stats.cpu_overhead_percent);
+            // lost_events is cumulative, so just store it
+            state.health_stats.ebpf_lost_events.store(perf_stats.lost_events_total, Ordering::Relaxed);
+        }
+    }
 
     info!(
         "Cache update completed: {} processes (subgroup filters applied at scrape), {} total scanned, {:.2}ms",
@@ -522,11 +545,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     info!("✅ eBPF initialized successfully - process I/O tracking enabled");
                 } else {
                     warn!("⚠️  eBPF initialization returned disabled state - running without eBPF metrics");
+                    health_stats.ebpf_init_failures.fetch_add(1, Ordering::Relaxed);
                 }
                 Some(Arc::new(manager))
             }
             Err(e) => {
                 warn!("⚠️  Failed to initialize eBPF: {} - running without eBPF metrics", e);
+                health_stats.ebpf_init_failures.fetch_add(1, Ordering::Relaxed);
                 None
             }
         }

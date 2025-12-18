@@ -134,6 +134,29 @@ pub struct HealthStats {
     pub exporter_memory_mb: Stat,
     pub exporter_cpu_percent: Stat,
 
+    // eBPF Performance
+    pub ebpf_events_per_sec: Stat,
+    pub ebpf_lost_events: AtomicU64,
+    pub ebpf_map_usage_percent: Stat,
+    pub ebpf_overhead_cpu_percent: Stat,
+
+    // Error Tracking
+    pub proc_read_errors: AtomicU64,
+    pub parsing_errors: AtomicU64,
+    pub permission_denied_count: AtomicU64,
+    pub ebpf_init_failures: AtomicU64,
+
+    // Timing Breakdown
+    pub parsing_duration_ms: Stat,
+    pub serialization_duration_ms: Stat,
+    pub lock_wait_duration_ms: Stat,
+
+    // Resource Limits
+    pub open_fds: AtomicU64,
+    pub max_fds: AtomicU64,
+    pub metrics_response_size_kb: Stat,
+    pub total_time_series: Stat,
+
     // Timing
     pub start_time: Instant,
     pub last_scan_time: StdRwLock<Option<Instant>>,
@@ -158,6 +181,21 @@ impl Default for HealthStats {
             metrics_endpoint_calls: AtomicU64::new(0),
             exporter_memory_mb: Stat::default(),
             exporter_cpu_percent: Stat::default(),
+            ebpf_events_per_sec: Stat::default(),
+            ebpf_lost_events: AtomicU64::new(0),
+            ebpf_map_usage_percent: Stat::default(),
+            ebpf_overhead_cpu_percent: Stat::default(),
+            proc_read_errors: AtomicU64::new(0),
+            parsing_errors: AtomicU64::new(0),
+            permission_denied_count: AtomicU64::new(0),
+            ebpf_init_failures: AtomicU64::new(0),
+            parsing_duration_ms: Stat::default(),
+            serialization_duration_ms: Stat::default(),
+            lock_wait_duration_ms: Stat::default(),
+            open_fds: AtomicU64::new(0),
+            max_fds: AtomicU64::new(0),
+            metrics_response_size_kb: Stat::default(),
+            total_time_series: Stat::default(),
             start_time: Instant::now(),
             last_scan_time: StdRwLock::new(None),
         }
@@ -233,6 +271,55 @@ impl HealthStats {
         if let Ok(mut guard) = self.last_scan_time.write() {
             *guard = Some(Instant::now());
         }
+    }
+
+    // eBPF Performance recording methods
+    pub fn record_ebpf_events_per_sec(&self, rate: f64) {
+        self.ebpf_events_per_sec.add_sample(rate);
+    }
+
+    pub fn record_ebpf_lost_events(&self, count: u64) {
+        self.ebpf_lost_events.fetch_add(count, Ordering::Relaxed);
+    }
+
+    // Error Tracking recording methods
+    pub fn record_proc_read_error(&self) {
+        self.proc_read_errors.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_parsing_error(&self) {
+        self.parsing_errors.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_permission_denied(&self) {
+        self.permission_denied_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    // Timing Breakdown recording methods
+    pub fn record_parsing_duration_ms(&self, duration_ms: f64) {
+        self.parsing_duration_ms.add_sample(duration_ms);
+    }
+
+    pub fn record_serialization_duration_ms(&self, duration_ms: f64) {
+        self.serialization_duration_ms.add_sample(duration_ms);
+    }
+
+    pub fn record_lock_wait_duration_ms(&self, duration_ms: f64) {
+        self.lock_wait_duration_ms.add_sample(duration_ms);
+    }
+
+    // Resource Limits recording methods
+    pub fn update_fd_usage(&self, open: u64, max: u64) {
+        self.open_fds.store(open, Ordering::Relaxed);
+        self.max_fds.store(max, Ordering::Relaxed);
+    }
+
+    pub fn record_metrics_response_size_kb(&self, size_kb: f64) {
+        self.metrics_response_size_kb.add_sample(size_kb);
+    }
+
+    pub fn record_total_time_series(&self, count: u64) {
+        self.total_time_series.add_sample(count as f64);
     }
 
     pub fn get_scan_success_rate(&self) -> f64 {
@@ -519,6 +606,259 @@ impl HealthStats {
             format!("{:.1}", ec_avg),
             format!("{:.1}", ec_max),
             format!("{:.1}", ec_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        // EBPF PERFORMANCE section
+        writeln!(out).ok();
+        writeln!(out, "EBPF PERFORMANCE").ok();
+        writeln!(out, "-----------------").ok();
+
+        let (ep_cur, ep_avg, ep_max, ep_min, _) = self.ebpf_events_per_sec.snapshot();
+        let ebpf_lost = self.ebpf_lost_events.load(Ordering::Relaxed);
+        let (mu_cur, mu_avg, mu_max, mu_min, _) = self.ebpf_map_usage_percent.snapshot();
+        let (eo_cur, eo_avg, eo_max, eo_min, _) = self.ebpf_overhead_cpu_percent.snapshot();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "ebpf_events_per_sec",
+            format!("{:.0}", ep_cur),
+            format!("{:.1}", ep_avg),
+            format!("{:.0}", ep_max),
+            format!("{:.0}", ep_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "ebpf_lost_events_total",
+            format!("{}", ebpf_lost),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "ebpf_map_usage (%)",
+            format!("{:.1}", mu_cur),
+            format!("{:.1}", mu_avg),
+            format!("{:.1}", mu_max),
+            format!("{:.1}", mu_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "ebpf_overhead_cpu (%)",
+            format!("{:.1}", eo_cur),
+            format!("{:.1}", eo_avg),
+            format!("{:.1}", eo_max),
+            format!("{:.1}", eo_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        // ERROR TRACKING section
+        writeln!(out).ok();
+        writeln!(out, "ERROR TRACKING").ok();
+        writeln!(out, "--------------").ok();
+
+        let proc_errors = self.proc_read_errors.load(Ordering::Relaxed);
+        let parse_errors = self.parsing_errors.load(Ordering::Relaxed);
+        let perm_denied = self.permission_denied_count.load(Ordering::Relaxed);
+        let ebpf_fails = self.ebpf_init_failures.load(Ordering::Relaxed);
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "proc_read_errors",
+            format!("{}", proc_errors),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "parsing_errors",
+            format!("{}", parse_errors),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "permission_denied_count",
+            format!("{}", perm_denied),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "ebpf_init_failures",
+            format!("{}", ebpf_fails),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        // TIMING BREAKDOWN section
+        writeln!(out).ok();
+        writeln!(out, "TIMING BREAKDOWN (ms)").ok();
+        writeln!(out, "---------------------").ok();
+
+        let (pd_cur, pd_avg, pd_max, pd_min, _) = self.parsing_duration_ms.snapshot();
+        let (sd_cur, sd_avg, sd_max, sd_min, _) = self.serialization_duration_ms.snapshot();
+        let (lw_cur, lw_avg, lw_max, lw_min, _) = self.lock_wait_duration_ms.snapshot();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "parsing_duration",
+            format!("{:.1}", pd_cur),
+            format!("{:.1}", pd_avg),
+            format!("{:.1}", pd_max),
+            format!("{:.1}", pd_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "serialization_duration",
+            format!("{:.1}", sd_cur),
+            format!("{:.1}", sd_avg),
+            format!("{:.1}", sd_max),
+            format!("{:.1}", sd_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "lock_wait_duration",
+            format!("{:.1}", lw_cur),
+            format!("{:.1}", lw_avg),
+            format!("{:.1}", lw_max),
+            format!("{:.1}", lw_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        // RESOURCE LIMITS section
+        writeln!(out).ok();
+        writeln!(out, "RESOURCE LIMITS").ok();
+        writeln!(out, "---------------").ok();
+
+        let open_fds = self.open_fds.load(Ordering::Relaxed);
+        let max_fds = self.max_fds.load(Ordering::Relaxed);
+        let fd_usage_pct = if max_fds > 0 {
+            (open_fds as f64 / max_fds as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let (mrs_cur, mrs_avg, mrs_max, mrs_min, _) = self.metrics_response_size_kb.snapshot();
+        let (tts_cur, tts_avg, tts_max, tts_min, _) = self.total_time_series.snapshot();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "open_file_descriptors",
+            format!("{}", open_fds),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "max_file_descriptors",
+            format!("{}", max_fds),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "fd_usage (%)",
+            format!("{:.1}", fd_usage_pct),
+            "N/A",
+            "N/A",
+            "N/A",
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "metrics_response_size (KB)",
+            format!("{:.1}", mrs_cur),
+            format!("{:.1}", mrs_avg),
+            format!("{:.1}", mrs_max),
+            format!("{:.1}", mrs_min),
+            left = left_col,
+            col = col_w
+        )
+        .ok();
+
+        writeln!(
+            out,
+            "{:left$} | {:^col$} | {:^col$} | {:^col$} | {:^col$}",
+            "total_time_series",
+            format!("{:.0}", tts_cur),
+            format!("{:.1}", tts_avg),
+            format!("{:.0}", tts_max),
+            format!("{:.0}", tts_min),
             left = left_col,
             col = col_w
         )

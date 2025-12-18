@@ -51,6 +51,17 @@ pub struct TcpStats {
     pub closing: u64,
 }
 
+/// Performance statistics for eBPF programs.
+#[derive(Debug, Clone, Copy)]
+pub struct EbpfPerfStats {
+    pub enabled: bool,
+    pub programs_loaded: usize,
+    pub events_per_sec: f64,
+    pub lost_events_total: u64,
+    pub map_usage_percent: f64,
+    pub cpu_overhead_percent: f64,
+}
+
 /// eBPF manager for loading and managing eBPF programs.
 pub struct EbpfManager {
     enabled: bool,
@@ -178,6 +189,31 @@ impl EbpfManager {
         std::fs::read_to_string(format!("/proc/{}/comm", pid))
             .ok()
             .map(|s| s.trim().to_string())
+    }
+
+    /// Returns performance statistics for eBPF programs.
+    pub fn get_performance_stats(&self) -> EbpfPerfStats {
+        if !self.enabled {
+            return EbpfPerfStats {
+                enabled: false,
+                programs_loaded: 0,
+                events_per_sec: 0.0,
+                lost_events_total: 0,
+                map_usage_percent: 0.0,
+                cpu_overhead_percent: 0.0,
+            };
+        }
+        
+        // TODO: Implement actual eBPF performance tracking
+        // For now, return placeholder values
+        EbpfPerfStats {
+            enabled: true,
+            programs_loaded: 3, // network, blkio, tcp
+            events_per_sec: 0.0,
+            lost_events_total: 0,
+            map_usage_percent: 0.0,
+            cpu_overhead_percent: 0.0,
+        }
     }
 }
 

@@ -42,7 +42,12 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
 
     // Wait for cache to be available (not currently updating)
     loop {
+        // Measure lock wait time
+        let lock_wait_start = Instant::now();
         let cache_guard = state.cache.read().await;
+        let lock_wait_ms = lock_wait_start.elapsed().as_secs_f64() * 1000.0;
+        state.health_stats.record_lock_wait_duration_ms(lock_wait_ms);
+
         if !cache_guard.is_updating {
             let processes_vec: Vec<ProcMem> = cache_guard.processes.values().cloned().collect();
             let meta = (
@@ -552,6 +557,8 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             }
 
             // Encode metrics in Prometheus text format
+            // Measure serialization time
+            let serialize_start = Instant::now();
             let families = state.registry.gather();
 
             // Calculate label cardinality
@@ -570,6 +577,19 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 error!("Failed to encode Prometheus metrics");
                 return Err(MetricsError::EncodingFailed);
             }
+            
+            let serialization_ms = serialize_start.elapsed().as_secs_f64() * 1000.0;
+            state.health_stats.record_serialization_duration_ms(serialization_ms);
+
+            // Record response size
+            let response_size_kb = buffer.len() as f64 / 1024.0;
+            state.health_stats.record_metrics_response_size_kb(response_size_kb);
+
+            // Count time series
+            let time_series_count = families.iter()
+                .map(|f| f.get_metric().len())
+                .sum::<usize>() as u64;
+            state.health_stats.record_total_time_series(time_series_count);
 
             // Record metrics request statistics
             let request_duration_ms = start.elapsed().as_secs_f64() * 1000.0;
