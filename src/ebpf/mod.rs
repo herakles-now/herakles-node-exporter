@@ -51,6 +51,17 @@ pub struct TcpStats {
     pub closing: u64,
 }
 
+/// Performance statistics for eBPF programs.
+#[derive(Debug, Clone, Copy)]
+pub struct EbpfPerfStats {
+    pub enabled: bool,
+    pub programs_loaded: usize,
+    pub events_per_sec: f64,
+    pub lost_events_total: u64,
+    pub map_usage_percent: f64,
+    pub cpu_overhead_percent: f64,
+}
+
 /// eBPF manager for loading and managing eBPF programs.
 pub struct EbpfManager {
     enabled: bool,
@@ -178,6 +189,39 @@ impl EbpfManager {
         std::fs::read_to_string(format!("/proc/{}/comm", pid))
             .ok()
             .map(|s| s.trim().to_string())
+    }
+
+    /// Returns performance statistics for eBPF programs.
+    /// 
+    /// # Note
+    /// This is a placeholder implementation that returns zero/default values.
+    /// Actual eBPF performance tracking will be implemented once the eBPF programs
+    /// are integrated from the ultimate-exporter C code. When implemented, this will:
+    /// - Track real-time event rates from eBPF ring buffers
+    /// - Monitor lost events due to buffer overruns
+    /// - Calculate BPF map memory usage
+    /// - Estimate CPU overhead from eBPF program execution
+    pub fn get_performance_stats(&self) -> EbpfPerfStats {
+        if !self.enabled {
+            return EbpfPerfStats {
+                enabled: false,
+                programs_loaded: 0,
+                events_per_sec: 0.0,
+                lost_events_total: 0,
+                map_usage_percent: 0.0,
+                cpu_overhead_percent: 0.0,
+            };
+        }
+        
+        // Placeholder implementation - returns zero values until eBPF programs are integrated
+        EbpfPerfStats {
+            enabled: true,
+            programs_loaded: 0, // Will be: network, blkio, tcp when implemented
+            events_per_sec: 0.0,
+            lost_events_total: 0,
+            map_usage_percent: 0.0,
+            cpu_overhead_percent: 0.0,
+        }
     }
 }
 
