@@ -5,6 +5,7 @@
 
 mod cache;
 mod cli;
+mod collectors;
 mod commands;
 mod config;
 mod handlers;

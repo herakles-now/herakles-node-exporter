@@ -62,6 +62,36 @@ pub struct MemoryMetrics {
 
     // Memory group swap metrics
     pub mem_group_swap_bytes: GaugeVec,
+
+    // Disk I/O metrics
+    pub disk_reads_completed_total: GaugeVec,
+    pub disk_reads_merged_total: GaugeVec,
+    pub disk_read_bytes_total: GaugeVec,
+    pub disk_read_time_seconds_total: GaugeVec,
+    pub disk_writes_completed_total: GaugeVec,
+    pub disk_writes_merged_total: GaugeVec,
+    pub disk_written_bytes_total: GaugeVec,
+    pub disk_write_time_seconds_total: GaugeVec,
+    pub disk_io_now: GaugeVec,
+    pub disk_io_time_seconds_total: GaugeVec,
+    pub disk_io_time_weighted_seconds_total: GaugeVec,
+
+    // Filesystem metrics
+    pub filesystem_size_bytes: GaugeVec,
+    pub filesystem_free_bytes: GaugeVec,
+    pub filesystem_avail_bytes: GaugeVec,
+    pub filesystem_files: GaugeVec,
+    pub filesystem_files_free: GaugeVec,
+
+    // Network interface metrics
+    pub network_receive_bytes_total: GaugeVec,
+    pub network_receive_packets_total: GaugeVec,
+    pub network_receive_errs_total: GaugeVec,
+    pub network_receive_drop_total: GaugeVec,
+    pub network_transmit_bytes_total: GaugeVec,
+    pub network_transmit_packets_total: GaugeVec,
+    pub network_transmit_errs_total: GaugeVec,
+    pub network_transmit_drop_total: GaugeVec,
 }
 
 impl MemoryMetrics {
@@ -389,6 +419,180 @@ impl MemoryMetrics {
             &["group", "subgroup"],
         )?;
 
+        // Disk I/O metrics
+        let disk_reads_completed_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_reads_completed_total",
+                "The total number of reads completed successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_reads_merged_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_reads_merged_total",
+                "The total number of reads merged",
+            ),
+            &["device"],
+        )?;
+        let disk_read_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_read_bytes_total",
+                "The total number of bytes read successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_read_time_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_read_time_seconds_total",
+                "The total number of seconds spent reading",
+            ),
+            &["device"],
+        )?;
+        let disk_writes_completed_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_writes_completed_total",
+                "The total number of writes completed successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_writes_merged_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_writes_merged_total",
+                "The total number of writes merged",
+            ),
+            &["device"],
+        )?;
+        let disk_written_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_written_bytes_total",
+                "The total number of bytes written successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_write_time_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_write_time_seconds_total",
+                "The total number of seconds spent writing",
+            ),
+            &["device"],
+        )?;
+        let disk_io_now = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_io_now",
+                "The number of I/Os currently in progress",
+            ),
+            &["device"],
+        )?;
+        let disk_io_time_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_io_time_seconds_total",
+                "Total seconds spent doing I/Os",
+            ),
+            &["device"],
+        )?;
+        let disk_io_time_weighted_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_io_time_weighted_seconds_total",
+                "The weighted number of seconds spent doing I/Os",
+            ),
+            &["device"],
+        )?;
+
+        // Filesystem metrics
+        let filesystem_size_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_size_bytes",
+                "Filesystem size in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_free_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_free_bytes",
+                "Filesystem free space in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_avail_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_avail_bytes",
+                "Filesystem space available to non-root users in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_files = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_files",
+                "Filesystem total file nodes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_files_free = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_files_free",
+                "Filesystem total free file nodes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+
+        // Network interface metrics
+        let network_receive_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_bytes_total",
+                "Network device statistic receive_bytes",
+            ),
+            &["device"],
+        )?;
+        let network_receive_packets_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_packets_total",
+                "Network device statistic receive_packets",
+            ),
+            &["device"],
+        )?;
+        let network_receive_errs_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_errs_total",
+                "Network device statistic receive_errs",
+            ),
+            &["device"],
+        )?;
+        let network_receive_drop_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_drop_total",
+                "Network device statistic receive_drop",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_bytes_total",
+                "Network device statistic transmit_bytes",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_packets_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_packets_total",
+                "Network device statistic transmit_packets",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_errs_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_errs_total",
+                "Network device statistic transmit_errs",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_drop_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_drop_total",
+                "Network device statistic transmit_drop",
+            ),
+            &["device"],
+        )?;
+
         registry.register(Box::new(rss.clone()))?;
         registry.register(Box::new(pss.clone()))?;
         registry.register(Box::new(uss.clone()))?;
@@ -433,6 +637,36 @@ impl MemoryMetrics {
         registry.register(Box::new(cpu_top_process_seconds_total.clone()))?;
         registry.register(Box::new(mem_group_swap_bytes.clone()))?;
 
+        // Register disk metrics
+        registry.register(Box::new(disk_reads_completed_total.clone()))?;
+        registry.register(Box::new(disk_reads_merged_total.clone()))?;
+        registry.register(Box::new(disk_read_bytes_total.clone()))?;
+        registry.register(Box::new(disk_read_time_seconds_total.clone()))?;
+        registry.register(Box::new(disk_writes_completed_total.clone()))?;
+        registry.register(Box::new(disk_writes_merged_total.clone()))?;
+        registry.register(Box::new(disk_written_bytes_total.clone()))?;
+        registry.register(Box::new(disk_write_time_seconds_total.clone()))?;
+        registry.register(Box::new(disk_io_now.clone()))?;
+        registry.register(Box::new(disk_io_time_seconds_total.clone()))?;
+        registry.register(Box::new(disk_io_time_weighted_seconds_total.clone()))?;
+
+        // Register filesystem metrics
+        registry.register(Box::new(filesystem_size_bytes.clone()))?;
+        registry.register(Box::new(filesystem_free_bytes.clone()))?;
+        registry.register(Box::new(filesystem_avail_bytes.clone()))?;
+        registry.register(Box::new(filesystem_files.clone()))?;
+        registry.register(Box::new(filesystem_files_free.clone()))?;
+
+        // Register network metrics
+        registry.register(Box::new(network_receive_bytes_total.clone()))?;
+        registry.register(Box::new(network_receive_packets_total.clone()))?;
+        registry.register(Box::new(network_receive_errs_total.clone()))?;
+        registry.register(Box::new(network_receive_drop_total.clone()))?;
+        registry.register(Box::new(network_transmit_bytes_total.clone()))?;
+        registry.register(Box::new(network_transmit_packets_total.clone()))?;
+        registry.register(Box::new(network_transmit_errs_total.clone()))?;
+        registry.register(Box::new(network_transmit_drop_total.clone()))?;
+
         Ok(Self {
             rss,
             pss,
@@ -473,6 +707,30 @@ impl MemoryMetrics {
             cpu_top_process_usage_ratio,
             cpu_top_process_seconds_total,
             mem_group_swap_bytes,
+            disk_reads_completed_total,
+            disk_reads_merged_total,
+            disk_read_bytes_total,
+            disk_read_time_seconds_total,
+            disk_writes_completed_total,
+            disk_writes_merged_total,
+            disk_written_bytes_total,
+            disk_write_time_seconds_total,
+            disk_io_now,
+            disk_io_time_seconds_total,
+            disk_io_time_weighted_seconds_total,
+            filesystem_size_bytes,
+            filesystem_free_bytes,
+            filesystem_avail_bytes,
+            filesystem_files,
+            filesystem_files_free,
+            network_receive_bytes_total,
+            network_receive_packets_total,
+            network_receive_errs_total,
+            network_receive_drop_total,
+            network_transmit_bytes_total,
+            network_transmit_packets_total,
+            network_transmit_errs_total,
+            network_transmit_drop_total,
         })
     }
 
@@ -513,6 +771,36 @@ impl MemoryMetrics {
         self.cpu_top_process_usage_ratio.reset();
         self.cpu_top_process_seconds_total.reset();
         self.mem_group_swap_bytes.reset();
+
+        // Reset disk metrics
+        self.disk_reads_completed_total.reset();
+        self.disk_reads_merged_total.reset();
+        self.disk_read_bytes_total.reset();
+        self.disk_read_time_seconds_total.reset();
+        self.disk_writes_completed_total.reset();
+        self.disk_writes_merged_total.reset();
+        self.disk_written_bytes_total.reset();
+        self.disk_write_time_seconds_total.reset();
+        self.disk_io_now.reset();
+        self.disk_io_time_seconds_total.reset();
+        self.disk_io_time_weighted_seconds_total.reset();
+
+        // Reset filesystem metrics
+        self.filesystem_size_bytes.reset();
+        self.filesystem_free_bytes.reset();
+        self.filesystem_avail_bytes.reset();
+        self.filesystem_files.reset();
+        self.filesystem_files_free.reset();
+
+        // Reset network metrics
+        self.network_receive_bytes_total.reset();
+        self.network_receive_packets_total.reset();
+        self.network_receive_errs_total.reset();
+        self.network_receive_drop_total.reset();
+        self.network_transmit_bytes_total.reset();
+        self.network_transmit_packets_total.reset();
+        self.network_transmit_errs_total.reset();
+        self.network_transmit_drop_total.reset();
     }
 
     /// Sets system memory metrics (total, available, used ratio, cached, buffers, swap).
@@ -625,5 +913,52 @@ impl MemoryMetrics {
                 .with_label_values(labels)
                 .set(cpu_time_seconds);
         }
+    }
+
+    /// Updates disk I/O metrics for a device.
+    pub fn update_disk_stats(&self, device: &str, stats: &crate::collectors::diskstats::DiskStats) {
+        let labels = &[device];
+        
+        self.disk_reads_completed_total.with_label_values(labels).set(stats.reads_completed as f64);
+        self.disk_reads_merged_total.with_label_values(labels).set(stats.reads_merged as f64);
+        // Convert sectors to bytes (assuming 512 bytes per sector)
+        self.disk_read_bytes_total.with_label_values(labels).set((stats.sectors_read * 512) as f64);
+        // Convert milliseconds to seconds
+        self.disk_read_time_seconds_total.with_label_values(labels).set(stats.time_reading_ms as f64 / 1000.0);
+        
+        self.disk_writes_completed_total.with_label_values(labels).set(stats.writes_completed as f64);
+        self.disk_writes_merged_total.with_label_values(labels).set(stats.writes_merged as f64);
+        self.disk_written_bytes_total.with_label_values(labels).set((stats.sectors_written * 512) as f64);
+        self.disk_write_time_seconds_total.with_label_values(labels).set(stats.time_writing_ms as f64 / 1000.0);
+        
+        self.disk_io_now.with_label_values(labels).set(stats.ios_in_progress as f64);
+        self.disk_io_time_seconds_total.with_label_values(labels).set(stats.time_io_ms as f64 / 1000.0);
+        self.disk_io_time_weighted_seconds_total.with_label_values(labels).set(stats.weighted_time_io_ms as f64 / 1000.0);
+    }
+
+    /// Updates filesystem metrics for a mount point.
+    pub fn update_filesystem_stats(&self, stats: &crate::collectors::filesystem::FilesystemStats) {
+        let labels = &[stats.device.as_str(), stats.mount_point.as_str(), stats.fstype.as_str()];
+        
+        self.filesystem_size_bytes.with_label_values(labels).set(stats.size_bytes as f64);
+        self.filesystem_free_bytes.with_label_values(labels).set((stats.size_bytes - stats.used_bytes) as f64);
+        self.filesystem_avail_bytes.with_label_values(labels).set(stats.available_bytes as f64);
+        self.filesystem_files.with_label_values(labels).set(stats.files_total as f64);
+        self.filesystem_files_free.with_label_values(labels).set(stats.files_free as f64);
+    }
+
+    /// Updates network interface metrics.
+    pub fn update_network_stats(&self, interface: &str, stats: &crate::collectors::netdev::NetDevStats) {
+        let labels = &[interface];
+        
+        self.network_receive_bytes_total.with_label_values(labels).set(stats.receive_bytes as f64);
+        self.network_receive_packets_total.with_label_values(labels).set(stats.receive_packets as f64);
+        self.network_receive_errs_total.with_label_values(labels).set(stats.receive_errs as f64);
+        self.network_receive_drop_total.with_label_values(labels).set(stats.receive_drop as f64);
+        
+        self.network_transmit_bytes_total.with_label_values(labels).set(stats.transmit_bytes as f64);
+        self.network_transmit_packets_total.with_label_values(labels).set(stats.transmit_packets as f64);
+        self.network_transmit_errs_total.with_label_values(labels).set(stats.transmit_errs as f64);
+        self.network_transmit_drop_total.with_label_values(labels).set(stats.transmit_drop as f64);
     }
 }
