@@ -3,3 +3,6 @@
 # eBPF generated files
 src/ebpf/bpf/vmlinux.h
 *.bpf.o
+
+# CodeQL artifacts
+_codeql_detected_source_root
