@@ -1,7 +1,7 @@
 [package]
 name = "herakles-node-exporter"
 version = "0.1.0"
-description = "Prometheus exporter for per-process RSS/PSS/USS memory metrics"
+description = "Comprehensive Prometheus exporter for Linux system metrics including per-process memory/CPU, disk I/O, filesystem, and network statistics"
 authors = ["Michael Moll <proc-mem@herakles.io>"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
@@ -93,7 +93,11 @@ assets = [
   ],
 ]
 extended-description = """\
-Prometheus exporter that provides per-process memory metrics including\
-RSS (Resident Set Size), PSS (Proportional Set Size), and USS (Unique Set Size).\
-Ideal for containerized environments and memory usage analysis.\
+Comprehensive Prometheus exporter for Linux system monitoring providing:\
+- Per-process memory metrics (RSS, PSS, USS)\
+- Per-process CPU metrics\
+- Disk I/O statistics\
+- Filesystem usage and inode statistics\
+- Network interface statistics\
+Ideal for containerized environments and detailed system analysis.\
 """

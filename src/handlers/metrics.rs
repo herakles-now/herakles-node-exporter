@@ -432,6 +432,42 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 .metrics
                 .set_psi_metrics(cpu_psi_total, memory_psi_total);
 
+            // Collect and update disk statistics
+            match crate::collectors::diskstats::read_diskstats() {
+                Ok(disk_stats) => {
+                    for (device, stats) in disk_stats.iter() {
+                        state.metrics.update_disk_stats(device, stats);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read disk statistics: {}", e);
+                }
+            }
+
+            // Collect and update filesystem statistics
+            match crate::collectors::filesystem::read_filesystem_stats() {
+                Ok(fs_stats) => {
+                    for stats in fs_stats.iter() {
+                        state.metrics.update_filesystem_stats(stats);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read filesystem statistics: {}", e);
+                }
+            }
+
+            // Collect and update network interface statistics
+            match crate::collectors::netdev::read_netdev_stats() {
+                Ok(net_stats) => {
+                    for (interface, stats) in net_stats.iter() {
+                        state.metrics.update_network_stats(interface, stats);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read network statistics: {}", e);
+                }
+            }
+
             // Encode metrics in Prometheus text format
             let families = state.registry.gather();
 
