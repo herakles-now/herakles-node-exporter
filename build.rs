@@ -33,17 +33,23 @@ fn compile_ebpf_programs() {
     let vmlinux_h = bpf_src.join("vmlinux.h");
     if !vmlinux_h.exists() {
         println!("cargo:warning=Generating vmlinux.h from kernel BTF...");
-        let status = Command::new("bpftool")
+        let output = Command::new("bpftool")
             .args(&["btf", "dump", "file", "/sys/kernel/btf/vmlinux", "format", "c"])
             .current_dir(&bpf_src)
             .output()
             .expect("Failed to generate vmlinux.h");
         
-        if !status.status.success() {
+        if !output.status.success() {
             panic!("Failed to generate vmlinux.h. BTF support required.");
         }
         
-        std::fs::write(&vmlinux_h, status.stdout)
+        // Validate that the output looks like a C header
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        if !output_str.contains("#ifndef") || !output_str.contains("struct") {
+            panic!("Generated vmlinux.h does not appear to be a valid C header");
+        }
+        
+        std::fs::write(&vmlinux_h, output.stdout)
             .expect("Failed to write vmlinux.h");
     }
     

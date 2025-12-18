@@ -83,6 +83,10 @@ struct EbpfInner {
     start_time: Instant,
     #[cfg(feature = "ebpf")]
     last_event_count: u64,
+    #[cfg(feature = "ebpf")]
+    last_check: Instant,
+    #[cfg(feature = "ebpf")]
+    links: Vec<libbpf_rs::Link>,
     #[cfg(not(feature = "ebpf"))]
     #[allow(dead_code)]
     loaded: bool,
@@ -135,11 +139,11 @@ impl EbpfManager {
         let open_obj = builder.open_file(obj_path)?;
         let mut obj = open_obj.load()?;
         
-        // Attach all programs
+        // Attach all programs and store links to keep them alive
+        let mut links = Vec::new();
         for prog in obj.progs_mut() {
-            let _link = prog.attach()?;
-            // Keep link alive by storing it - this is intentional to keep programs attached
-            std::mem::forget(_link);
+            let link = prog.attach()?;
+            links.push(link);
         }
         
         info!("✅ eBPF programs loaded and attached successfully");
@@ -147,10 +151,14 @@ impl EbpfManager {
         info!("   - Block I/O tracking enabled");
         info!("   - TCP state tracking enabled");
         
+        let now = Instant::now();
         Ok(EbpfInner {
             object: obj,
-            start_time: Instant::now(),
+            start_time: now,
             last_event_count: 0,
+            last_check: now,
+            #[cfg(feature = "ebpf")]
+            links,
         })
     }
 
@@ -178,11 +186,12 @@ impl EbpfManager {
                     if let Some(value) = map.lookup(&key, MapFlags::ANY)? {
                         let pid = u32::from_ne_bytes(key.try_into()?);
                         
-                        // Parse the net_stats struct: 5 u64 fields
+                        // Parse the net_stats struct: 5 u64 fields (40 bytes)
                         if value.len() >= 40 {
-                            let data = unsafe { 
-                                std::slice::from_raw_parts(value.as_ptr() as *const u64, 5)
-                            };
+                            let mut data = [0u64; 5];
+                            for (i, chunk) in value.chunks_exact(8).take(5).enumerate() {
+                                data[i] = u64::from_ne_bytes(chunk.try_into().unwrap());
+                            }
                             
                             let comm = Self::read_process_name(pid)
                                 .unwrap_or_else(|| format!("pid_{}", pid));
@@ -224,19 +233,21 @@ impl EbpfManager {
                 
                 for key in map.keys() {
                     if let Some(value) = map.lookup(&key, MapFlags::ANY)? {
-                        // Parse io_key struct: pid (u32) + dev (u32)
+                        // Parse io_key struct: pid (u32) + dev (u32) = 8 bytes
                         if key.len() >= 8 {
-                            let key_data = unsafe { 
-                                std::slice::from_raw_parts(key.as_ptr() as *const u32, 2)
-                            };
+                            let mut key_data = [0u32; 2];
+                            for (i, chunk) in key.chunks_exact(4).take(2).enumerate() {
+                                key_data[i] = u32::from_ne_bytes(chunk.try_into().unwrap());
+                            }
                             let pid = key_data[0];
                             let dev = key_data[1];
                             
-                            // Parse blkio_stats struct: 4 u64 fields
+                            // Parse blkio_stats struct: 4 u64 fields (32 bytes)
                             if value.len() >= 32 {
-                                let data = unsafe { 
-                                    std::slice::from_raw_parts(value.as_ptr() as *const u64, 4)
-                                };
+                                let mut data = [0u64; 4];
+                                for (i, chunk) in value.chunks_exact(8).take(4).enumerate() {
+                                    data[i] = u64::from_ne_bytes(chunk.try_into().unwrap());
+                                }
                                 
                                 let comm = Self::read_process_name(pid)
                                     .unwrap_or_else(|| format!("pid_{}", pid));
@@ -369,7 +380,7 @@ impl EbpfManager {
             let mut inner_guard = self.inner.lock().unwrap();
             if let Some(ref mut inner) = *inner_guard {
                 // Calculate events per second from event_counters map
-                let events_per_sec = Self::calculate_event_rate(&inner.object, &inner.start_time, &mut inner.last_event_count);
+                let events_per_sec = Self::calculate_event_rate(&inner.object, &mut inner.last_check, &mut inner.last_event_count);
                 let map_usage = Self::calculate_map_usage(&inner.object);
                 
                 return EbpfPerfStats {
@@ -394,7 +405,7 @@ impl EbpfManager {
     }
     
     #[cfg(feature = "ebpf")]
-    fn calculate_event_rate(object: &Object, start_time: &Instant, last_count: &mut u64) -> f64 {
+    fn calculate_event_rate(object: &Object, last_check: &mut Instant, last_count: &mut u64) -> f64 {
         if let Some(map) = object.map("event_counters") {
             let mut total_events = 0u64;
             
@@ -410,10 +421,12 @@ impl EbpfManager {
             }
             
             // Calculate rate since last check
-            let elapsed = start_time.elapsed().as_secs_f64();
+            let now = Instant::now();
+            let elapsed = now.duration_since(*last_check).as_secs_f64();
             if elapsed > 0.0 {
                 let events_since_last = total_events.saturating_sub(*last_count);
                 *last_count = total_events;
+                *last_check = now;
                 return events_since_last as f64 / elapsed;
             }
         }
