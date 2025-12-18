@@ -1,15 +1,19 @@
-# Herakles Process Memory Exporter
+# Herakles Node Exporter
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Prometheus](https://img.shields.io/badge/prometheus-exporter-red.svg)](https://prometheus.io)
 
-A high-performance Prometheus exporter for per-process memory and CPU metrics on Linux systems. Provides detailed RSS, PSS, USS memory metrics and CPU usage with intelligent process classification.
+A high-performance Prometheus exporter for comprehensive Linux system monitoring. Provides detailed per-process memory and CPU metrics, system-wide resource metrics, disk I/O statistics, filesystem usage, and network interface statistics with intelligent process classification.
 
 ## 🚀 Key Features
 
 - **Per-Process Memory Metrics**: RSS (Resident Set Size), PSS (Proportional Set Size), USS (Unique Set Size)
 - **CPU Metrics**: Per-process CPU percentage and total CPU time
+- **System Metrics**: Memory, CPU, load averages, and pressure stall information (PSI)
+- **Disk I/O Metrics**: Read/write operations, bytes transferred, I/O time statistics per device
+- **Filesystem Metrics**: Size, available space, inode statistics per mount point
+- **Network Metrics**: Bytes, packets, errors, and drops per network interface
 - **Intelligent Process Classification**: 140+ built-in subgroups for automatic process categorization
 - **Top-N Metrics**: Track top memory/CPU consumers per subgroup
 - **High Performance**: Background caching, parallel processing, optimized `/proc` parsing
@@ -52,6 +56,46 @@ A high-performance Prometheus exporter for per-process memory and CPU metrics on
 | `herakles_cpu_system_load_5` | System load average over 5 minutes | - |
 | `herakles_cpu_system_load_15` | System load average over 15 minutes | - |
 | `herakles_cpu_system_psi_wait_seconds_total` | CPU pressure stall total seconds | - |
+
+### Disk I/O Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_disk_reads_completed_total` | Total number of reads completed successfully | device |
+| `herakles_disk_reads_merged_total` | Total number of reads merged | device |
+| `herakles_disk_read_bytes_total` | Total number of bytes read successfully | device |
+| `herakles_disk_read_time_seconds_total` | Total seconds spent reading | device |
+| `herakles_disk_writes_completed_total` | Total number of writes completed successfully | device |
+| `herakles_disk_writes_merged_total` | Total number of writes merged | device |
+| `herakles_disk_written_bytes_total` | Total number of bytes written successfully | device |
+| `herakles_disk_write_time_seconds_total` | Total seconds spent writing | device |
+| `herakles_disk_io_now` | Number of I/Os currently in progress | device |
+| `herakles_disk_io_time_seconds_total` | Total seconds spent doing I/Os | device |
+| `herakles_disk_io_time_weighted_seconds_total` | Weighted seconds spent doing I/Os | device |
+
+### Filesystem Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_filesystem_size_bytes` | Filesystem size in bytes | device, mountpoint, fstype |
+| `herakles_filesystem_free_bytes` | Filesystem free space in bytes | device, mountpoint, fstype |
+| `herakles_filesystem_avail_bytes` | Filesystem space available to non-root users | device, mountpoint, fstype |
+| `herakles_filesystem_files` | Filesystem total file nodes (inodes) | device, mountpoint, fstype |
+| `herakles_filesystem_files_free` | Filesystem total free file nodes | device, mountpoint, fstype |
+
+### Network Interface Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_network_receive_bytes_total` | Network device bytes received | device |
+| `herakles_network_receive_packets_total` | Network device packets received | device |
+| `herakles_network_receive_errs_total` | Network device receive errors | device |
+| `herakles_network_receive_drop_total` | Network device receive drops | device |
+| `herakles_network_transmit_bytes_total` | Network device bytes transmitted | device |
+| `herakles_network_transmit_packets_total` | Network device packets transmitted | device |
+| `herakles_network_transmit_errs_total` | Network device transmit errors | device |
+| `herakles_network_transmit_drop_total` | Network device transmit drops | device |
+
 
 ## 📦 Installation
 
@@ -451,6 +495,7 @@ sudo systemctl status herakles-node-exporter
 
 ## 📈 Example PromQL Queries
 
+### Process Metrics
 ```promql
 # Top 10 processes by USS memory
 topk(10, herakles_mem_process_uss_bytes)
@@ -467,6 +512,59 @@ rate(herakles_mem_process_rss_bytes[5m]) * 60
 # Process count per subgroup
 count by (group, subgroup) (herakles_mem_process_uss_bytes)
 ```
+
+### Disk I/O Metrics
+```promql
+# Disk read/write rate in bytes per second
+rate(herakles_disk_read_bytes_total[5m])
+rate(herakles_disk_written_bytes_total[5m])
+
+# Disk I/O operations per second
+rate(herakles_disk_reads_completed_total[5m])
+rate(herakles_disk_writes_completed_total[5m])
+
+# Disk I/O utilization (percentage of time with I/O in progress)
+rate(herakles_disk_io_time_seconds_total[5m]) * 100
+
+# Average I/O wait time
+rate(herakles_disk_io_time_weighted_seconds_total[5m]) / 
+  (rate(herakles_disk_reads_completed_total[5m]) + rate(herakles_disk_writes_completed_total[5m]))
+```
+
+### Filesystem Metrics
+```promql
+# Filesystem usage percentage
+(herakles_filesystem_size_bytes - herakles_filesystem_free_bytes) / herakles_filesystem_size_bytes * 100
+
+# Filesystem available space in GB
+herakles_filesystem_avail_bytes / 1024 / 1024 / 1024
+
+# Filesystems with less than 10% free space
+(herakles_filesystem_free_bytes / herakles_filesystem_size_bytes) < 0.1
+
+# Inode usage percentage
+(herakles_filesystem_files - herakles_filesystem_files_free) / herakles_filesystem_files * 100
+```
+
+### Network Metrics
+```promql
+# Network traffic rate in bytes per second
+rate(herakles_network_receive_bytes_total[5m])
+rate(herakles_network_transmit_bytes_total[5m])
+
+# Network packet rate
+rate(herakles_network_receive_packets_total[5m])
+rate(herakles_network_transmit_packets_total[5m])
+
+# Network error rate
+rate(herakles_network_receive_errs_total[5m])
+rate(herakles_network_transmit_errs_total[5m])
+
+# Total network bandwidth usage
+sum(rate(herakles_network_receive_bytes_total[5m])) + 
+  sum(rate(herakles_network_transmit_bytes_total[5m]))
+```
+
 
 ## 🔧 CLI Reference
 
