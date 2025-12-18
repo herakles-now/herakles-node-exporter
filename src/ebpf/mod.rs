@@ -7,6 +7,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+#[cfg(not(feature = "ebpf"))]
+use tracing::debug;
+
 #[cfg(feature = "ebpf")]
 use std::time::Instant;
 
