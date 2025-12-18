@@ -63,7 +63,7 @@ pub struct MemoryMetrics {
     // Memory group swap metrics
     pub mem_group_swap_bytes: GaugeVec,
 
-    // Disk I/O metrics
+    // Disk I/O metrics (reported as gauges with absolute values from /proc)
     pub disk_reads_completed_total: GaugeVec,
     pub disk_reads_merged_total: GaugeVec,
     pub disk_read_bytes_total: GaugeVec,
@@ -83,7 +83,7 @@ pub struct MemoryMetrics {
     pub filesystem_files: GaugeVec,
     pub filesystem_files_free: GaugeVec,
 
-    // Network interface metrics
+    // Network interface metrics (reported as gauges with absolute values from /proc)
     pub network_receive_bytes_total: GaugeVec,
     pub network_receive_packets_total: GaugeVec,
     pub network_receive_errs_total: GaugeVec,
@@ -419,7 +419,7 @@ impl MemoryMetrics {
             &["group", "subgroup"],
         )?;
 
-        // Disk I/O metrics
+        // Disk I/O metrics (reported as gauges with absolute cumulative values from /proc/diskstats)
         let disk_reads_completed_total = GaugeVec::new(
             Opts::new(
                 "herakles_disk_reads_completed_total",
@@ -535,7 +535,7 @@ impl MemoryMetrics {
             &["device", "mountpoint", "fstype"],
         )?;
 
-        // Network interface metrics
+        // Network interface metrics (reported as gauges with absolute cumulative values from /proc/net/dev)
         let network_receive_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_network_receive_bytes_total",
