@@ -42,6 +42,7 @@
 
 pub mod health;
 pub mod health_config;
+pub mod health_stats;
 
 // Re-export main types for convenience
 pub use health::{BufferHealth, HealthResponse, HealthState};
