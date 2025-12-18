@@ -9,7 +9,13 @@ use std::sync::{Arc, Mutex};
 use tracing::debug;
 
 #[cfg(feature = "ebpf")]
+use std::time::Instant;
+
+#[cfg(feature = "ebpf")]
 use tracing::{info, warn};
+
+#[cfg(feature = "ebpf")]
+use libbpf_rs::{MapCore, MapFlags, Object, ObjectBuilder};
 
 /// Process network I/O statistics from eBPF.
 #[derive(Debug, Clone, Default)]
@@ -55,6 +61,7 @@ pub struct TcpStats {
 #[derive(Debug, Clone, Copy)]
 pub struct EbpfPerfStats {
     pub enabled: bool,
+    #[allow(dead_code)] // Part of public API, used when eBPF feature is enabled
     pub programs_loaded: usize,
     pub events_per_sec: f64,
     pub lost_events_total: u64,
@@ -70,8 +77,13 @@ pub struct EbpfManager {
 }
 
 struct EbpfInner {
-    // Placeholder for actual eBPF structures
-    // In a real implementation, this would hold libbpf-rs objects
+    #[cfg(feature = "ebpf")]
+    object: Object,
+    #[cfg(feature = "ebpf")]
+    start_time: Instant,
+    #[cfg(feature = "ebpf")]
+    last_event_count: u64,
+    #[cfg(not(feature = "ebpf"))]
     #[allow(dead_code)]
     loaded: bool,
 }
@@ -114,14 +126,32 @@ impl EbpfManager {
 
     #[cfg(feature = "ebpf")]
     fn try_init_ebpf() -> Result<EbpfInner, anyhow::Error> {
-        // TODO: Actual eBPF initialization would go here
-        // This would involve:
-        // 1. Loading eBPF object file (embedded via include_bytes!)
-        // 2. Attaching to kernel tracepoints/kprobes
-        // 3. Setting up BPF maps for communication
+        // Load eBPF object file (embedded at compile time)
+        let obj_path = env!("EBPF_OBJECT_PATH");
         
-        // For now, return an error to indicate eBPF is not yet implemented
-        Err(anyhow::anyhow!("eBPF implementation pending - requires eBPF C code from ultimate-exporter"))
+        let mut builder = ObjectBuilder::default();
+        builder.debug(true);
+        
+        let open_obj = builder.open_file(obj_path)?;
+        let mut obj = open_obj.load()?;
+        
+        // Attach all programs
+        for prog in obj.progs_mut() {
+            let _link = prog.attach()?;
+            // Keep link alive by storing it - this is intentional to keep programs attached
+            std::mem::forget(_link);
+        }
+        
+        info!("✅ eBPF programs loaded and attached successfully");
+        info!("   - Network RX/TX tracking enabled");
+        info!("   - Block I/O tracking enabled");
+        info!("   - TCP state tracking enabled");
+        
+        Ok(EbpfInner {
+            object: obj,
+            start_time: Instant::now(),
+            last_event_count: 0,
+        })
     }
 
     /// Returns true if eBPF is enabled and functional.
@@ -135,11 +165,44 @@ impl EbpfManager {
             return Ok(Vec::new());
         }
 
-        // TODO: Read from eBPF maps
-        // In a real implementation, this would:
-        // 1. Iterate over BPF_MAP_TYPE_HASH containing per-PID stats
-        // 2. Parse the binary data into ProcessNetStats
-        // 3. Resolve process names from /proc if needed
+        #[cfg(feature = "ebpf")]
+        {
+            let inner = self.inner.lock().unwrap();
+            if let Some(ref inner) = *inner {
+                let map = inner.object.map("net_stats_map").ok_or_else(|| {
+                    anyhow::anyhow!("net_stats_map not found")
+                })?;
+                let mut stats = Vec::new();
+                
+                for key in map.keys() {
+                    if let Some(value) = map.lookup(&key, MapFlags::ANY)? {
+                        let pid = u32::from_ne_bytes(key.try_into()?);
+                        
+                        // Parse the net_stats struct: 5 u64 fields
+                        if value.len() >= 40 {
+                            let data = unsafe { 
+                                std::slice::from_raw_parts(value.as_ptr() as *const u64, 5)
+                            };
+                            
+                            let comm = Self::read_process_name(pid)
+                                .unwrap_or_else(|| format!("pid_{}", pid));
+                            
+                            stats.push(ProcessNetStats {
+                                pid,
+                                comm,
+                                rx_bytes: data[0],
+                                tx_bytes: data[1],
+                                rx_packets: data[2],
+                                tx_packets: data[3],
+                                dropped: data[4],
+                            });
+                        }
+                    }
+                }
+                
+                return Ok(stats);
+            }
+        }
         
         Ok(Vec::new())
     }
@@ -150,7 +213,53 @@ impl EbpfManager {
             return Ok(Vec::new());
         }
 
-        // TODO: Read from eBPF maps
+        #[cfg(feature = "ebpf")]
+        {
+            let inner = self.inner.lock().unwrap();
+            if let Some(ref inner) = *inner {
+                let map = inner.object.map("blkio_stats_map").ok_or_else(|| {
+                    anyhow::anyhow!("blkio_stats_map not found")
+                })?;
+                let mut stats = Vec::new();
+                
+                for key in map.keys() {
+                    if let Some(value) = map.lookup(&key, MapFlags::ANY)? {
+                        // Parse io_key struct: pid (u32) + dev (u32)
+                        if key.len() >= 8 {
+                            let key_data = unsafe { 
+                                std::slice::from_raw_parts(key.as_ptr() as *const u32, 2)
+                            };
+                            let pid = key_data[0];
+                            let dev = key_data[1];
+                            
+                            // Parse blkio_stats struct: 4 u64 fields
+                            if value.len() >= 32 {
+                                let data = unsafe { 
+                                    std::slice::from_raw_parts(value.as_ptr() as *const u64, 4)
+                                };
+                                
+                                let comm = Self::read_process_name(pid)
+                                    .unwrap_or_else(|| format!("pid_{}", pid));
+                                let device = Self::resolve_device_name(dev >> 20, dev & 0xfffff);
+                                
+                                stats.push(ProcessBlkioStats {
+                                    pid,
+                                    comm,
+                                    device,
+                                    read_bytes: data[0],
+                                    write_bytes: data[1],
+                                    read_ops: data[2],
+                                    write_ops: data[3],
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                return Ok(stats);
+            }
+        }
+
         Ok(Vec::new())
     }
 
@@ -160,7 +269,58 @@ impl EbpfManager {
             return Ok(TcpStats::default());
         }
 
-        // TODO: Read from eBPF maps
+        #[cfg(feature = "ebpf")]
+        {
+            let inner = self.inner.lock().unwrap();
+            if let Some(ref inner) = *inner {
+                let map = inner.object.map("tcp_state_map").ok_or_else(|| {
+                    anyhow::anyhow!("tcp_state_map not found")
+                })?;
+                
+                // TCP states from include/net/tcp_states.h
+                const TCP_ESTABLISHED: u32 = 1;
+                const TCP_SYN_SENT: u32 = 2;
+                const TCP_SYN_RECV: u32 = 3;
+                const TCP_FIN_WAIT1: u32 = 4;
+                const TCP_FIN_WAIT2: u32 = 5;
+                const TCP_TIME_WAIT: u32 = 6;
+                const TCP_CLOSE: u32 = 7;
+                const TCP_CLOSE_WAIT: u32 = 8;
+                const TCP_LAST_ACK: u32 = 9;
+                const TCP_LISTEN: u32 = 10;
+                const TCP_CLOSING: u32 = 11;
+                
+                let mut tcp_stats = TcpStats::default();
+                
+                for state in [TCP_ESTABLISHED, TCP_SYN_SENT, TCP_SYN_RECV, TCP_FIN_WAIT1, 
+                              TCP_FIN_WAIT2, TCP_TIME_WAIT, TCP_CLOSE, TCP_CLOSE_WAIT,
+                              TCP_LAST_ACK, TCP_LISTEN, TCP_CLOSING] {
+                    let key = state.to_ne_bytes();
+                    if let Some(value) = map.lookup(&key, MapFlags::ANY).ok().flatten() {
+                        if value.len() >= 8 {
+                            let count = u64::from_ne_bytes(value[0..8].try_into().unwrap());
+                            match state {
+                                TCP_ESTABLISHED => tcp_stats.established = count,
+                                TCP_SYN_SENT => tcp_stats.syn_sent = count,
+                                TCP_SYN_RECV => tcp_stats.syn_recv = count,
+                                TCP_FIN_WAIT1 => tcp_stats.fin_wait1 = count,
+                                TCP_FIN_WAIT2 => tcp_stats.fin_wait2 = count,
+                                TCP_TIME_WAIT => tcp_stats.time_wait = count,
+                                TCP_CLOSE => tcp_stats.close = count,
+                                TCP_CLOSE_WAIT => tcp_stats.close_wait = count,
+                                TCP_LAST_ACK => tcp_stats.last_ack = count,
+                                TCP_LISTEN => tcp_stats.listen = count,
+                                TCP_CLOSING => tcp_stats.closing = count,
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                
+                return Ok(tcp_stats);
+            }
+        }
+
         Ok(TcpStats::default())
     }
 
@@ -192,15 +352,6 @@ impl EbpfManager {
     }
 
     /// Returns performance statistics for eBPF programs.
-    /// 
-    /// # Note
-    /// This is a placeholder implementation that returns zero/default values.
-    /// Actual eBPF performance tracking will be implemented once the eBPF programs
-    /// are integrated from the ultimate-exporter C code. When implemented, this will:
-    /// - Track real-time event rates from eBPF ring buffers
-    /// - Monitor lost events due to buffer overruns
-    /// - Calculate BPF map memory usage
-    /// - Estimate CPU overhead from eBPF program execution
     pub fn get_performance_stats(&self) -> EbpfPerfStats {
         if !self.enabled {
             return EbpfPerfStats {
@@ -213,14 +364,89 @@ impl EbpfManager {
             };
         }
         
-        // Placeholder implementation - returns zero values until eBPF programs are integrated
+        #[cfg(feature = "ebpf")]
+        {
+            let mut inner_guard = self.inner.lock().unwrap();
+            if let Some(ref mut inner) = *inner_guard {
+                // Calculate events per second from event_counters map
+                let events_per_sec = Self::calculate_event_rate(&inner.object, &inner.start_time, &mut inner.last_event_count);
+                let map_usage = Self::calculate_map_usage(&inner.object);
+                
+                return EbpfPerfStats {
+                    enabled: true,
+                    programs_loaded: 4, // netif_receive_skb, dev_queue_xmit, block_rq_issue, inet_sock_set_state
+                    events_per_sec,
+                    lost_events_total: 0, // TODO: Implement from perf buffer if needed
+                    map_usage_percent: map_usage,
+                    cpu_overhead_percent: 0.0, // Difficult to measure accurately
+                };
+            }
+        }
+        
         EbpfPerfStats {
             enabled: true,
-            programs_loaded: 0, // Will be: network, blkio, tcp when implemented
+            programs_loaded: 0,
             events_per_sec: 0.0,
             lost_events_total: 0,
             map_usage_percent: 0.0,
             cpu_overhead_percent: 0.0,
+        }
+    }
+    
+    #[cfg(feature = "ebpf")]
+    fn calculate_event_rate(object: &Object, start_time: &Instant, last_count: &mut u64) -> f64 {
+        if let Some(map) = object.map("event_counters") {
+            let mut total_events = 0u64;
+            
+            // Sum all event counters (indices 0-3)
+            for idx in 0..4u32 {
+                let key = idx.to_ne_bytes();
+                if let Ok(Some(value)) = map.lookup(&key, MapFlags::ANY) {
+                    if value.len() >= 8 {
+                        let count = u64::from_ne_bytes(value[0..8].try_into().unwrap());
+                        total_events += count;
+                    }
+                }
+            }
+            
+            // Calculate rate since last check
+            let elapsed = start_time.elapsed().as_secs_f64();
+            if elapsed > 0.0 {
+                let events_since_last = total_events.saturating_sub(*last_count);
+                *last_count = total_events;
+                return events_since_last as f64 / elapsed;
+            }
+        }
+        0.0
+    }
+    
+    #[cfg(feature = "ebpf")]
+    fn calculate_map_usage(object: &Object) -> f64 {
+        // Calculate usage for the main maps
+        let mut total_usage = 0.0;
+        let mut map_count = 0;
+        
+        for map_name in ["net_stats_map", "blkio_stats_map", "tcp_state_map"] {
+            if let Some(map) = object.map(map_name) {
+                // Count entries in the map
+                let entry_count = map.keys().count();
+                let max_entries = match map_name {
+                    "net_stats_map" | "blkio_stats_map" => 10240,
+                    "tcp_state_map" => 12,
+                    _ => 1,
+                };
+                
+                if max_entries > 0 {
+                    total_usage += (entry_count as f64 / max_entries as f64) * 100.0;
+                    map_count += 1;
+                }
+            }
+        }
+        
+        if map_count > 0 {
+            total_usage / map_count as f64
+        } else {
+            0.0
         }
     }
 }

@@ -243,8 +243,12 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
 
                 let cpu = get_cpu_stat_for_pid(entry.pid, &entry.proc_path, &state.cpu_cache);
 
+                let parse_start = Instant::now();
                 match parse_memory_for_process(&entry.proc_path, &state.buffer_config) {
                     Ok((rss, pss, uss)) => {
+                        let parse_duration_ms = parse_start.elapsed().as_secs_f64() * 1000.0;
+                        state.health_stats.record_parsing_duration_ms(parse_duration_ms);
+                        
                         if uss < min_uss_bytes {
                             debug!(
                                 "Skipping process {}: USS {} bytes below threshold {} bytes",
@@ -376,6 +380,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         let perf_stats = ebpf_manager.get_performance_stats();
         if perf_stats.enabled {
             state.health_stats.record_ebpf_events_per_sec(perf_stats.events_per_sec);
+            state.health_stats.record_ebpf_lost_events(perf_stats.lost_events_total);
             state.health_stats.ebpf_map_usage_percent.add_sample(perf_stats.map_usage_percent);
             state.health_stats.ebpf_overhead_cpu_percent.add_sample(perf_stats.cpu_overhead_percent);
             // lost_events is cumulative, so just store it
