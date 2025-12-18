@@ -150,11 +150,11 @@ impl EbpfManager {
         for prog in obj.progs_mut() {
             match prog.attach() {
                 Ok(link) => {
-                    info!("✅ Attached eBPF program: {}", prog.name());
+                    info!("✅ Attached eBPF program: {}", prog.name().to_string_lossy());
                     links.push(link);
                 }
                 Err(e) => {
-                    warn!("⚠️  Failed to attach eBPF program {}: {}", prog.name(), e);
+                    warn!("⚠️  Failed to attach eBPF program {}: {}", prog.name().to_string_lossy(), e);
                     // Continue with other programs
                 }
             }
@@ -194,14 +194,17 @@ impl EbpfManager {
         {
             let inner = self.inner.lock().unwrap();
             if let Some(ref inner) = *inner {
-                let map = inner.object.map("net_stats_map").ok_or_else(|| {
-                    anyhow::anyhow!("net_stats_map not found")
-                })?;
+                let map = Self::find_map(&inner.object, "net_stats_map")
+                    .ok_or_else(|| anyhow::anyhow!("net_stats_map not found"))?;
                 let mut stats = Vec::new();
                 
                 for key in map.keys() {
                     if let Some(value) = map.lookup(&key, MapFlags::ANY)? {
-                        let pid = u32::from_ne_bytes(key.try_into()?);
+                        // Convert key Vec<u8> to u32
+                        if key.len() < 4 {
+                            continue;
+                        }
+                        let pid = u32::from_ne_bytes([key[0], key[1], key[2], key[3]]);
                         
                         // Parse the net_stats struct: 5 u64 fields (40 bytes)
                         if value.len() >= 40 {
@@ -243,9 +246,8 @@ impl EbpfManager {
         {
             let inner = self.inner.lock().unwrap();
             if let Some(ref inner) = *inner {
-                let map = inner.object.map("blkio_stats_map").ok_or_else(|| {
-                    anyhow::anyhow!("blkio_stats_map not found")
-                })?;
+                let map = Self::find_map(&inner.object, "blkio_stats_map")
+                    .ok_or_else(|| anyhow::anyhow!("blkio_stats_map not found"))?;
                 let mut stats = Vec::new();
                 
                 for key in map.keys() {
@@ -301,9 +303,8 @@ impl EbpfManager {
         {
             let inner = self.inner.lock().unwrap();
             if let Some(ref inner) = *inner {
-                let map = inner.object.map("tcp_state_map").ok_or_else(|| {
-                    anyhow::anyhow!("tcp_state_map not found")
-                })?;
+                let map = Self::find_map(&inner.object, "tcp_state_map")
+                    .ok_or_else(|| anyhow::anyhow!("tcp_state_map not found"))?;
                 
                 // TCP states from include/net/tcp_states.h
                 const TCP_ESTABLISHED: u32 = 1;
@@ -371,6 +372,14 @@ impl EbpfManager {
         format!("{}:{}", major, minor)
     }
 
+    /// Helper function to find a map by name in an Object.
+    #[cfg(feature = "ebpf")]
+    fn find_map<'a>(object: &'a Object, name: &str) -> Option<libbpf_rs::Map<'a>> {
+        object.maps().find(|m| {
+            m.name().to_str() == Some(name)
+        })
+    }
+
     /// Reads process information cache for name resolution.
     #[allow(dead_code)]
     fn read_process_name(pid: u32) -> Option<String> {
@@ -423,7 +432,7 @@ impl EbpfManager {
     
     #[cfg(feature = "ebpf")]
     fn calculate_event_rate(object: &Object, last_check: &mut Instant, last_count: &mut u64) -> f64 {
-        if let Some(map) = object.map("event_counters") {
+        if let Some(map) = Self::find_map(object, "event_counters") {
             let mut total_events = 0u64;
             
             // Sum all event counters (indices 0-3)
@@ -457,7 +466,7 @@ impl EbpfManager {
         let mut map_count = 0;
         
         for map_name in ["net_stats_map", "blkio_stats_map", "tcp_state_map"] {
-            if let Some(map) = object.map(map_name) {
+            if let Some(map) = Self::find_map(object, map_name) {
                 // Count entries in the map
                 let entry_count = map.keys().count();
                 let max_entries = match map_name {
