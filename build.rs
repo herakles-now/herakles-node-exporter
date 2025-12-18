@@ -94,11 +94,11 @@ fn compile_ebpf_programs() {
     }
     
     // Copy the compiled eBPF object to src tree for embedding with include_bytes!()
-    let embedded_obj = PathBuf::from("src/ebpf/bpf/process_io.bpf.o");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let embedded_obj = manifest_dir.join("src/ebpf/bpf/process_io.bpf.o");
     std::fs::copy(&bpf_obj, &embedded_obj)
         .expect("Failed to copy eBPF object to src tree");
 
-    println!("cargo:rustc-env=EBPF_OBJECT_PATH={}", embedded_obj.display());
     println!("cargo:warning=✅ eBPF object embedded at: {}", embedded_obj.display());
     
     fn check_tool(tool: &str, arg: &str) {
