@@ -8,6 +8,7 @@ mod cli;
 mod collectors;
 mod commands;
 mod config;
+mod ebpf;
 mod handlers;
 mod health_stats;
 mod metrics;

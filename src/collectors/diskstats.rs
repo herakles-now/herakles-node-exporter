@@ -66,6 +66,30 @@ pub fn read_diskstats() -> Result<HashMap<String, DiskStats>, String> {
     Ok(stats)
 }
 
+/// Reads PSI (Pressure Stall Information) I/O metrics from /proc/pressure/io.
+///
+/// Returns the "some" total microseconds value converted to seconds.
+/// PSI tracks the time processes spend waiting for I/O.
+pub fn read_psi_io() -> Result<f64, String> {
+    let content = fs::read_to_string("/proc/pressure/io")
+        .map_err(|e| format!("Failed to read /proc/pressure/io: {}", e))?;
+
+    for line in content.lines() {
+        if let Some(some_line) = line.strip_prefix("some ") {
+            // Parse: "avg10=0.00 avg60=0.00 avg300=0.00 total=12345"
+            for part in some_line.split_whitespace() {
+                if let Some(total_str) = part.strip_prefix("total=") {
+                    let microseconds: u64 = total_str.parse()
+                        .map_err(|e| format!("Failed to parse PSI total: {}", e))?;
+                    return Ok(microseconds as f64 / 1_000_000.0);
+                }
+            }
+        }
+    }
+
+    Err("PSI 'some' line not found in /proc/pressure/io".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +102,15 @@ mod tests {
         let stats = result.unwrap();
         // Should have at least one disk
         assert!(!stats.is_empty(), "No disk statistics found");
+    }
+
+    #[test]
+    fn test_read_psi_io() {
+        // PSI might not be available on all systems
+        let result = read_psi_io();
+        if result.is_ok() {
+            let psi_val = result.unwrap();
+            assert!(psi_val >= 0.0, "PSI value should be non-negative");
+        }
     }
 }

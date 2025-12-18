@@ -92,6 +92,31 @@ pub struct MemoryMetrics {
     pub network_transmit_packets_total: GaugeVec,
     pub network_transmit_errs_total: GaugeVec,
     pub network_transmit_drop_total: GaugeVec,
+
+    // eBPF-based process network metrics
+    pub herakles_net_process_bytes: GaugeVec,
+    pub herakles_net_process_packets: GaugeVec,
+    pub herakles_net_process_dropped: GaugeVec,
+
+    // eBPF-based process block I/O metrics
+    pub herakles_io_process_bytes: GaugeVec,
+    pub herakles_io_process_iops: GaugeVec,
+
+    // TCP connection tracking
+    pub tcp_connections: GaugeVec,
+
+    // eBPF group aggregation metrics
+    pub herakles_io_group_read_bytes: GaugeVec,
+    pub herakles_io_group_write_bytes: GaugeVec,
+    pub herakles_net_group_rx_bytes: GaugeVec,
+    pub herakles_net_group_tx_bytes: GaugeVec,
+
+    // Top-N I/O process metrics
+    pub herakles_io_top_process_bytes: GaugeVec,
+    pub herakles_net_top_process_bytes: GaugeVec,
+
+    // PSI I/O metric
+    pub system_io_psi_wait_seconds_total: Gauge,
 }
 
 impl MemoryMetrics {
@@ -593,6 +618,106 @@ impl MemoryMetrics {
             &["device"],
         )?;
 
+        // eBPF-based process network metrics
+        let herakles_net_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_process_bytes_total",
+                "TCP/UDP bytes per process from eBPF (direction: rx/tx)",
+            ),
+            &["pid", "comm", "group", "subgroup", "direction"],
+        )?;
+        let herakles_net_process_packets = GaugeVec::new(
+            Opts::new(
+                "herakles_net_process_packets_total",
+                "TCP/UDP packets per process from eBPF (direction: rx/tx)",
+            ),
+            &["pid", "comm", "group", "subgroup", "direction"],
+        )?;
+        let herakles_net_process_dropped = GaugeVec::new(
+            Opts::new(
+                "herakles_net_process_dropped_total",
+                "Dropped packets per process from eBPF",
+            ),
+            &["pid", "comm", "group", "subgroup"],
+        )?;
+
+        // eBPF-based process block I/O metrics
+        let herakles_io_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_process_bytes_total",
+                "Block I/O bytes per process/device from eBPF (direction: read/write)",
+            ),
+            &["pid", "comm", "device", "group", "subgroup", "direction"],
+        )?;
+        let herakles_io_process_iops = GaugeVec::new(
+            Opts::new(
+                "herakles_io_process_iops_total",
+                "I/O operations per process/device from eBPF (direction: read/write)",
+            ),
+            &["pid", "comm", "device", "group", "subgroup", "direction"],
+        )?;
+
+        // TCP connection tracking
+        let tcp_connections = GaugeVec::new(
+            Opts::new(
+                "node_tcp_connections",
+                "TCP connections by state from eBPF",
+            ),
+            &["state"],
+        )?;
+
+        // eBPF group aggregation metrics
+        let herakles_io_group_read_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_group_read_bytes_total",
+                "Aggregated disk read bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let herakles_io_group_write_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_group_write_bytes_total",
+                "Aggregated disk write bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let herakles_net_group_rx_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_group_rx_bytes_total",
+                "Aggregated network RX bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let herakles_net_group_tx_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_group_tx_bytes_total",
+                "Aggregated network TX bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Top-N I/O process metrics
+        let herakles_io_top_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_top_process_bytes",
+                "Top-N disk I/O processes from eBPF (op: read/write)",
+            ),
+            &["group", "subgroup", "rank", "pid", "comm", "op"],
+        )?;
+        let herakles_net_top_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_top_process_bytes",
+                "Top-N network I/O processes from eBPF (dir: rx/tx)",
+            ),
+            &["group", "subgroup", "rank", "pid", "comm", "dir"],
+        )?;
+
+        // PSI I/O metric
+        let system_io_psi_wait_seconds_total = Gauge::new(
+            "herakles_io_system_psi_wait_seconds_total",
+            "I/O Pressure Stall Information (PSI) - some total seconds from /proc/pressure/io",
+        )?;
+
         registry.register(Box::new(rss.clone()))?;
         registry.register(Box::new(pss.clone()))?;
         registry.register(Box::new(uss.clone()))?;
@@ -667,6 +792,21 @@ impl MemoryMetrics {
         registry.register(Box::new(network_transmit_errs_total.clone()))?;
         registry.register(Box::new(network_transmit_drop_total.clone()))?;
 
+        // Register eBPF metrics
+        registry.register(Box::new(herakles_net_process_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_process_packets.clone()))?;
+        registry.register(Box::new(herakles_net_process_dropped.clone()))?;
+        registry.register(Box::new(herakles_io_process_bytes.clone()))?;
+        registry.register(Box::new(herakles_io_process_iops.clone()))?;
+        registry.register(Box::new(tcp_connections.clone()))?;
+        registry.register(Box::new(herakles_io_group_read_bytes.clone()))?;
+        registry.register(Box::new(herakles_io_group_write_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_group_rx_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_group_tx_bytes.clone()))?;
+        registry.register(Box::new(herakles_io_top_process_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_top_process_bytes.clone()))?;
+        registry.register(Box::new(system_io_psi_wait_seconds_total.clone()))?;
+
         Ok(Self {
             rss,
             pss,
@@ -731,6 +871,19 @@ impl MemoryMetrics {
             network_transmit_packets_total,
             network_transmit_errs_total,
             network_transmit_drop_total,
+            herakles_net_process_bytes,
+            herakles_net_process_packets,
+            herakles_net_process_dropped,
+            herakles_io_process_bytes,
+            herakles_io_process_iops,
+            tcp_connections,
+            herakles_io_group_read_bytes,
+            herakles_io_group_write_bytes,
+            herakles_net_group_rx_bytes,
+            herakles_net_group_tx_bytes,
+            herakles_io_top_process_bytes,
+            herakles_net_top_process_bytes,
+            system_io_psi_wait_seconds_total,
         })
     }
 
@@ -801,6 +954,20 @@ impl MemoryMetrics {
         self.network_transmit_packets_total.reset();
         self.network_transmit_errs_total.reset();
         self.network_transmit_drop_total.reset();
+
+        // Reset eBPF metrics
+        self.herakles_net_process_bytes.reset();
+        self.herakles_net_process_packets.reset();
+        self.herakles_net_process_dropped.reset();
+        self.herakles_io_process_bytes.reset();
+        self.herakles_io_process_iops.reset();
+        self.tcp_connections.reset();
+        self.herakles_io_group_read_bytes.reset();
+        self.herakles_io_group_write_bytes.reset();
+        self.herakles_net_group_rx_bytes.reset();
+        self.herakles_net_group_tx_bytes.reset();
+        self.herakles_io_top_process_bytes.reset();
+        self.herakles_net_top_process_bytes.reset();
     }
 
     /// Sets system memory metrics (total, available, used ratio, cached, buffers, swap).
@@ -960,5 +1127,155 @@ impl MemoryMetrics {
         self.network_transmit_packets_total.with_label_values(labels).set(stats.transmit_packets as f64);
         self.network_transmit_errs_total.with_label_values(labels).set(stats.transmit_errs as f64);
         self.network_transmit_drop_total.with_label_values(labels).set(stats.transmit_drop as f64);
+    }
+
+    /// Updates eBPF process network metrics.
+    pub fn update_process_network_metrics(&self, stats: &[crate::ebpf::ProcessNetStats]) {
+        use crate::process::classify_process_raw;
+        
+        for stat in stats {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            
+            // RX bytes
+            self.herakles_net_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "rx"])
+                .set(stat.rx_bytes as f64);
+            
+            // TX bytes
+            self.herakles_net_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "tx"])
+                .set(stat.tx_bytes as f64);
+            
+            // RX packets
+            self.herakles_net_process_packets
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "rx"])
+                .set(stat.rx_packets as f64);
+            
+            // TX packets
+            self.herakles_net_process_packets
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "tx"])
+                .set(stat.tx_packets as f64);
+            
+            // Dropped packets
+            self.herakles_net_process_dropped
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref()])
+                .set(stat.dropped as f64);
+        }
+    }
+
+    /// Updates eBPF process block I/O metrics.
+    pub fn update_process_blkio_metrics(&self, stats: &[crate::ebpf::ProcessBlkioStats]) {
+        use crate::process::classify_process_raw;
+        
+        for stat in stats {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            
+            // Read bytes
+            self.herakles_io_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "read"])
+                .set(stat.read_bytes as f64);
+            
+            // Write bytes
+            self.herakles_io_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "write"])
+                .set(stat.write_bytes as f64);
+            
+            // Read ops
+            self.herakles_io_process_iops
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "read"])
+                .set(stat.read_ops as f64);
+            
+            // Write ops
+            self.herakles_io_process_iops
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "write"])
+                .set(stat.write_ops as f64);
+        }
+    }
+
+    /// Updates TCP connection metrics.
+    pub fn update_tcp_metrics(&self, stats: &crate::ebpf::TcpStats) {
+        self.tcp_connections.with_label_values(&["established"]).set(stats.established as f64);
+        self.tcp_connections.with_label_values(&["syn_sent"]).set(stats.syn_sent as f64);
+        self.tcp_connections.with_label_values(&["syn_recv"]).set(stats.syn_recv as f64);
+        self.tcp_connections.with_label_values(&["fin_wait1"]).set(stats.fin_wait1 as f64);
+        self.tcp_connections.with_label_values(&["fin_wait2"]).set(stats.fin_wait2 as f64);
+        self.tcp_connections.with_label_values(&["time_wait"]).set(stats.time_wait as f64);
+        self.tcp_connections.with_label_values(&["close"]).set(stats.close as f64);
+        self.tcp_connections.with_label_values(&["close_wait"]).set(stats.close_wait as f64);
+        self.tcp_connections.with_label_values(&["last_ack"]).set(stats.last_ack as f64);
+        self.tcp_connections.with_label_values(&["listen"]).set(stats.listen as f64);
+        self.tcp_connections.with_label_values(&["closing"]).set(stats.closing as f64);
+    }
+
+    /// Updates aggregated I/O metrics by subgroup.
+    pub fn update_io_aggregations(
+        &self,
+        net_agg: &std::collections::HashMap<(String, String), (u64, u64)>,
+        blkio_agg: &std::collections::HashMap<(String, String), (u64, u64)>,
+    ) {
+        // Update network aggregations
+        for ((group, subgroup), (rx_bytes, tx_bytes)) in net_agg {
+            self.herakles_net_group_rx_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*rx_bytes as f64);
+            self.herakles_net_group_tx_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*tx_bytes as f64);
+        }
+        
+        // Update block I/O aggregations
+        for ((group, subgroup), (read_bytes, write_bytes)) in blkio_agg {
+            self.herakles_io_group_read_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*read_bytes as f64);
+            self.herakles_io_group_write_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*write_bytes as f64);
+        }
+    }
+
+    /// Updates top-N I/O process metrics.
+    pub fn update_top_io_processes(
+        &self,
+        top_net: &[crate::ebpf::ProcessNetStats],
+        top_blkio: &[crate::ebpf::ProcessBlkioStats],
+    ) {
+        use crate::process::classify_process_raw;
+        
+        // Update top network processes
+        for (rank, stat) in top_net.iter().enumerate() {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            let rank_str = (rank + 1).to_string();
+            
+            // RX bytes
+            self.herakles_net_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "rx"])
+                .set(stat.rx_bytes as f64);
+            
+            // TX bytes
+            self.herakles_net_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "tx"])
+                .set(stat.tx_bytes as f64);
+        }
+        
+        // Update top block I/O processes
+        for (rank, stat) in top_blkio.iter().enumerate() {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            let rank_str = (rank + 1).to_string();
+            
+            // Read bytes
+            self.herakles_io_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "read"])
+                .set(stat.read_bytes as f64);
+            
+            // Write bytes
+            self.herakles_io_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "write"])
+                .set(stat.write_bytes as f64);
+        }
     }
 }
