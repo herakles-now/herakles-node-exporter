@@ -14,6 +14,7 @@ A high-performance Prometheus exporter for comprehensive Linux system monitoring
 - **Disk I/O Metrics**: Read/write operations, bytes transferred, I/O time statistics per device
 - **Filesystem Metrics**: Size, available space, inode statistics per mount point
 - **Network Metrics**: Bytes, packets, errors, and drops per network interface
+- **eBPF-based Per-Process I/O Tracking** (optional): Network and disk I/O per process, TCP connection states
 - **Intelligent Process Classification**: 140+ built-in subgroups for automatic process categorization
 - **Top-N Metrics**: Track top memory/CPU consumers per subgroup
 - **High Performance**: Background caching, parallel processing, optimized `/proc` parsing
@@ -140,16 +141,22 @@ cargo build --release --features ebpf
 
 **Configuration:**
 
-Enable eBPF in your configuration file:
+eBPF is **enabled by default** in the configuration. To disable it, create a configuration file:
 
 ```yaml
-# Enable eBPF process I/O tracking
-enable_ebpf: true
+# config.yaml
+enable_ebpf: false
 ```
 
-Or via environment variable:
+And run with:
 ```bash
-HERAKLES_ENABLE_EBPF=true herakles-node-exporter
+herakles-node-exporter --config config.yaml
+```
+
+You can also use the command-line to see the current configuration:
+```bash
+# Show the default configuration (eBPF enabled)
+herakles-node-exporter --show-config --no-config
 ```
 
 **Graceful Degradation:**

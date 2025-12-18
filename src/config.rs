@@ -133,7 +133,7 @@ impl Default for Config {
             enable_tls: Some(false),
             tls_cert_path: None,
             tls_key_path: None,
-            enable_ebpf: Some(false),
+            enable_ebpf: Some(true),
             enable_ebpf_network: Some(true),
             enable_ebpf_disk: Some(true),
             enable_tcp_tracking: Some(true),
