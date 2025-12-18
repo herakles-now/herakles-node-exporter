@@ -6,6 +6,8 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+#[cfg(not(feature = "ebpf"))]
 use tracing::debug;
 
 #[cfg(feature = "ebpf")]
@@ -80,12 +82,14 @@ struct EbpfInner {
     #[cfg(feature = "ebpf")]
     object: Object,
     #[cfg(feature = "ebpf")]
+    #[allow(dead_code)]  // Used for performance metrics calculation
     start_time: Instant,
     #[cfg(feature = "ebpf")]
     last_event_count: u64,
     #[cfg(feature = "ebpf")]
     last_check: Instant,
     #[cfg(feature = "ebpf")]
+    #[allow(dead_code)]  // CRITICAL: Must be kept alive to prevent eBPF detachment
     links: Vec<libbpf_rs::Link>,
     #[cfg(not(feature = "ebpf"))]
     #[allow(dead_code)]
@@ -143,7 +147,7 @@ impl EbpfManager {
         builder.debug(cfg!(debug_assertions));
         
         let open_obj = builder.open_file(obj_path)?;
-        let mut obj = open_obj.load()?;
+        let obj = open_obj.load()?;
         
         // Attach all programs and store links to keep them alive
         let mut links = Vec::new();
