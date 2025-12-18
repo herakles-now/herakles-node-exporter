@@ -8,6 +8,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tracing::debug;
 
+#[cfg(feature = "ebpf")]
+use tracing::{info, warn};
+
 /// Process network I/O statistics from eBPF.
 #[derive(Debug, Clone, Default)]
 pub struct ProcessNetStats {
@@ -51,7 +54,7 @@ pub struct TcpStats {
 /// eBPF manager for loading and managing eBPF programs.
 pub struct EbpfManager {
     enabled: bool,
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))]
     inner: Arc<Mutex<Option<EbpfInner>>>,
 }
 
