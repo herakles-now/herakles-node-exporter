@@ -280,10 +280,11 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                         })
                     }
                     Err(e) => {
-                        debug!("Skipping process {}: failed to parse memory: {}", name, e);
+                        let err_msg = e.to_string();
+                        debug!("Skipping process {}: failed to parse memory: {}", name, err_msg);
                         state.health_stats.record_parsing_error();
                         // Check if it's a permission denied error
-                        if e.to_string().contains("Permission denied") || e.to_string().contains("permission") {
+                        if err_msg.contains("Permission denied") || err_msg.contains("permission") {
                             state.health_stats.record_permission_denied();
                         }
                         skipped_count.fetch_add(1, Ordering::Relaxed);

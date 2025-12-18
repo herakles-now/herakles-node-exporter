@@ -171,12 +171,21 @@ fn test_health_stats_render_table_contains_new_sections() {
     assert!(output.contains("total_time_series"), "Should contain total_time_series metric");
     
     // Check that recorded values are present
-    assert!(output.contains("12450"), "Should contain recorded ebpf_events_per_sec value");
-    assert!(output.contains("45.2"), "Should contain recorded ebpf_map_usage value");
-    assert!(output.contains("128"), "Should contain recorded open_file_descriptors value");
-    assert!(output.contains("1024"), "Should contain recorded max_file_descriptors value");
-    assert!(output.contains("245.3"), "Should contain recorded metrics_response_size value");
-    assert!(output.contains("1840"), "Should contain recorded total_time_series value");
+    let ebpf_section = output.split("EBPF PERFORMANCE").nth(1).unwrap();
+    assert!(ebpf_section.contains("12450"), "Should contain recorded ebpf_events_per_sec value");
+    
+    let ebpf_map_section = output.split("ebpf_map_usage (%)").nth(1).unwrap();
+    assert!(ebpf_map_section.contains("45.2"), "Should contain recorded ebpf_map_usage value");
+    
+    let fd_section = output.split("RESOURCE LIMITS").nth(1).unwrap();
+    assert!(fd_section.contains("128"), "Should contain recorded open_file_descriptors value");
+    assert!(fd_section.contains("1024"), "Should contain recorded max_file_descriptors value");
+    
+    let response_size_section = output.split("metrics_response_size (KB)").nth(1).unwrap();
+    assert!(response_size_section.contains("245.3"), "Should contain recorded metrics_response_size value");
+    
+    let time_series_section = output.split("total_time_series").nth(1).unwrap();
+    assert!(time_series_section.contains("1840"), "Should contain recorded total_time_series value");
 }
 
 #[test]

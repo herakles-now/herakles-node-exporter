@@ -410,13 +410,21 @@ pub fn get_fd_usage() -> Result<(u64, u64), std::io::Error> {
     let fd_dir = format!("/proc/{}/fd", pid);
     let open_fds = fs::read_dir(fd_dir)?.count() as u64;
     
-    // Get FD limit from /proc/self/limits
+    // Get FD limit from /proc/[pid]/limits
+    // Format: "Max open files            <soft>                <hard>                files"
+    // We use the hard limit (index 4) as the max capacity
     let limits = fs::read_to_string(format!("/proc/{}/limits", pid))?;
     let max_fds = limits
         .lines()
         .find(|l| l.starts_with("Max open files"))
-        .and_then(|l| l.split_whitespace().nth(3))
-        .and_then(|s| s.parse::<u64>().ok())
+        .and_then(|l| {
+            let parts: Vec<&str> = l.split_whitespace().collect();
+            if parts.len() >= 5 {
+                parts[4].parse::<u64>().ok() // Hard limit (5th field)
+            } else {
+                None
+            }
+        })
         .unwrap_or(1024);
     
     Ok((open_fds, max_fds))

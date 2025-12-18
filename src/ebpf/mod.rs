@@ -192,6 +192,15 @@ impl EbpfManager {
     }
 
     /// Returns performance statistics for eBPF programs.
+    /// 
+    /// # Note
+    /// This is a placeholder implementation that returns zero/default values.
+    /// Actual eBPF performance tracking will be implemented once the eBPF programs
+    /// are integrated from the ultimate-exporter C code. When implemented, this will:
+    /// - Track real-time event rates from eBPF ring buffers
+    /// - Monitor lost events due to buffer overruns
+    /// - Calculate BPF map memory usage
+    /// - Estimate CPU overhead from eBPF program execution
     pub fn get_performance_stats(&self) -> EbpfPerfStats {
         if !self.enabled {
             return EbpfPerfStats {
@@ -204,11 +213,10 @@ impl EbpfManager {
             };
         }
         
-        // TODO: Implement actual eBPF performance tracking
-        // For now, return placeholder values
+        // Placeholder implementation - returns zero values until eBPF programs are integrated
         EbpfPerfStats {
             enabled: true,
-            programs_loaded: 3, // network, blkio, tcp
+            programs_loaded: 0, // Will be: network, blkio, tcp when implemented
             events_per_sec: 0.0,
             lost_events_total: 0,
             map_usage_percent: 0.0,
