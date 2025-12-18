@@ -9,7 +9,6 @@ use std::fs;
 /// Disk statistics for a single device.
 #[derive(Debug, Clone)]
 pub struct DiskStats {
-    pub device: String,
     pub reads_completed: u64,
     pub reads_merged: u64,
     pub sectors_read: u64,
@@ -48,7 +47,6 @@ pub fn read_diskstats() -> Result<HashMap<String, DiskStats>, String> {
         }
 
         let disk_stat = DiskStats {
-            device: device.clone(),
             reads_completed: parts[3].parse().unwrap_or(0),
             reads_merged: parts[4].parse().unwrap_or(0),
             sectors_read: parts[5].parse().unwrap_or(0),
