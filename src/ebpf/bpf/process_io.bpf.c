@@ -134,20 +134,11 @@ int raw_trace_block_rq_issue(struct bpf_raw_tracepoint_args *ctx) {
     // Raw tracepoint args: (struct request *rq)
     struct request *rq = (struct request *)ctx->args[0];
     
-    // Read device number - use bpf_probe_read_kernel for compatibility
-    // In newer kernels, the structure is different, so we read carefully
+    // NOTE: Device number extraction is challenging with raw tracepoints due to
+    // kernel structure changes between versions. For now, we use dev=0 as a
+    // placeholder. All I/O is tracked but not separated by device.
+    // Future improvement: Use BTF-based field lookup or alternative approach.
     dev_t dev = 0;
-    struct gendisk *disk;
-    
-    // Try to read the disk pointer from the request
-    bpf_probe_read_kernel(&disk, sizeof(disk), &rq->q);
-    if (disk) {
-        // Try to read major and minor from gendisk
-        u32 major = 0, minor = 0;
-        // The exact structure may vary, so we try to read what we can
-        // For now, set a placeholder device value
-        dev = (major << 20) | minor;
-    }
     
     // Read operation size (in bytes) - __data_len field
     unsigned int data_len = 0;
