@@ -99,11 +99,11 @@ int trace_netif_receive_skb(struct trace_event_raw_net_dev_template *ctx) {
     return 0;
 }
 
-// Network transmit kprobe
-SEC("kprobe/dev_queue_xmit")
-int BPF_KPROBE(trace_dev_queue_xmit, struct sk_buff *skb) {
+// Network transmit tracepoint (more stable than kprobe)
+SEC("tracepoint/net/net_dev_queue")
+int trace_net_dev_queue(struct trace_event_raw_net_dev_template *ctx) {
     u32 pid = get_current_pid();
-    u32 len = BPF_CORE_READ(skb, len);
+    u32 len = ctx->len;
     
     struct net_stats *stats = bpf_map_lookup_elem(&net_stats_map, &pid);
     if (!stats) {
