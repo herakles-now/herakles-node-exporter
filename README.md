@@ -179,19 +179,72 @@ WARN ⚠️  Failed to initialize eBPF: [reason] - running without eBPF metrics
 
 ## 📦 Installation
 
-### From Source (Release Build)
+### Building
+
+#### Standard Build (eBPF enabled by default)
+
+eBPF-based process I/O tracking is now enabled by default:
 
 ```bash
 # Clone the repository
 git clone https://github.com/cansp-dev/herakles-node-exporter.git
 cd herakles-node-exporter
 
-# Build release binary
+# Install build dependencies (Debian/Ubuntu)
+sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) bpftool
+
+# Build (eBPF included automatically)
 cargo build --release
+
+# Run with required capabilities
+sudo setcap cap_bpf,cap_perfmon+ep target/release/herakles-node-exporter
+./target/release/herakles-node-exporter
 
 # Install to /usr/local/bin
 sudo cp target/release/herakles-node-exporter /usr/local/bin/
 ```
+
+**System Requirements for eBPF:**
+- Linux kernel ≥ 4.18
+- BTF support: `/sys/kernel/btf/vmlinux` must exist
+- Capabilities: `CAP_BPF` + `CAP_PERFMON` (or root)
+
+**Graceful Degradation:**
+If eBPF initialization fails, the exporter continues with standard metrics and logs a warning.
+
+#### Building Without eBPF
+
+To build without eBPF support (smaller binary, no eBPF build dependencies):
+
+```bash
+cargo build --release --no-default-features
+```
+
+#### Troubleshooting eBPF Build
+
+If eBPF compilation fails:
+
+1. **Check kernel headers**:
+   ```bash
+   ls -la /sys/kernel/btf/vmlinux
+   sudo apt-get install linux-headers-$(uname -r)
+   ```
+
+2. **Check clang version** (needs ≥10):
+   ```bash
+   clang --version
+   ```
+
+3. **Verify bpftool**:
+   ```bash
+   bpftool version
+   ```
+
+4. **Manual vmlinux.h generation**:
+   ```bash
+   cd src/ebpf/bpf
+   bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
+   ```
 
 ### From Source (Development Build)
 
