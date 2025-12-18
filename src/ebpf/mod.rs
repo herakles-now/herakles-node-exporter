@@ -92,6 +92,12 @@ struct EbpfInner {
     loaded: bool,
 }
 
+// SAFETY: EbpfInner is only accessed through a Mutex, ensuring exclusive access.
+// The Object and Link types from libbpf-rs are safe to send between threads when
+// properly synchronized, which the Mutex provides.
+#[cfg(feature = "ebpf")]
+unsafe impl Send for EbpfInner {}
+
 impl EbpfManager {
     /// Creates a new eBPF manager.
     /// 
