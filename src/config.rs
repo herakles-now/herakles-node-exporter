@@ -336,6 +336,20 @@ pub fn resolve_config(args: &Args) -> Result<Config, Box<dyn std::error::Error>>
         config.tls_key_path = Some(key_path.to_string_lossy().to_string());
     }
 
+    // eBPF configuration: CLI wins if provided
+    if args.enable_ebpf {
+        config.enable_ebpf = Some(true);
+    }
+    if args.enable_ebpf_network {
+        config.enable_ebpf_network = Some(true);
+    }
+    if args.enable_ebpf_disk {
+        config.enable_ebpf_disk = Some(true);
+    }
+    if args.enable_tcp_tracking {
+        config.enable_tcp_tracking = Some(true);
+    }
+
     Ok(config)
 }
 

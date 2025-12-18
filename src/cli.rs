@@ -155,6 +155,22 @@ pub struct Args {
     /// Path to TLS private key file (PEM format)
     #[arg(long)]
     pub tls_key: Option<PathBuf>,
+
+    /// Enable eBPF-based per-process I/O tracking (requires kernel >= 4.18, BTF support, and CAP_BPF/CAP_PERFMON)
+    #[arg(long)]
+    pub enable_ebpf: bool,
+
+    /// Enable eBPF-based per-process network I/O tracking
+    #[arg(long)]
+    pub enable_ebpf_network: bool,
+
+    /// Enable eBPF-based per-process disk I/O tracking
+    #[arg(long)]
+    pub enable_ebpf_disk: bool,
+
+    /// Enable TCP connection state tracking via eBPF
+    #[arg(long)]
+    pub enable_tcp_tracking: bool,
 }
 
 /// Subcommands for additional functionality
