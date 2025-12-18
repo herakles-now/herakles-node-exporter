@@ -9,7 +9,6 @@ use std::fs;
 /// Network interface statistics.
 #[derive(Debug, Clone)]
 pub struct NetDevStats {
-    pub interface: String,
     pub receive_bytes: u64,
     pub receive_packets: u64,
     pub receive_errs: u64,
@@ -50,7 +49,6 @@ pub fn read_netdev_stats() -> Result<HashMap<String, NetDevStats>, String> {
         }
 
         let net_stat = NetDevStats {
-            interface: interface.clone(),
             receive_bytes: values[0].parse().unwrap_or(0),
             receive_packets: values[1].parse().unwrap_or(0),
             receive_errs: values[2].parse().unwrap_or(0),
