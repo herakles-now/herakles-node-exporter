@@ -53,26 +53,32 @@ fn compile_ebpf_programs() {
             .expect("Failed to write vmlinux.h");
     }
     
-    // Compile eBPF program
+    // Compile eBPF program with better error output
     let bpf_obj = out_dir.join("process_io.bpf.o");
-    let status = Command::new("clang")
+    let output = Command::new("clang")
         .args(&[
             "-g",
             "-O2",
             "-target", "bpf",
             "-D__TARGET_ARCH_x86",
+            "-D__BPF_TRACING__",  // Important for BPF_CORE_READ macros
             "-I", bpf_src.to_str().unwrap(),
             "-c", bpf_src.join("process_io.bpf.c").to_str().unwrap(),
             "-o", bpf_obj.to_str().unwrap(),
         ])
-        .status()
-        .expect("Failed to compile eBPF program");
+        .output()
+        .expect("Failed to execute clang");
     
-    if !status.success() {
-        panic!("eBPF compilation failed");
+    if !output.status.success() {
+        eprintln!("=== eBPF Compilation Failed ===");
+        eprintln!("STDOUT:\n{}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("STDERR:\n{}", String::from_utf8_lossy(&output.stderr));
+        eprintln!("===============================");
+        panic!("eBPF compilation failed. See output above for details.");
     }
     
     println!("cargo:rustc-env=EBPF_OBJECT_PATH={}", bpf_obj.display());
+    println!("cargo:warning=✅ eBPF program compiled successfully: {}", bpf_obj.display());
     
     fn check_tool(tool: &str, arg: &str) {
         let output = Command::new(tool)

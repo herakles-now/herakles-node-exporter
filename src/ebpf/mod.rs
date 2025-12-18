@@ -134,7 +134,7 @@ impl EbpfManager {
         let obj_path = env!("EBPF_OBJECT_PATH");
         
         let mut builder = ObjectBuilder::default();
-        builder.debug(true);
+        builder.debug(cfg!(debug_assertions));
         
         let open_obj = builder.open_file(obj_path)?;
         let mut obj = open_obj.load()?;
@@ -142,11 +142,23 @@ impl EbpfManager {
         // Attach all programs and store links to keep them alive
         let mut links = Vec::new();
         for prog in obj.progs_mut() {
-            let link = prog.attach()?;
-            links.push(link);
+            match prog.attach() {
+                Ok(link) => {
+                    info!("✅ Attached eBPF program: {}", prog.name());
+                    links.push(link);
+                }
+                Err(e) => {
+                    warn!("⚠️  Failed to attach eBPF program {}: {}", prog.name(), e);
+                    // Continue with other programs
+                }
+            }
         }
         
-        info!("✅ eBPF programs loaded and attached successfully");
+        if links.is_empty() {
+            return Err(anyhow::anyhow!("No eBPF programs could be attached"));
+        }
+        
+        info!("✅ eBPF initialized: {} programs attached", links.len());
         info!("   - Network RX/TX tracking enabled");
         info!("   - Block I/O tracking enabled");
         info!("   - TCP state tracking enabled");

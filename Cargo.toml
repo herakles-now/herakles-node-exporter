@@ -11,7 +11,7 @@ keywords = ["prometheus", "exporter", "memory", "metrics", "process"]
 categories = ["command-line-utilities", "monitoring"]
 
 [features]
-default = []
+default = ["ebpf"]
 # Enable eBPF-based metrics collection
 ebpf = ["libbpf-rs", "libbpf-sys"]
 # Enable actix-web health server example
