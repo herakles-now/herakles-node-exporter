@@ -320,7 +320,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             match system::read_system_fd_stats() {
                 Ok((open_fds, _unused_fds, max_fds)) => {
                     state.metrics.node_fd_open.set(open_fds as f64);
-                    state.metrics.node_fd_max.set(max_fds as f64);
+                    state.metrics.node_fd_kernel_max.set(max_fds as f64);
                     if max_fds > 0 {
                         let used_ratio = open_fds as f64 / max_fds as f64;
                         state.metrics.node_fd_used_ratio.set(used_ratio);
@@ -376,8 +376,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     }
                     if let Some(&iowait_ratio) = cpu_ratios.iowait.get("cpu") {
                         state.metrics.node_cpu_iowait_percent.set(iowait_ratio * 100.0);
-                        // Also set node_io_iowait_percent for compatibility
-                        state.metrics.node_io_iowait_percent.set(iowait_ratio * 100.0);
                     }
                     if let Some(&steal_ratio) = cpu_ratios.steal.get("cpu") {
                         state.metrics.node_cpu_steal_percent.set(steal_ratio * 100.0);

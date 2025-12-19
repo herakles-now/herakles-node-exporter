@@ -25,7 +25,6 @@ pub struct MemoryMetrics {
     pub node_io_write_bytes_per_second: Gauge,
     pub node_io_read_iops_per_second: Gauge,
     pub node_io_write_iops_per_second: Gauge,
-    pub node_io_iowait_percent: Gauge,
     pub node_net_rx_bytes_per_second: Gauge,
     pub node_net_tx_bytes_per_second: Gauge,
     pub node_net_rx_dropped_packets_per_second: Gauge,
@@ -33,7 +32,7 @@ pub struct MemoryMetrics {
     pub node_net_rx_error_packets_per_second: Gauge,
     pub node_net_tx_error_packets_per_second: Gauge,
     pub node_fd_open: Gauge,
-    pub node_fd_max: Gauge,
+    pub node_fd_kernel_max: Gauge,
     pub node_fd_used_ratio: Gauge,
     pub node_load1: Gauge,
     pub node_load5: Gauge,
@@ -141,10 +140,6 @@ impl MemoryMetrics {
             "herakles_node_io_write_iops_per_second",
             "Total I/O write operations per second",
         )?;
-        let node_io_iowait_percent = Gauge::new(
-            "herakles_node_io_iowait_percent",
-            "CPU iowait percentage (duplicate for compatibility)",
-        )?;
         let node_net_rx_bytes_per_second = Gauge::new(
             "herakles_node_net_rx_bytes_per_second",
             "Total network receive throughput in bytes per second",
@@ -173,8 +168,8 @@ impl MemoryMetrics {
             "herakles_node_fd_open",
             "Number of open file descriptors system-wide from /proc/sys/fs/file-nr",
         )?;
-        let node_fd_max = Gauge::new(
-            "herakles_node_fd_max",
+        let node_fd_kernel_max = Gauge::new(
+            "herakles_node_fd_kernel_max",
             "Maximum number of file descriptors system-wide from /proc/sys/fs/file-nr",
         )?;
         let node_fd_used_ratio = Gauge::new(
@@ -332,6 +327,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup"],
         )?;
+        // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top1_comm = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top1_comm",
@@ -339,6 +335,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup", "comm"],
         )?;
+        // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top2_comm = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top2_comm",
@@ -346,6 +343,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup", "comm"],
         )?;
+        // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top3_comm = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top3_comm",
@@ -397,6 +395,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup"],
         )?;
+        // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top1_comm = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top1_comm",
@@ -404,6 +403,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup", "comm"],
         )?;
+        // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top2_comm = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top2_comm",
@@ -411,6 +411,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup", "comm"],
         )?;
+        // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top3_comm = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top3_comm",
@@ -435,7 +436,6 @@ impl MemoryMetrics {
         registry.register(Box::new(node_io_write_bytes_per_second.clone()))?;
         registry.register(Box::new(node_io_read_iops_per_second.clone()))?;
         registry.register(Box::new(node_io_write_iops_per_second.clone()))?;
-        registry.register(Box::new(node_io_iowait_percent.clone()))?;
         registry.register(Box::new(node_net_rx_bytes_per_second.clone()))?;
         registry.register(Box::new(node_net_tx_bytes_per_second.clone()))?;
         registry.register(Box::new(node_net_rx_dropped_packets_per_second.clone()))?;
@@ -443,7 +443,7 @@ impl MemoryMetrics {
         registry.register(Box::new(node_net_rx_error_packets_per_second.clone()))?;
         registry.register(Box::new(node_net_tx_error_packets_per_second.clone()))?;
         registry.register(Box::new(node_fd_open.clone()))?;
-        registry.register(Box::new(node_fd_max.clone()))?;
+        registry.register(Box::new(node_fd_kernel_max.clone()))?;
         registry.register(Box::new(node_fd_used_ratio.clone()))?;
         registry.register(Box::new(node_load1.clone()))?;
         registry.register(Box::new(node_load5.clone()))?;
@@ -504,7 +504,6 @@ impl MemoryMetrics {
             node_io_write_bytes_per_second,
             node_io_read_iops_per_second,
             node_io_write_iops_per_second,
-            node_io_iowait_percent,
             node_net_rx_bytes_per_second,
             node_net_tx_bytes_per_second,
             node_net_rx_dropped_packets_per_second,
@@ -512,7 +511,7 @@ impl MemoryMetrics {
             node_net_rx_error_packets_per_second,
             node_net_tx_error_packets_per_second,
             node_fd_open,
-            node_fd_max,
+            node_fd_kernel_max,
             node_fd_used_ratio,
             node_load1,
             node_load5,
