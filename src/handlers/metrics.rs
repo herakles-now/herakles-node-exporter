@@ -85,7 +85,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             let mut other_exported = 0usize;
             let other_limit = state.config.top_n_others.unwrap_or(10);
 
-            // Populate per-process metrics + prepare aggregation
+            // Populate aggregation (no longer exporting per-process metrics)
             for p in &processes_vec {
                 if let Some((group, subgroup)) =
                     classify_process_with_config(&p.name, &state.config)
@@ -99,21 +99,9 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     }
 
                     exported_count += 1;
-                    let pid_str = p.pid.to_string();
 
-                    state.metrics.set_for_process(
-                        &pid_str,
-                        &p.name,
-                        group.as_ref(),
-                        subgroup.as_ref(),
-                        p.rss,
-                        p.pss,
-                        p.uss,
-                        p.cpu_percent as f64,
-                        p.cpu_time_seconds as f64,
-                        &state.config,
-                        &uptime_seconds,
-                    );
+                    // Removed: per-process metric export - no longer setting individual process metrics
+                    // Data collection continues but metrics are not exported to /metrics endpoint
 
                     groups.entry((group, subgroup)).or_default().push(p);
                 }
@@ -199,6 +187,72 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     .mem_group_swap_bytes
                     .with_label_values(&[group_ref, subgroup_ref])
                     .set(swap_sum as f64);
+
+                // Set new subgroup-level aggregated metrics (without uptime label)
+                if enable_rss {
+                    state
+                        .metrics
+                        .mem_rss_subgroup_bytes
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(rss_sum as f64);
+                }
+                if enable_pss {
+                    state
+                        .metrics
+                        .mem_pss_subgroup_bytes
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(pss_sum as f64);
+                }
+                if enable_uss {
+                    state
+                        .metrics
+                        .mem_uss_subgroup_bytes
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(uss_sum as f64);
+                }
+                state
+                    .metrics
+                    .mem_swap_subgroup_bytes
+                    .with_label_values(&[group_ref, subgroup_ref])
+                    .set(swap_sum as f64);
+
+                if enable_cpu {
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_percent
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(cpu_percent_sum);
+                    
+                    // Note: CPU iowait at subgroup level is not currently tracked per-process
+                    // Set to 0 for now as a placeholder
+                    state
+                        .metrics
+                        .cpu_iowait_subgroup_percent
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(0.0);
+                }
+
+                // Set subgroup metadata metrics
+                state
+                    .metrics
+                    .subgroup_info
+                    .with_label_values(&[group_ref, subgroup_ref])
+                    .set(1.0);
+
+                // Oldest uptime in subgroup - not currently tracked in ProcMem
+                // Set to 0 as a placeholder for now
+                state
+                    .metrics
+                    .subgroup_oldest_uptime_seconds
+                    .with_label_values(&[group_ref, subgroup_ref])
+                    .set(0.0);
+
+                // Alert armed status (not currently implemented, default to 0)
+                state
+                    .metrics
+                    .subgroup_alert_armed
+                    .with_label_values(&[group_ref, subgroup_ref])
+                    .set(0.0);
 
                 // Sort by USS for Top-N selection
                 list.sort_by_key(|p| std::cmp::Reverse(p.uss));
@@ -385,9 +439,173 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                             .set(p.cpu_time_seconds as f64);
                     }
                 }
+
+                // Set new Top-3 metrics (separate metrics for top1, top2, top3)
+                // Sort by RSS for RSS Top-3
+                let mut rss_sorted_list = list.clone();
+                rss_sorted_list.sort_by_key(|p| std::cmp::Reverse(p.rss));
+                
+                if enable_rss && rss_sorted_list.len() >= 1 {
+                    let p = &rss_sorted_list[0];
+                    state.metrics.mem_rss_subgroup_top1_bytes
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.rss as f64);
+                    state.metrics.mem_rss_subgroup_top1_pid
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.pid as f64);
+                    state.metrics.mem_rss_subgroup_top1_comm
+                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .set(1.0);
+                }
+                if enable_rss && rss_sorted_list.len() >= 2 {
+                    let p = &rss_sorted_list[1];
+                    state.metrics.mem_rss_subgroup_top2_bytes
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.rss as f64);
+                    state.metrics.mem_rss_subgroup_top2_pid
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.pid as f64);
+                    state.metrics.mem_rss_subgroup_top2_comm
+                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .set(1.0);
+                }
+                if enable_rss && rss_sorted_list.len() >= 3 {
+                    let p = &rss_sorted_list[2];
+                    state.metrics.mem_rss_subgroup_top3_bytes
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.rss as f64);
+                    state.metrics.mem_rss_subgroup_top3_pid
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.pid as f64);
+                    state.metrics.mem_rss_subgroup_top3_comm
+                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .set(1.0);
+                }
+
+                // Sort by CPU percent for CPU Top-3
+                let mut cpu_sorted_list = list.clone();
+                cpu_sorted_list.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+                
+                if enable_cpu && cpu_sorted_list.len() >= 1 {
+                    let p = &cpu_sorted_list[0];
+                    state.metrics.cpu_usage_subgroup_top1_percent
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.cpu_percent as f64);
+                    state.metrics.cpu_usage_subgroup_top1_pid
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.pid as f64);
+                    state.metrics.cpu_usage_subgroup_top1_comm
+                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .set(1.0);
+                }
+                if enable_cpu && cpu_sorted_list.len() >= 2 {
+                    let p = &cpu_sorted_list[1];
+                    state.metrics.cpu_usage_subgroup_top2_percent
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.cpu_percent as f64);
+                    state.metrics.cpu_usage_subgroup_top2_pid
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.pid as f64);
+                    state.metrics.cpu_usage_subgroup_top2_comm
+                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .set(1.0);
+                }
+                if enable_cpu && cpu_sorted_list.len() >= 3 {
+                    let p = &cpu_sorted_list[2];
+                    state.metrics.cpu_usage_subgroup_top3_percent
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.cpu_percent as f64);
+                    state.metrics.cpu_usage_subgroup_top3_pid
+                        .with_label_values(&[group_ref, subgroup_ref])
+                        .set(p.pid as f64);
+                    state.metrics.cpu_usage_subgroup_top3_comm
+                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .set(1.0);
+                }
             }
 
-            // Update system-wide metrics
+            // Set node-level metrics
+            // Uptime
+            match system::read_uptime() {
+                Ok(uptime) => {
+                    state.metrics.node_uptime_seconds.set(uptime);
+                }
+                Err(e) => {
+                    warn!("Failed to read system uptime: {}", e);
+                }
+            }
+
+            // File descriptors
+            match system::read_system_fd_stats() {
+                Ok((open_fds, _unused_fds, max_fds)) => {
+                    state.metrics.node_fd_open.set(open_fds as f64);
+                    state.metrics.node_fd_max.set(max_fds as f64);
+                    if max_fds > 0 {
+                        let used_ratio = open_fds as f64 / max_fds as f64;
+                        state.metrics.node_fd_used_ratio.set(used_ratio);
+                    } else {
+                        state.metrics.node_fd_used_ratio.set(0.0);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read system FD stats: {}", e);
+                }
+            }
+
+            // Load averages
+            match system::read_load_average() {
+                Ok(load_avg) => {
+                    state.metrics.node_load1.set(load_avg.one_min);
+                    state.metrics.node_load5.set(load_avg.five_min);
+                    state.metrics.node_load15.set(load_avg.fifteen_min);
+                }
+                Err(e) => {
+                    warn!("Failed to read load average: {}", e);
+                }
+            }
+
+            // Memory metrics
+            match system::read_extended_memory_info() {
+                Ok(mem_info) => {
+                    state.metrics.node_mem_total_bytes.set(mem_info.total_bytes as f64);
+                    state.metrics.node_mem_available_bytes.set(mem_info.available_bytes as f64);
+                    state.metrics.node_mem_cached_bytes.set(mem_info.cached_bytes as f64);
+                    state.metrics.node_mem_buffers_bytes.set(mem_info.buffers_bytes as f64);
+                    state.metrics.node_mem_swap_total_bytes.set(mem_info.swap_total_bytes as f64);
+                    
+                    // Calculate used memory
+                    let used_bytes = mem_info.total_bytes.saturating_sub(mem_info.available_bytes);
+                    state.metrics.node_mem_used_bytes.set(used_bytes as f64);
+                    
+                    // Calculate used swap
+                    let swap_used_bytes = mem_info.swap_total_bytes.saturating_sub(mem_info.swap_free_bytes);
+                    state.metrics.node_mem_swap_used_bytes.set(swap_used_bytes as f64);
+                }
+                Err(e) => {
+                    warn!("Failed to read extended memory info: {}", e);
+                }
+            }
+
+            // CPU metrics (aggregate across all cores)
+            match state.system_cpu_cache.calculate_usage_ratios() {
+                Ok(cpu_ratios) => {
+                    // Get the "cpu" (total) values
+                    if let Some(&usage_ratio) = cpu_ratios.usage.get("cpu") {
+                        state.metrics.node_cpu_usage_percent.set(usage_ratio * 100.0);
+                    }
+                    if let Some(&iowait_ratio) = cpu_ratios.iowait.get("cpu") {
+                        state.metrics.node_cpu_iowait_percent.set(iowait_ratio * 100.0);
+                    }
+                    if let Some(&steal_ratio) = cpu_ratios.steal.get("cpu") {
+                        state.metrics.node_cpu_steal_percent.set(steal_ratio * 100.0);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to calculate CPU usage ratios: {}", e);
+                }
+            }
+
+            // Update system-wide metrics (for backward compatibility)
             match system::read_load_average() {
                 Ok(load_avg) => {
                     // Set load metrics

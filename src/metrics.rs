@@ -35,6 +35,25 @@ pub struct MemoryMetrics {
     pub top_pss_percent_of_subgroup: GaugeVec,
     pub top_uss_percent_of_subgroup: GaugeVec,
 
+    // Node-level metrics
+    pub node_uptime_seconds: Gauge,
+    pub node_fd_open: Gauge,
+    pub node_fd_max: Gauge,
+    pub node_fd_used_ratio: Gauge,
+    pub node_cpu_usage_percent: Gauge,
+    pub node_cpu_iowait_percent: Gauge,
+    pub node_cpu_steal_percent: Gauge,
+    pub node_mem_total_bytes: Gauge,
+    pub node_mem_used_bytes: Gauge,
+    pub node_mem_available_bytes: Gauge,
+    pub node_mem_cached_bytes: Gauge,
+    pub node_mem_buffers_bytes: Gauge,
+    pub node_mem_swap_used_bytes: Gauge,
+    pub node_mem_swap_total_bytes: Gauge,
+    pub node_load1: Gauge,
+    pub node_load5: Gauge,
+    pub node_load15: Gauge,
+
     // System-wide metrics
     pub system_memory_total_bytes: Gauge,
     pub system_memory_available_bytes: Gauge,
@@ -62,6 +81,41 @@ pub struct MemoryMetrics {
 
     // Memory group swap metrics
     pub mem_group_swap_bytes: GaugeVec,
+
+    // Subgroup metadata metrics
+    pub subgroup_info: GaugeVec,
+    pub subgroup_oldest_uptime_seconds: GaugeVec,
+    pub subgroup_alert_armed: GaugeVec,
+
+    // Subgroup-level aggregated metrics (renamed from group to subgroup)
+    pub mem_rss_subgroup_bytes: GaugeVec,
+    pub mem_pss_subgroup_bytes: GaugeVec,
+    pub mem_uss_subgroup_bytes: GaugeVec,
+    pub mem_swap_subgroup_bytes: GaugeVec,
+    pub cpu_usage_subgroup_percent: GaugeVec,
+    pub cpu_iowait_subgroup_percent: GaugeVec,
+
+    // Top-3 RSS Memory metrics (separate for top1, top2, top3)
+    pub mem_rss_subgroup_top1_bytes: GaugeVec,
+    pub mem_rss_subgroup_top2_bytes: GaugeVec,
+    pub mem_rss_subgroup_top3_bytes: GaugeVec,
+    pub mem_rss_subgroup_top1_pid: GaugeVec,
+    pub mem_rss_subgroup_top2_pid: GaugeVec,
+    pub mem_rss_subgroup_top3_pid: GaugeVec,
+    pub mem_rss_subgroup_top1_comm: GaugeVec,
+    pub mem_rss_subgroup_top2_comm: GaugeVec,
+    pub mem_rss_subgroup_top3_comm: GaugeVec,
+
+    // Top-3 CPU Usage metrics (separate for top1, top2, top3)
+    pub cpu_usage_subgroup_top1_percent: GaugeVec,
+    pub cpu_usage_subgroup_top2_percent: GaugeVec,
+    pub cpu_usage_subgroup_top3_percent: GaugeVec,
+    pub cpu_usage_subgroup_top1_pid: GaugeVec,
+    pub cpu_usage_subgroup_top2_pid: GaugeVec,
+    pub cpu_usage_subgroup_top3_pid: GaugeVec,
+    pub cpu_usage_subgroup_top1_comm: GaugeVec,
+    pub cpu_usage_subgroup_top2_comm: GaugeVec,
+    pub cpu_usage_subgroup_top3_comm: GaugeVec,
 
     // Disk I/O metrics (reported as gauges with absolute values from /proc)
     pub disk_reads_completed_total: GaugeVec,
@@ -325,6 +379,273 @@ impl MemoryMetrics {
                 "comm",
                 "uptime_in_seconds",
             ],
+        )?;
+
+        // Node-level metrics
+        let node_uptime_seconds = Gauge::new(
+            "herakles_node_uptime_seconds",
+            "System uptime in seconds from /proc/uptime",
+        )?;
+        let node_fd_open = Gauge::new(
+            "herakles_node_fd_open",
+            "Number of open file descriptors system-wide from /proc/sys/fs/file-nr",
+        )?;
+        let node_fd_max = Gauge::new(
+            "herakles_node_fd_max",
+            "Maximum number of file descriptors system-wide from /proc/sys/fs/file-nr",
+        )?;
+        let node_fd_used_ratio = Gauge::new(
+            "herakles_node_fd_used_ratio",
+            "Ratio of used file descriptors (open / max)",
+        )?;
+        let node_cpu_usage_percent = Gauge::new(
+            "herakles_node_cpu_usage_percent",
+            "Total CPU usage percentage across all cores",
+        )?;
+        let node_cpu_iowait_percent = Gauge::new(
+            "herakles_node_cpu_iowait_percent",
+            "Total CPU iowait percentage across all cores",
+        )?;
+        let node_cpu_steal_percent = Gauge::new(
+            "herakles_node_cpu_steal_percent",
+            "Total CPU steal percentage across all cores",
+        )?;
+        let node_mem_total_bytes = Gauge::new(
+            "herakles_node_mem_total_bytes",
+            "Total system memory in bytes",
+        )?;
+        let node_mem_used_bytes = Gauge::new(
+            "herakles_node_mem_used_bytes",
+            "Used system memory in bytes (total - available)",
+        )?;
+        let node_mem_available_bytes = Gauge::new(
+            "herakles_node_mem_available_bytes",
+            "Available system memory in bytes",
+        )?;
+        let node_mem_cached_bytes = Gauge::new(
+            "herakles_node_mem_cached_bytes",
+            "Page cache memory in bytes",
+        )?;
+        let node_mem_buffers_bytes = Gauge::new(
+            "herakles_node_mem_buffers_bytes",
+            "Buffer cache memory in bytes",
+        )?;
+        let node_mem_swap_used_bytes = Gauge::new(
+            "herakles_node_mem_swap_used_bytes",
+            "Used swap space in bytes",
+        )?;
+        let node_mem_swap_total_bytes = Gauge::new(
+            "herakles_node_mem_swap_total_bytes",
+            "Total swap space in bytes",
+        )?;
+        let node_load1 = Gauge::new(
+            "herakles_node_load1",
+            "System load average over 1 minute",
+        )?;
+        let node_load5 = Gauge::new(
+            "herakles_node_load5",
+            "System load average over 5 minutes",
+        )?;
+        let node_load15 = Gauge::new(
+            "herakles_node_load15",
+            "System load average over 15 minutes",
+        )?;
+
+        // Subgroup metadata metrics
+        let subgroup_info = GaugeVec::new(
+            Opts::new(
+                "herakles_subgroup_info",
+                "Subgroup information (always 1.0)",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let subgroup_oldest_uptime_seconds = GaugeVec::new(
+            Opts::new(
+                "herakles_subgroup_oldest_uptime_seconds",
+                "Oldest process uptime in seconds per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let subgroup_alert_armed = GaugeVec::new(
+            Opts::new(
+                "herakles_subgroup_alert_armed",
+                "Alert armed status per subgroup (1.0 = armed, 0.0 = not armed)",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Subgroup-level aggregated metrics (without uptime label)
+        let mem_rss_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_bytes",
+                "Sum of RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_pss_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_pss_subgroup_bytes",
+                "Sum of PSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_uss_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_uss_subgroup_bytes",
+                "Sum of USS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_swap_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_swap_subgroup_bytes",
+                "Sum of swap bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_percent",
+                "CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_iowait_subgroup_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_iowait_subgroup_percent",
+                "CPU iowait percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Top-3 RSS Memory metrics (separate for top1, top2, top3)
+        let mem_rss_subgroup_top1_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top1_bytes",
+                "Top 1 RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top2_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top2_bytes",
+                "Top 2 RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top3_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top3_bytes",
+                "Top 3 RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top1_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top1_pid",
+                "Top 1 RSS process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top2_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top2_pid",
+                "Top 2 RSS process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top3_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top3_pid",
+                "Top 3 RSS process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top1_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top1_comm",
+                "Top 1 RSS process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let mem_rss_subgroup_top2_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top2_comm",
+                "Top 2 RSS process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let mem_rss_subgroup_top3_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top3_comm",
+                "Top 3 RSS process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+
+        // Top-3 CPU Usage metrics (separate for top1, top2, top3)
+        let cpu_usage_subgroup_top1_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top1_percent",
+                "Top 1 CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top2_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top2_percent",
+                "Top 2 CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top3_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top3_percent",
+                "Top 3 CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top1_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top1_pid",
+                "Top 1 CPU usage process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top2_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top2_pid",
+                "Top 2 CPU usage process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top3_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top3_pid",
+                "Top 3 CPU usage process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top1_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top1_comm",
+                "Top 1 CPU usage process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let cpu_usage_subgroup_top2_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top2_comm",
+                "Top 2 CPU usage process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let cpu_usage_subgroup_top3_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top3_comm",
+                "Top 3 CPU usage process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
         )?;
 
         // System-wide memory metrics (renamed)
@@ -741,6 +1062,60 @@ impl MemoryMetrics {
         registry.register(Box::new(top_pss_percent_of_subgroup.clone()))?;
         registry.register(Box::new(top_uss_percent_of_subgroup.clone()))?;
 
+        // Register node-level metrics
+        registry.register(Box::new(node_uptime_seconds.clone()))?;
+        registry.register(Box::new(node_fd_open.clone()))?;
+        registry.register(Box::new(node_fd_max.clone()))?;
+        registry.register(Box::new(node_fd_used_ratio.clone()))?;
+        registry.register(Box::new(node_cpu_usage_percent.clone()))?;
+        registry.register(Box::new(node_cpu_iowait_percent.clone()))?;
+        registry.register(Box::new(node_cpu_steal_percent.clone()))?;
+        registry.register(Box::new(node_mem_total_bytes.clone()))?;
+        registry.register(Box::new(node_mem_used_bytes.clone()))?;
+        registry.register(Box::new(node_mem_available_bytes.clone()))?;
+        registry.register(Box::new(node_mem_cached_bytes.clone()))?;
+        registry.register(Box::new(node_mem_buffers_bytes.clone()))?;
+        registry.register(Box::new(node_mem_swap_used_bytes.clone()))?;
+        registry.register(Box::new(node_mem_swap_total_bytes.clone()))?;
+        registry.register(Box::new(node_load1.clone()))?;
+        registry.register(Box::new(node_load5.clone()))?;
+        registry.register(Box::new(node_load15.clone()))?;
+
+        // Register subgroup metadata metrics
+        registry.register(Box::new(subgroup_info.clone()))?;
+        registry.register(Box::new(subgroup_oldest_uptime_seconds.clone()))?;
+        registry.register(Box::new(subgroup_alert_armed.clone()))?;
+
+        // Register subgroup-level aggregated metrics
+        registry.register(Box::new(mem_rss_subgroup_bytes.clone()))?;
+        registry.register(Box::new(mem_pss_subgroup_bytes.clone()))?;
+        registry.register(Box::new(mem_uss_subgroup_bytes.clone()))?;
+        registry.register(Box::new(mem_swap_subgroup_bytes.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_percent.clone()))?;
+        registry.register(Box::new(cpu_iowait_subgroup_percent.clone()))?;
+
+        // Register Top-3 RSS Memory metrics
+        registry.register(Box::new(mem_rss_subgroup_top1_bytes.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top2_bytes.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top3_bytes.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top1_pid.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top2_pid.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top3_pid.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top1_comm.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top2_comm.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top3_comm.clone()))?;
+
+        // Register Top-3 CPU Usage metrics
+        registry.register(Box::new(cpu_usage_subgroup_top1_percent.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top2_percent.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top3_percent.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top1_pid.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top2_pid.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top3_pid.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top1_comm.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top2_comm.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top3_comm.clone()))?;
+
         registry.register(Box::new(system_memory_total_bytes.clone()))?;
         registry.register(Box::new(system_memory_available_bytes.clone()))?;
         registry.register(Box::new(system_memory_used_ratio.clone()))?;
@@ -827,6 +1202,50 @@ impl MemoryMetrics {
             top_rss_percent_of_subgroup,
             top_pss_percent_of_subgroup,
             top_uss_percent_of_subgroup,
+            node_uptime_seconds,
+            node_fd_open,
+            node_fd_max,
+            node_fd_used_ratio,
+            node_cpu_usage_percent,
+            node_cpu_iowait_percent,
+            node_cpu_steal_percent,
+            node_mem_total_bytes,
+            node_mem_used_bytes,
+            node_mem_available_bytes,
+            node_mem_cached_bytes,
+            node_mem_buffers_bytes,
+            node_mem_swap_used_bytes,
+            node_mem_swap_total_bytes,
+            node_load1,
+            node_load5,
+            node_load15,
+            subgroup_info,
+            subgroup_oldest_uptime_seconds,
+            subgroup_alert_armed,
+            mem_rss_subgroup_bytes,
+            mem_pss_subgroup_bytes,
+            mem_uss_subgroup_bytes,
+            mem_swap_subgroup_bytes,
+            cpu_usage_subgroup_percent,
+            cpu_iowait_subgroup_percent,
+            mem_rss_subgroup_top1_bytes,
+            mem_rss_subgroup_top2_bytes,
+            mem_rss_subgroup_top3_bytes,
+            mem_rss_subgroup_top1_pid,
+            mem_rss_subgroup_top2_pid,
+            mem_rss_subgroup_top3_pid,
+            mem_rss_subgroup_top1_comm,
+            mem_rss_subgroup_top2_comm,
+            mem_rss_subgroup_top3_comm,
+            cpu_usage_subgroup_top1_percent,
+            cpu_usage_subgroup_top2_percent,
+            cpu_usage_subgroup_top3_percent,
+            cpu_usage_subgroup_top1_pid,
+            cpu_usage_subgroup_top2_pid,
+            cpu_usage_subgroup_top3_pid,
+            cpu_usage_subgroup_top1_comm,
+            cpu_usage_subgroup_top2_comm,
+            cpu_usage_subgroup_top3_comm,
             system_memory_total_bytes,
             system_memory_available_bytes,
             system_memory_used_ratio,
@@ -911,6 +1330,41 @@ impl MemoryMetrics {
         self.top_rss_percent_of_subgroup.reset();
         self.top_pss_percent_of_subgroup.reset();
         self.top_uss_percent_of_subgroup.reset();
+
+        // Reset subgroup metadata metrics
+        self.subgroup_info.reset();
+        self.subgroup_oldest_uptime_seconds.reset();
+        self.subgroup_alert_armed.reset();
+
+        // Reset subgroup-level aggregated metrics
+        self.mem_rss_subgroup_bytes.reset();
+        self.mem_pss_subgroup_bytes.reset();
+        self.mem_uss_subgroup_bytes.reset();
+        self.mem_swap_subgroup_bytes.reset();
+        self.cpu_usage_subgroup_percent.reset();
+        self.cpu_iowait_subgroup_percent.reset();
+
+        // Reset Top-3 RSS Memory metrics
+        self.mem_rss_subgroup_top1_bytes.reset();
+        self.mem_rss_subgroup_top2_bytes.reset();
+        self.mem_rss_subgroup_top3_bytes.reset();
+        self.mem_rss_subgroup_top1_pid.reset();
+        self.mem_rss_subgroup_top2_pid.reset();
+        self.mem_rss_subgroup_top3_pid.reset();
+        self.mem_rss_subgroup_top1_comm.reset();
+        self.mem_rss_subgroup_top2_comm.reset();
+        self.mem_rss_subgroup_top3_comm.reset();
+
+        // Reset Top-3 CPU Usage metrics
+        self.cpu_usage_subgroup_top1_percent.reset();
+        self.cpu_usage_subgroup_top2_percent.reset();
+        self.cpu_usage_subgroup_top3_percent.reset();
+        self.cpu_usage_subgroup_top1_pid.reset();
+        self.cpu_usage_subgroup_top2_pid.reset();
+        self.cpu_usage_subgroup_top3_pid.reset();
+        self.cpu_usage_subgroup_top1_comm.reset();
+        self.cpu_usage_subgroup_top2_comm.reset();
+        self.cpu_usage_subgroup_top3_comm.reset();
 
         // Reset system metrics
         self.system_cpu_usage_ratio.reset();
