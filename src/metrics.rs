@@ -40,6 +40,19 @@ pub struct MemoryMetrics {
     pub node_fd_open: Gauge,
     pub node_fd_max: Gauge,
     pub node_fd_used_ratio: Gauge,
+    pub node_cpu_usage_percent: Gauge,
+    pub node_cpu_iowait_percent: Gauge,
+    pub node_cpu_steal_percent: Gauge,
+    pub node_mem_total_bytes: Gauge,
+    pub node_mem_used_bytes: Gauge,
+    pub node_mem_available_bytes: Gauge,
+    pub node_mem_cached_bytes: Gauge,
+    pub node_mem_buffers_bytes: Gauge,
+    pub node_mem_swap_used_bytes: Gauge,
+    pub node_mem_swap_total_bytes: Gauge,
+    pub node_load1: Gauge,
+    pub node_load5: Gauge,
+    pub node_load15: Gauge,
 
     // System-wide metrics
     pub system_memory_total_bytes: Gauge,
@@ -384,6 +397,58 @@ impl MemoryMetrics {
         let node_fd_used_ratio = Gauge::new(
             "herakles_node_fd_used_ratio",
             "Ratio of used file descriptors (open / max)",
+        )?;
+        let node_cpu_usage_percent = Gauge::new(
+            "herakles_node_cpu_usage_percent",
+            "Total CPU usage percentage across all cores",
+        )?;
+        let node_cpu_iowait_percent = Gauge::new(
+            "herakles_node_cpu_iowait_percent",
+            "Total CPU iowait percentage across all cores",
+        )?;
+        let node_cpu_steal_percent = Gauge::new(
+            "herakles_node_cpu_steal_percent",
+            "Total CPU steal percentage across all cores",
+        )?;
+        let node_mem_total_bytes = Gauge::new(
+            "herakles_node_mem_total_bytes",
+            "Total system memory in bytes",
+        )?;
+        let node_mem_used_bytes = Gauge::new(
+            "herakles_node_mem_used_bytes",
+            "Used system memory in bytes (total - available)",
+        )?;
+        let node_mem_available_bytes = Gauge::new(
+            "herakles_node_mem_available_bytes",
+            "Available system memory in bytes",
+        )?;
+        let node_mem_cached_bytes = Gauge::new(
+            "herakles_node_mem_cached_bytes",
+            "Page cache memory in bytes",
+        )?;
+        let node_mem_buffers_bytes = Gauge::new(
+            "herakles_node_mem_buffers_bytes",
+            "Buffer cache memory in bytes",
+        )?;
+        let node_mem_swap_used_bytes = Gauge::new(
+            "herakles_node_mem_swap_used_bytes",
+            "Used swap space in bytes",
+        )?;
+        let node_mem_swap_total_bytes = Gauge::new(
+            "herakles_node_mem_swap_total_bytes",
+            "Total swap space in bytes",
+        )?;
+        let node_load1 = Gauge::new(
+            "herakles_node_load1",
+            "System load average over 1 minute",
+        )?;
+        let node_load5 = Gauge::new(
+            "herakles_node_load5",
+            "System load average over 5 minutes",
+        )?;
+        let node_load15 = Gauge::new(
+            "herakles_node_load15",
+            "System load average over 15 minutes",
         )?;
 
         // Subgroup metadata metrics
@@ -1002,6 +1067,19 @@ impl MemoryMetrics {
         registry.register(Box::new(node_fd_open.clone()))?;
         registry.register(Box::new(node_fd_max.clone()))?;
         registry.register(Box::new(node_fd_used_ratio.clone()))?;
+        registry.register(Box::new(node_cpu_usage_percent.clone()))?;
+        registry.register(Box::new(node_cpu_iowait_percent.clone()))?;
+        registry.register(Box::new(node_cpu_steal_percent.clone()))?;
+        registry.register(Box::new(node_mem_total_bytes.clone()))?;
+        registry.register(Box::new(node_mem_used_bytes.clone()))?;
+        registry.register(Box::new(node_mem_available_bytes.clone()))?;
+        registry.register(Box::new(node_mem_cached_bytes.clone()))?;
+        registry.register(Box::new(node_mem_buffers_bytes.clone()))?;
+        registry.register(Box::new(node_mem_swap_used_bytes.clone()))?;
+        registry.register(Box::new(node_mem_swap_total_bytes.clone()))?;
+        registry.register(Box::new(node_load1.clone()))?;
+        registry.register(Box::new(node_load5.clone()))?;
+        registry.register(Box::new(node_load15.clone()))?;
 
         // Register subgroup metadata metrics
         registry.register(Box::new(subgroup_info.clone()))?;
@@ -1128,6 +1206,19 @@ impl MemoryMetrics {
             node_fd_open,
             node_fd_max,
             node_fd_used_ratio,
+            node_cpu_usage_percent,
+            node_cpu_iowait_percent,
+            node_cpu_steal_percent,
+            node_mem_total_bytes,
+            node_mem_used_bytes,
+            node_mem_available_bytes,
+            node_mem_cached_bytes,
+            node_mem_buffers_bytes,
+            node_mem_swap_used_bytes,
+            node_mem_swap_total_bytes,
+            node_load1,
+            node_load5,
+            node_load15,
             subgroup_info,
             subgroup_oldest_uptime_seconds,
             subgroup_alert_armed,

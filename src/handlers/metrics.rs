@@ -552,7 +552,60 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
             }
 
-            // Update system-wide metrics
+            // Load averages
+            match system::read_load_average() {
+                Ok(load_avg) => {
+                    state.metrics.node_load1.set(load_avg.one_min);
+                    state.metrics.node_load5.set(load_avg.five_min);
+                    state.metrics.node_load15.set(load_avg.fifteen_min);
+                }
+                Err(e) => {
+                    warn!("Failed to read load average: {}", e);
+                }
+            }
+
+            // Memory metrics
+            match system::read_extended_memory_info() {
+                Ok(mem_info) => {
+                    state.metrics.node_mem_total_bytes.set(mem_info.total_bytes as f64);
+                    state.metrics.node_mem_available_bytes.set(mem_info.available_bytes as f64);
+                    state.metrics.node_mem_cached_bytes.set(mem_info.cached_bytes as f64);
+                    state.metrics.node_mem_buffers_bytes.set(mem_info.buffers_bytes as f64);
+                    state.metrics.node_mem_swap_total_bytes.set(mem_info.swap_total_bytes as f64);
+                    
+                    // Calculate used memory
+                    let used_bytes = mem_info.total_bytes.saturating_sub(mem_info.available_bytes);
+                    state.metrics.node_mem_used_bytes.set(used_bytes as f64);
+                    
+                    // Calculate used swap
+                    let swap_used_bytes = mem_info.swap_total_bytes.saturating_sub(mem_info.swap_free_bytes);
+                    state.metrics.node_mem_swap_used_bytes.set(swap_used_bytes as f64);
+                }
+                Err(e) => {
+                    warn!("Failed to read extended memory info: {}", e);
+                }
+            }
+
+            // CPU metrics (aggregate across all cores)
+            match state.system_cpu_cache.calculate_usage_ratios() {
+                Ok(cpu_ratios) => {
+                    // Get the "cpu" (total) values
+                    if let Some(&usage_ratio) = cpu_ratios.usage.get("cpu") {
+                        state.metrics.node_cpu_usage_percent.set(usage_ratio * 100.0);
+                    }
+                    if let Some(&iowait_ratio) = cpu_ratios.iowait.get("cpu") {
+                        state.metrics.node_cpu_iowait_percent.set(iowait_ratio * 100.0);
+                    }
+                    if let Some(&steal_ratio) = cpu_ratios.steal.get("cpu") {
+                        state.metrics.node_cpu_steal_percent.set(steal_ratio * 100.0);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to calculate CPU usage ratios: {}", e);
+                }
+            }
+
+            // Update system-wide metrics (for backward compatibility)
             match system::read_load_average() {
                 Ok(load_avg) => {
                     // Set load metrics
