@@ -202,14 +202,14 @@ impl MemoryMetrics {
                 "herakles_subgroup_oldest_uptime_seconds",
                 "Oldest process uptime in seconds per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let subgroup_alert_armed = GaugeVec::new(
             Opts::new(
                 "herakles_subgroup_alert_armed",
                 "Alert armed status per subgroup (1.0 = armed, 0.0 = not armed)",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
 
         // Subgroup-level aggregated metrics (without uptime label)
@@ -218,70 +218,70 @@ impl MemoryMetrics {
                 "herakles_mem_rss_subgroup_bytes",
                 "Sum of RSS bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_pss_subgroup_bytes = GaugeVec::new(
             Opts::new(
                 "herakles_mem_pss_subgroup_bytes",
                 "Sum of PSS bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_uss_subgroup_bytes = GaugeVec::new(
             Opts::new(
                 "herakles_mem_uss_subgroup_bytes",
                 "Sum of USS bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_swap_subgroup_bytes = GaugeVec::new(
             Opts::new(
                 "herakles_mem_swap_subgroup_bytes",
                 "Sum of swap bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_usage_subgroup_percent = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_percent",
                 "CPU usage percentage per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_iowait_subgroup_percent = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_iowait_subgroup_percent",
                 "CPU iowait percentage per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let io_read_subgroup_bytes_per_second = GaugeVec::new(
             Opts::new(
                 "herakles_io_read_subgroup_bytes_per_second",
                 "I/O read throughput in bytes per second per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let io_write_subgroup_bytes_per_second = GaugeVec::new(
             Opts::new(
                 "herakles_io_write_subgroup_bytes_per_second",
                 "I/O write throughput in bytes per second per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let net_rx_subgroup_bytes_per_second = GaugeVec::new(
             Opts::new(
                 "herakles_net_rx_subgroup_bytes_per_second",
                 "Network receive throughput in bytes per second per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let net_tx_subgroup_bytes_per_second = GaugeVec::new(
             Opts::new(
                 "herakles_net_tx_subgroup_bytes_per_second",
                 "Network transmit throughput in bytes per second per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
 
         // Top-3 RSS Memory metrics (separate for top1, top2, top3)
@@ -290,42 +290,42 @@ impl MemoryMetrics {
                 "herakles_mem_rss_subgroup_top1_bytes",
                 "Top 1 RSS bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_rss_subgroup_top2_bytes = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top2_bytes",
                 "Top 2 RSS bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_rss_subgroup_top3_bytes = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top3_bytes",
                 "Top 3 RSS bytes per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_rss_subgroup_top1_pid = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top1_pid",
                 "Top 1 RSS process PID per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_rss_subgroup_top2_pid = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top2_pid",
                 "Top 2 RSS process PID per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let mem_rss_subgroup_top3_pid = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top3_pid",
                 "Top 3 RSS process PID per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top1_comm = GaugeVec::new(
@@ -333,7 +333,7 @@ impl MemoryMetrics {
                 "herakles_mem_rss_subgroup_top1_comm",
                 "Top 1 RSS process name per subgroup (info metric)",
             ),
-            &["group", "subgroup", "comm"],
+            &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top2_comm = GaugeVec::new(
@@ -341,7 +341,7 @@ impl MemoryMetrics {
                 "herakles_mem_rss_subgroup_top2_comm",
                 "Top 2 RSS process name per subgroup (info metric)",
             ),
-            &["group", "subgroup", "comm"],
+            &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top3_comm = GaugeVec::new(
@@ -349,7 +349,7 @@ impl MemoryMetrics {
                 "herakles_mem_rss_subgroup_top3_comm",
                 "Top 3 RSS process name per subgroup (info metric)",
             ),
-            &["group", "subgroup", "comm"],
+            &["subgroup", "comm"],
         )?;
 
         // Top-3 CPU Usage metrics (separate for top1, top2, top3)
@@ -358,42 +358,42 @@ impl MemoryMetrics {
                 "herakles_cpu_usage_subgroup_top1_percent",
                 "Top 1 CPU usage percentage per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_usage_subgroup_top2_percent = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top2_percent",
                 "Top 2 CPU usage percentage per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_usage_subgroup_top3_percent = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top3_percent",
                 "Top 3 CPU usage percentage per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_usage_subgroup_top1_pid = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top1_pid",
                 "Top 1 CPU usage process PID per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_usage_subgroup_top2_pid = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top2_pid",
                 "Top 2 CPU usage process PID per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         let cpu_usage_subgroup_top3_pid = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top3_pid",
                 "Top 3 CPU usage process PID per subgroup",
             ),
-            &["group", "subgroup"],
+            &["subgroup"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top1_comm = GaugeVec::new(
@@ -401,7 +401,7 @@ impl MemoryMetrics {
                 "herakles_cpu_usage_subgroup_top1_comm",
                 "Top 1 CPU usage process name per subgroup (info metric)",
             ),
-            &["group", "subgroup", "comm"],
+            &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top2_comm = GaugeVec::new(
@@ -409,7 +409,7 @@ impl MemoryMetrics {
                 "herakles_cpu_usage_subgroup_top2_comm",
                 "Top 2 CPU usage process name per subgroup (info metric)",
             ),
-            &["group", "subgroup", "comm"],
+            &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top3_comm = GaugeVec::new(
@@ -417,7 +417,7 @@ impl MemoryMetrics {
                 "herakles_cpu_usage_subgroup_top3_comm",
                 "Top 3 CPU usage process name per subgroup (info metric)",
             ),
-            &["group", "subgroup", "comm"],
+            &["subgroup", "comm"],
         )?;
 
         // Register all node-level metrics

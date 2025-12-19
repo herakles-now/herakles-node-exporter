@@ -136,34 +136,34 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     state
                         .metrics
                         .mem_rss_subgroup_bytes
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(rss_sum as f64);
                 }
                 if enable_pss {
                     state
                         .metrics
                         .mem_pss_subgroup_bytes
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(pss_sum as f64);
                 }
                 if enable_uss {
                     state
                         .metrics
                         .mem_uss_subgroup_bytes
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(uss_sum as f64);
                 }
                 state
                     .metrics
                     .mem_swap_subgroup_bytes
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(swap_sum as f64);
 
                 if enable_cpu {
                     state
                         .metrics
                         .cpu_usage_subgroup_percent
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(cpu_percent_sum);
                     
                     // Note: CPU iowait at subgroup level is not currently tracked per-process
@@ -171,7 +171,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     state
                         .metrics
                         .cpu_iowait_subgroup_percent
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(0.0);
                 }
 
@@ -181,22 +181,22 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 state
                     .metrics
                     .io_read_subgroup_bytes_per_second
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(0.0);
                 state
                     .metrics
                     .io_write_subgroup_bytes_per_second
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(0.0);
                 state
                     .metrics
                     .net_rx_subgroup_bytes_per_second
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(0.0);
                 state
                     .metrics
                     .net_tx_subgroup_bytes_per_second
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(0.0);
 
                 // Set subgroup metadata metrics
@@ -211,14 +211,14 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 state
                     .metrics
                     .subgroup_oldest_uptime_seconds
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(0.0);
 
                 // Alert armed status (not currently implemented, default to 0)
                 state
                     .metrics
                     .subgroup_alert_armed
-                    .with_label_values(&[group_ref, subgroup_ref])
+                    .with_label_values(&[subgroup_ref])
                     .set(0.0);
 
                 // Set new Top-3 metrics (separate metrics for top1, top2, top3)
@@ -229,37 +229,37 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if enable_rss && rss_sorted_list.len() >= 1 {
                     let p = &rss_sorted_list[0];
                     state.metrics.mem_rss_subgroup_top1_bytes
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
                     state.metrics.mem_rss_subgroup_top1_pid
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
                     state.metrics.mem_rss_subgroup_top1_comm
-                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_rss && rss_sorted_list.len() >= 2 {
                     let p = &rss_sorted_list[1];
                     state.metrics.mem_rss_subgroup_top2_bytes
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
                     state.metrics.mem_rss_subgroup_top2_pid
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
                     state.metrics.mem_rss_subgroup_top2_comm
-                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_rss && rss_sorted_list.len() >= 3 {
                     let p = &rss_sorted_list[2];
                     state.metrics.mem_rss_subgroup_top3_bytes
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
                     state.metrics.mem_rss_subgroup_top3_pid
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
                     state.metrics.mem_rss_subgroup_top3_comm
-                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
 
@@ -270,37 +270,37 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if enable_cpu && cpu_sorted_list.len() >= 1 {
                     let p = &cpu_sorted_list[0];
                     state.metrics.cpu_usage_subgroup_top1_percent
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
                     state.metrics.cpu_usage_subgroup_top1_pid
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
                     state.metrics.cpu_usage_subgroup_top1_comm
-                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_cpu && cpu_sorted_list.len() >= 2 {
                     let p = &cpu_sorted_list[1];
                     state.metrics.cpu_usage_subgroup_top2_percent
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
                     state.metrics.cpu_usage_subgroup_top2_pid
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
                     state.metrics.cpu_usage_subgroup_top2_comm
-                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_cpu && cpu_sorted_list.len() >= 3 {
                     let p = &cpu_sorted_list[2];
                     state.metrics.cpu_usage_subgroup_top3_percent
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
                     state.metrics.cpu_usage_subgroup_top3_pid
-                        .with_label_values(&[group_ref, subgroup_ref])
+                        .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
                     state.metrics.cpu_usage_subgroup_top3_comm
-                        .with_label_values(&[group_ref, subgroup_ref, &p.name])
+                        .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
             }
