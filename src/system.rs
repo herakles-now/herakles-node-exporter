@@ -429,3 +429,52 @@ pub fn get_fd_usage() -> Result<(u64, u64), std::io::Error> {
     
     Ok((open_fds, max_fds))
 }
+
+/// Reads system-wide file descriptor statistics from /proc/sys/fs/file-nr.
+///
+/// Returns (open_fds, unused_fds, max_fds) as a tuple.
+/// Format: "<open> <unused> <max>"
+pub fn read_system_fd_stats() -> Result<(u64, u64, u64), String> {
+    let content = fs::read_to_string("/proc/sys/fs/file-nr")
+        .map_err(|e| format!("Failed to read /proc/sys/fs/file-nr: {}", e))?;
+
+    let parts: Vec<&str> = content.split_whitespace().collect();
+    if parts.len() < 3 {
+        return Err(format!(
+            "Invalid /proc/sys/fs/file-nr format: expected 3 fields, got {}",
+            parts.len()
+        ));
+    }
+
+    let open_fds = parts[0]
+        .parse::<u64>()
+        .map_err(|e| format!("Failed to parse open FDs: {}", e))?;
+    let unused_fds = parts[1]
+        .parse::<u64>()
+        .map_err(|e| format!("Failed to parse unused FDs: {}", e))?;
+    let max_fds = parts[2]
+        .parse::<u64>()
+        .map_err(|e| format!("Failed to parse max FDs: {}", e))?;
+
+    Ok((open_fds, unused_fds, max_fds))
+}
+
+/// Reads system uptime from /proc/uptime.
+///
+/// Returns uptime in seconds.
+/// Format: "<uptime_seconds> <idle_seconds>"
+pub fn read_uptime() -> Result<f64, String> {
+    let content = fs::read_to_string("/proc/uptime")
+        .map_err(|e| format!("Failed to read /proc/uptime: {}", e))?;
+
+    let parts: Vec<&str> = content.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Invalid /proc/uptime format: no fields found".to_string());
+    }
+
+    let uptime_seconds = parts[0]
+        .parse::<f64>()
+        .map_err(|e| format!("Failed to parse uptime: {}", e))?;
+
+    Ok(uptime_seconds)
+}
