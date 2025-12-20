@@ -73,7 +73,9 @@ pub fn parse_start_time_seconds(proc_path: &Path) -> Result<f64, std::io::Error>
     }
 
     // Field 22 is at index 21 (0-based)
-    let starttime_jiffies: u64 = parts[21].parse().unwrap_or(0);
+    let starttime_jiffies: u64 = parts[21]
+        .parse()
+        .map_err(|_| std::io::Error::other("Failed to parse starttime field"))?;
 
     // Get system uptime
     let system_uptime = crate::system::read_uptime().unwrap_or(0.0);

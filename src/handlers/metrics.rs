@@ -207,7 +207,8 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     .set(1.0);
 
                 // Calculate oldest uptime in the subgroup
-                // Oldest process = process with earliest start_time_seconds (longest running)
+                // The oldest process is the one with the earliest start_time_seconds (smallest value)
+                // which translates to the maximum uptime: max(system_uptime - start_time_seconds)
                 let system_uptime = system::read_uptime().unwrap_or(0.0);
                 
                 let oldest_uptime = if list.is_empty() {
