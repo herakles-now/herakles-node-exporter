@@ -6,8 +6,10 @@
 //! - `/config`: Configuration display endpoint
 //! - `/subgroups`: Subgroups display endpoint
 //! - `/doc`: Documentation endpoint
+//! - `/details`: Ringbuffer statistics and history endpoint
 
 pub mod config;
+pub mod details;
 pub mod doc;
 pub mod health;
 pub mod metrics;
@@ -15,6 +17,7 @@ pub mod subgroups;
 
 // Re-export handlers
 pub use config::config_handler;
+pub use details::details_handler;
 pub use doc::doc_handler;
 pub use health::health_handler;
 pub use metrics::metrics_handler;

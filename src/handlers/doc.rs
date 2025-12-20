@@ -32,6 +32,8 @@ GET /health      - Health check with internal statistics (plain text)
 GET /config      - Current configuration (plain text)
 GET /subgroups   - Loaded subgroups overview (plain text)
 GET /doc         - This documentation (plain text)
+GET /details     - Ringbuffer statistics and history (plain text)
+                   Query params: ?subgroup=<name>
 
 AVAILABLE METRICS
 -----------------

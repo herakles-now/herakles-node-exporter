@@ -14,6 +14,42 @@ pub const DEFAULT_BIND_ADDR: &str = "0.0.0.0";
 pub const DEFAULT_PORT: u16 = 9215;
 pub const DEFAULT_CACHE_TTL: u64 = 30;
 
+/// Ringbuffer configuration for historical metrics tracking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RingbufferConfig {
+    /// Maximum memory for all ringbuffers in MB (default: 15)
+    #[serde(default = "default_max_memory_mb")]
+    pub max_memory_mb: usize,
+    
+    /// Sampling interval in seconds (default: 30)
+    #[serde(default = "default_interval_seconds")]
+    pub interval_seconds: u64,
+    
+    /// Minimum entries per subgroup (default: 10)
+    #[serde(default = "default_min_entries")]
+    pub min_entries_per_subgroup: usize,
+    
+    /// Maximum entries per subgroup (default: 120)
+    #[serde(default = "default_max_entries")]
+    pub max_entries_per_subgroup: usize,
+}
+
+fn default_max_memory_mb() -> usize { 15 }
+fn default_interval_seconds() -> u64 { 30 }
+fn default_min_entries() -> usize { 10 }
+fn default_max_entries() -> usize { 120 }
+
+impl Default for RingbufferConfig {
+    fn default() -> Self {
+        Self {
+            max_memory_mb: default_max_memory_mb(),
+            interval_seconds: default_interval_seconds(),
+            min_entries_per_subgroup: default_min_entries(),
+            max_entries_per_subgroup: default_max_entries(),
+        }
+    }
+}
+
 /// Enhanced configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -96,6 +132,10 @@ pub struct Config {
     pub enable_ebpf_disk: Option<bool>,
     #[serde(alias = "enable-tcp-tracking")]
     pub enable_tcp_tracking: Option<bool>,
+
+    // Ringbuffer Configuration
+    #[serde(default)]
+    pub ringbuffer: RingbufferConfig,
 }
 
 impl Default for Config {
@@ -137,6 +177,7 @@ impl Default for Config {
             enable_ebpf_network: Some(true),
             enable_ebpf_disk: Some(true),
             enable_tcp_tracking: Some(true),
+            ringbuffer: RingbufferConfig::default(),
         }
     }
 }

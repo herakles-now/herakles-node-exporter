@@ -15,6 +15,7 @@ use crate::ebpf::EbpfManager;
 use crate::health_stats::HealthStats;
 use crate::metrics::MemoryMetrics;
 use crate::process::{BufferConfig, CpuEntry};
+use crate::ringbuffer_manager::RingbufferManager;
 use crate::system::CpuStatsCache;
 
 /// Type alias for shared application state.
@@ -42,4 +43,6 @@ pub struct AppState {
     pub system_cpu_cache: CpuStatsCache,
     /// eBPF manager for process I/O tracking (optional).
     pub ebpf: Option<Arc<EbpfManager>>,
+    /// Ringbuffer manager for historical metrics tracking.
+    pub ringbuffer_manager: Arc<RingbufferManager>,
 }
