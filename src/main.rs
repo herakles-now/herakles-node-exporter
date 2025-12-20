@@ -13,6 +13,8 @@ mod handlers;
 mod health_stats;
 mod metrics;
 mod process;
+mod ringbuffer;
+mod ringbuffer_manager;
 mod state;
 mod system;
 
@@ -23,7 +25,6 @@ use clap::Parser;
 use herakles_node_exporter::{AppConfig as HealthAppConfig, BufferHealthConfig, HealthState};
 use prometheus::{Gauge, Registry};
 use rayon::prelude::*;
-use std::collections::HashSet;
 use std::fs;
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
@@ -46,15 +47,17 @@ use config::{
     resolve_config, show_config, validate_effective_config, Config, DEFAULT_BIND_ADDR,
     DEFAULT_CACHE_TTL, DEFAULT_PORT,
 };
-use handlers::{config_handler, doc_handler, health_handler, metrics_handler, subgroups_handler};
+use handlers::{config_handler, details_handler, doc_handler, health_handler, metrics_handler, subgroups_handler};
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
     parse_start_time_seconds, read_process_name, read_vmswap, should_include_process,
     BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
-    MAX_SMAPS_ROLLUP_BUFFER_BYTES,
+    MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
 };
+use ringbuffer::RingbufferEntry;
+use ringbuffer_manager::RingbufferManager;
 use state::{AppState, SharedState};
 use system::CpuStatsCache;
 
@@ -144,6 +147,15 @@ fn read_self_cpu_percent() -> Option<f64> {
     } else {
         None
     }
+}
+
+/// Aggregated metrics data for a subgroup.
+struct AggregatedData {
+    rss_sum: u64,
+    pss_sum: u64,
+    uss_sum: u64,
+    cpu_percent_sum: f64,
+    cpu_time_sum: f64,
 }
 
 /// Cache update function.
@@ -334,13 +346,45 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
 
     state.cache_ready.notify_waiters();
 
-    // Count unique subgroups
-    let mut used_subgroups_set: HashSet<(Arc<str>, Arc<str>)> = HashSet::new();
+    // Count unique subgroups and aggregate metrics for ringbuffer
+    let mut aggregated_by_subgroup: HashMap<String, AggregatedData> = HashMap::new();
+    
     for p in &results {
         let (group, subgroup) = classify_process_raw(&p.name);
-        used_subgroups_set.insert((group, subgroup));
+        let key = format!("{}:{}", group, subgroup);
+        
+        let agg = aggregated_by_subgroup.entry(key).or_insert(AggregatedData {
+            rss_sum: 0,
+            pss_sum: 0,
+            uss_sum: 0,
+            cpu_percent_sum: 0.0,
+            cpu_time_sum: 0.0,
+        });
+        
+        agg.rss_sum += p.rss;
+        agg.pss_sum += p.pss;
+        agg.uss_sum += p.uss;
+        agg.cpu_percent_sum += p.cpu_percent as f64;
+        agg.cpu_time_sum += p.cpu_time_seconds as f64;
     }
-    let subgroups_count = used_subgroups_set.len() as u64;
+    
+    let subgroups_count = aggregated_by_subgroup.len() as u64;
+
+    // Record ringbuffer entries for each subgroup
+    let timestamp = chrono::Utc::now().timestamp();
+    for (key, agg_data) in &aggregated_by_subgroup {
+        let entry = RingbufferEntry {
+            timestamp,
+            rss_kb: agg_data.rss_sum / 1024,
+            pss_kb: agg_data.pss_sum / 1024,
+            uss_kb: agg_data.uss_sum / 1024,
+            cpu_percent: agg_data.cpu_percent_sum as f32,
+            cpu_time_seconds: agg_data.cpu_time_sum as f32,
+            _padding: [0; 8],
+        };
+        
+        state.ringbuffer_manager.record(key, entry);
+    }
 
     let scanned = results.len() as u64;
     let scan_duration = start.elapsed().as_secs_f64();
@@ -571,6 +615,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    // Initialize ringbuffer manager
+    let initial_subgroup_count = SUBGROUPS.len().max(1); // Prevent division by zero
+    let ringbuffer_manager = Arc::new(RingbufferManager::new(
+        config.ringbuffer.clone(),
+        initial_subgroup_count,
+    ));
+    info!(
+        "Ringbuffer manager initialized with {} initial subgroups, {} entries per subgroup",
+        initial_subgroup_count,
+        ringbuffer_manager.get_stats().entries_per_subgroup
+    );
+
     let state = Arc::new(AppState {
         registry,
         metrics,
@@ -588,6 +644,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache_ready: Arc::new(Notify::new()),
         system_cpu_cache: CpuStatsCache::new(),
         ebpf,
+        ringbuffer_manager,
     });
 
     // Perform initial cache population
@@ -661,7 +718,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     app = app
         .route("/config", get(config_handler))
         .route("/subgroups", get(subgroups_handler))
-        .route("/doc", get(doc_handler));
+        .route("/doc", get(doc_handler))
+        .route("/details", get(details_handler));
 
     if config.enable_pprof.unwrap_or(false) {
         debug!("Debug endpoints enabled at /debug/pprof");

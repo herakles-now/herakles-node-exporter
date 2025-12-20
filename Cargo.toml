@@ -37,6 +37,9 @@ tracing-subscriber = "0.3"
 # Optional: For better performance
 ahash = "0.8"
 
+# Concurrent HashMap for ringbuffer management
+dashmap = "6.1"
+
 # System calls for runtime configuration (e.g., clock ticks)
 libc = "0.2"
 
