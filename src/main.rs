@@ -51,8 +51,9 @@ use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
-    read_process_name, read_vmswap, should_include_process, BufferConfig, CLK_TCK,
-    MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
+    parse_start_time_seconds, read_process_name, read_vmswap, should_include_process,
+    BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
+    MAX_SMAPS_ROLLUP_BUFFER_BYTES,
 };
 use state::{AppState, SharedState};
 use system::CpuStatsCache;
@@ -261,6 +262,9 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                         // Read VmSwap from /proc/[pid]/status
                         let vmswap = read_vmswap(&entry.proc_path).unwrap_or(0);
 
+                        // Read process start time from /proc/[pid]/stat
+                        let start_time_seconds = parse_start_time_seconds(&entry.proc_path).unwrap_or(0.0);
+
                         debug!(
                             "Including process {}: {} (RSS: {} MB, PSS: {} MB, USS: {} MB, CPU: {:.6}%)",
                             entry.pid,
@@ -281,6 +285,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                             cpu_percent: cpu.cpu_percent as f32,
                             cpu_time_seconds: cpu.cpu_time_seconds as f32,
                             vmswap,
+                            start_time_seconds,
                         })
                     }
                     Err(e) => {

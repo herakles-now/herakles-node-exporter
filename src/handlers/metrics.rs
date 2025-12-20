@@ -206,13 +206,24 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     .with_label_values(&[group_ref, subgroup_ref])
                     .set(1.0);
 
-                // Oldest uptime in subgroup - not currently tracked in ProcMem
-                // Set to 0 as a placeholder for now
+                // Calculate oldest uptime in the subgroup
+                // Oldest process = process with earliest start_time_seconds (longest running)
+                let system_uptime = system::read_uptime().unwrap_or(0.0);
+                
+                let oldest_uptime = if list.is_empty() {
+                    0.0
+                } else {
+                    list.iter()
+                        .map(|p| system_uptime - p.start_time_seconds)
+                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                        .unwrap_or(0.0)
+                };
+
                 state
                     .metrics
                     .subgroup_oldest_uptime_seconds
                     .with_label_values(&[subgroup_ref])
-                    .set(0.0);
+                    .set(oldest_uptime);
 
                 // Alert armed status (not currently implemented, default to 0)
                 state

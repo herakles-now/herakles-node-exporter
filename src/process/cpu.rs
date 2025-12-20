@@ -61,6 +61,29 @@ pub fn parse_cpu_time_seconds(proc_path: &Path) -> Result<f64, std::io::Error> {
     Ok((utime + stime) / *CLK_TCK)
 }
 
+/// Parse process start time from /proc/<pid>/stat (field 22 - starttime in jiffies).
+/// Returns start time in seconds since system boot.
+pub fn parse_start_time_seconds(proc_path: &Path) -> Result<f64, std::io::Error> {
+    let stat_path = proc_path.join("stat");
+    let content = fs::read_to_string(stat_path)?;
+
+    let parts: Vec<&str> = content.split_whitespace().collect();
+    if parts.len() <= 21 {
+        return Err(std::io::Error::other("Invalid stat format"));
+    }
+
+    // Field 22 is at index 21 (0-based)
+    let starttime_jiffies: u64 = parts[21].parse().unwrap_or(0);
+
+    // Get system uptime
+    let system_uptime = crate::system::read_uptime().unwrap_or(0.0);
+
+    // Calculate process start time: system_uptime - (starttime_jiffies / HZ)
+    let start_time_seconds = system_uptime - (starttime_jiffies as f64 / *CLK_TCK);
+
+    Ok(start_time_seconds)
+}
+
 /// Returns CPU stats for a PID using delta between samples.
 pub fn get_cpu_stat_for_pid(
     pid: u32,

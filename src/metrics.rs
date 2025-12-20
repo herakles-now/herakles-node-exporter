@@ -331,24 +331,27 @@ impl MemoryMetrics {
         let mem_rss_subgroup_top1_comm = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top1_comm",
-                "Top 1 RSS process name per subgroup (info metric)",
-            ),
+                "Top 1 RSS process name per subgroup",
+            )
+            .const_label("_type", "info"),
             &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top2_comm = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top2_comm",
-                "Top 2 RSS process name per subgroup (info metric)",
-            ),
+                "Top 2 RSS process name per subgroup",
+            )
+            .const_label("_type", "info"),
             &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top3_comm = GaugeVec::new(
             Opts::new(
                 "herakles_mem_rss_subgroup_top3_comm",
-                "Top 3 RSS process name per subgroup (info metric)",
-            ),
+                "Top 3 RSS process name per subgroup",
+            )
+            .const_label("_type", "info"),
             &["subgroup", "comm"],
         )?;
 
@@ -399,24 +402,27 @@ impl MemoryMetrics {
         let cpu_usage_subgroup_top1_comm = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top1_comm",
-                "Top 1 CPU usage process name per subgroup (info metric)",
-            ),
+                "Top 1 CPU usage process name per subgroup",
+            )
+            .const_label("_type", "info"),
             &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top2_comm = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top2_comm",
-                "Top 2 CPU usage process name per subgroup (info metric)",
-            ),
+                "Top 2 CPU usage process name per subgroup",
+            )
+            .const_label("_type", "info"),
             &["subgroup", "comm"],
         )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let cpu_usage_subgroup_top3_comm = GaugeVec::new(
             Opts::new(
                 "herakles_cpu_usage_subgroup_top3_comm",
-                "Top 3 CPU usage process name per subgroup (info metric)",
-            ),
+                "Top 3 CPU usage process name per subgroup",
+            )
+            .const_label("_type", "info"),
             &["subgroup", "comm"],
         )?;
 
