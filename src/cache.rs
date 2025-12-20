@@ -17,6 +17,7 @@ pub struct ProcMem {
     pub cpu_percent: f32,
     pub cpu_time_seconds: f32,
     pub vmswap: u64,
+    pub start_time_seconds: f64, // Process start time (seconds since system boot)
 }
 
 /// Cache state for storing process metrics with update timing information.
