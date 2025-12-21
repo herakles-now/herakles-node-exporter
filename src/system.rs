@@ -402,14 +402,14 @@ mod tests {
 }
 
 /// Gets file descriptor usage for the current process.
-/// 
+///
 /// Returns (open_fds, max_fds) as a tuple.
 pub fn get_fd_usage() -> Result<(u64, u64), std::io::Error> {
     // Count open FDs for current process
     let pid = std::process::id();
     let fd_dir = format!("/proc/{}/fd", pid);
     let open_fds = fs::read_dir(fd_dir)?.count() as u64;
-    
+
     // Get FD limit from /proc/[pid]/limits
     // Format: "Max open files            <soft>                <hard>                files"
     // We use the hard limit (index 4) as the max capacity
@@ -426,7 +426,7 @@ pub fn get_fd_usage() -> Result<(u64, u64), std::io::Error> {
             }
         })
         .unwrap_or(1024);
-    
+
     Ok((open_fds, max_fds))
 }
 

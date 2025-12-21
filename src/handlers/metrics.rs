@@ -46,7 +46,9 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
         let lock_wait_start = Instant::now();
         let cache_guard = state.cache.read().await;
         let lock_wait_ms = lock_wait_start.elapsed().as_secs_f64() * 1000.0;
-        state.health_stats.record_lock_wait_duration_ms(lock_wait_ms);
+        state
+            .health_stats
+            .record_lock_wait_duration_ms(lock_wait_ms);
 
         if !cache_guard.is_updating {
             let processes_vec: Vec<ProcMem> = cache_guard.processes.values().cloned().collect();
@@ -165,7 +167,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .cpu_usage_subgroup_percent
                         .with_label_values(&[subgroup_ref])
                         .set(cpu_percent_sum);
-                    
+
                     // Note: CPU iowait at subgroup level is not currently tracked per-process
                     // Set to 0 for now as a placeholder
                     state
@@ -210,7 +212,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 // The oldest process is the one with the earliest start_time_seconds (smallest value)
                 // which translates to the maximum uptime: max(system_uptime - start_time_seconds)
                 let system_uptime = system::read_uptime().unwrap_or(0.0);
-                
+
                 let oldest_uptime = if list.is_empty() {
                     0.0
                 } else {
@@ -237,81 +239,121 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 // Sort by RSS for RSS Top-3
                 let mut rss_sorted_list = list.clone();
                 rss_sorted_list.sort_by_key(|p| std::cmp::Reverse(p.rss));
-                
+
                 if enable_rss && rss_sorted_list.len() >= 1 {
                     let p = &rss_sorted_list[0];
-                    state.metrics.mem_rss_subgroup_top1_bytes
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top1_bytes
                         .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
-                    state.metrics.mem_rss_subgroup_top1_pid
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top1_pid
                         .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
-                    state.metrics.mem_rss_subgroup_top1_comm
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top1_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_rss && rss_sorted_list.len() >= 2 {
                     let p = &rss_sorted_list[1];
-                    state.metrics.mem_rss_subgroup_top2_bytes
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top2_bytes
                         .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
-                    state.metrics.mem_rss_subgroup_top2_pid
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top2_pid
                         .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
-                    state.metrics.mem_rss_subgroup_top2_comm
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top2_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_rss && rss_sorted_list.len() >= 3 {
                     let p = &rss_sorted_list[2];
-                    state.metrics.mem_rss_subgroup_top3_bytes
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top3_bytes
                         .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
-                    state.metrics.mem_rss_subgroup_top3_pid
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top3_pid
                         .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
-                    state.metrics.mem_rss_subgroup_top3_comm
+                    state
+                        .metrics
+                        .mem_rss_subgroup_top3_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
 
                 // Sort by CPU percent for CPU Top-3
                 let mut cpu_sorted_list = list.clone();
-                cpu_sorted_list.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
-                
+                cpu_sorted_list.sort_by(|a, b| {
+                    b.cpu_percent
+                        .partial_cmp(&a.cpu_percent)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+
                 if enable_cpu && cpu_sorted_list.len() >= 1 {
                     let p = &cpu_sorted_list[0];
-                    state.metrics.cpu_usage_subgroup_top1_percent
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top1_percent
                         .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
-                    state.metrics.cpu_usage_subgroup_top1_pid
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top1_pid
                         .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
-                    state.metrics.cpu_usage_subgroup_top1_comm
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top1_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_cpu && cpu_sorted_list.len() >= 2 {
                     let p = &cpu_sorted_list[1];
-                    state.metrics.cpu_usage_subgroup_top2_percent
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top2_percent
                         .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
-                    state.metrics.cpu_usage_subgroup_top2_pid
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top2_pid
                         .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
-                    state.metrics.cpu_usage_subgroup_top2_comm
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top2_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
                 if enable_cpu && cpu_sorted_list.len() >= 3 {
                     let p = &cpu_sorted_list[2];
-                    state.metrics.cpu_usage_subgroup_top3_percent
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top3_percent
                         .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
-                    state.metrics.cpu_usage_subgroup_top3_pid
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top3_pid
                         .with_label_values(&[subgroup_ref])
                         .set(p.pid as f64);
-                    state.metrics.cpu_usage_subgroup_top3_comm
+                    state
+                        .metrics
+                        .cpu_usage_subgroup_top3_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
                 }
@@ -360,19 +402,41 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             // Memory metrics
             match system::read_extended_memory_info() {
                 Ok(mem_info) => {
-                    state.metrics.node_mem_total_bytes.set(mem_info.total_bytes as f64);
-                    state.metrics.node_mem_available_bytes.set(mem_info.available_bytes as f64);
-                    state.metrics.node_mem_cached_bytes.set(mem_info.cached_bytes as f64);
-                    state.metrics.node_mem_buffers_bytes.set(mem_info.buffers_bytes as f64);
-                    state.metrics.node_mem_swap_total_bytes.set(mem_info.swap_total_bytes as f64);
-                    
+                    state
+                        .metrics
+                        .node_mem_total_bytes
+                        .set(mem_info.total_bytes as f64);
+                    state
+                        .metrics
+                        .node_mem_available_bytes
+                        .set(mem_info.available_bytes as f64);
+                    state
+                        .metrics
+                        .node_mem_cached_bytes
+                        .set(mem_info.cached_bytes as f64);
+                    state
+                        .metrics
+                        .node_mem_buffers_bytes
+                        .set(mem_info.buffers_bytes as f64);
+                    state
+                        .metrics
+                        .node_mem_swap_total_bytes
+                        .set(mem_info.swap_total_bytes as f64);
+
                     // Calculate used memory
-                    let used_bytes = mem_info.total_bytes.saturating_sub(mem_info.available_bytes);
+                    let used_bytes = mem_info
+                        .total_bytes
+                        .saturating_sub(mem_info.available_bytes);
                     state.metrics.node_mem_used_bytes.set(used_bytes as f64);
-                    
+
                     // Calculate used swap
-                    let swap_used_bytes = mem_info.swap_total_bytes.saturating_sub(mem_info.swap_free_bytes);
-                    state.metrics.node_mem_swap_used_bytes.set(swap_used_bytes as f64);
+                    let swap_used_bytes = mem_info
+                        .swap_total_bytes
+                        .saturating_sub(mem_info.swap_free_bytes);
+                    state
+                        .metrics
+                        .node_mem_swap_used_bytes
+                        .set(swap_used_bytes as f64);
                 }
                 Err(e) => {
                     warn!("Failed to read extended memory info: {}", e);
@@ -384,13 +448,22 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 Ok(cpu_ratios) => {
                     // Get the "cpu" (total) values
                     if let Some(&usage_ratio) = cpu_ratios.usage.get("cpu") {
-                        state.metrics.node_cpu_usage_percent.set(usage_ratio * 100.0);
+                        state
+                            .metrics
+                            .node_cpu_usage_percent
+                            .set(usage_ratio * 100.0);
                     }
                     if let Some(&iowait_ratio) = cpu_ratios.iowait.get("cpu") {
-                        state.metrics.node_cpu_iowait_percent.set(iowait_ratio * 100.0);
+                        state
+                            .metrics
+                            .node_cpu_iowait_percent
+                            .set(iowait_ratio * 100.0);
                     }
                     if let Some(&steal_ratio) = cpu_ratios.steal.get("cpu") {
-                        state.metrics.node_cpu_steal_percent.set(steal_ratio * 100.0);
+                        state
+                            .metrics
+                            .node_cpu_steal_percent
+                            .set(steal_ratio * 100.0);
                     }
                 }
                 Err(e) => {
@@ -411,8 +484,14 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             // For now, set to 0 as placeholders
             state.metrics.node_net_rx_bytes_per_second.set(0.0);
             state.metrics.node_net_tx_bytes_per_second.set(0.0);
-            state.metrics.node_net_rx_dropped_packets_per_second.set(0.0);
-            state.metrics.node_net_tx_dropped_packets_per_second.set(0.0);
+            state
+                .metrics
+                .node_net_rx_dropped_packets_per_second
+                .set(0.0);
+            state
+                .metrics
+                .node_net_tx_dropped_packets_per_second
+                .set(0.0);
             state.metrics.node_net_rx_error_packets_per_second.set(0.0);
             state.metrics.node_net_tx_error_packets_per_second.set(0.0);
 
@@ -441,19 +520,24 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 error!("Failed to encode Prometheus metrics");
                 return Err(MetricsError::EncodingFailed);
             }
-            
+
             let serialization_ms = serialize_start.elapsed().as_secs_f64() * 1000.0;
-            state.health_stats.record_serialization_duration_ms(serialization_ms);
+            state
+                .health_stats
+                .record_serialization_duration_ms(serialization_ms);
 
             // Record response size
             let response_size_kb = buffer.len() as f64 / 1024.0;
-            state.health_stats.record_metrics_response_size_kb(response_size_kb);
+            state
+                .health_stats
+                .record_metrics_response_size_kb(response_size_kb);
 
             // Count time series
-            let time_series_count = families.iter()
-                .map(|f| f.get_metric().len())
-                .sum::<usize>() as u64;
-            state.health_stats.record_total_time_series(time_series_count);
+            let time_series_count =
+                families.iter().map(|f| f.get_metric().len()).sum::<usize>() as u64;
+            state
+                .health_stats
+                .record_total_time_series(time_series_count);
 
             // Record metrics request statistics
             let request_duration_ms = start.elapsed().as_secs_f64() * 1000.0;

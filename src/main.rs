@@ -47,14 +47,16 @@ use config::{
     resolve_config, show_config, validate_effective_config, Config, DEFAULT_BIND_ADDR,
     DEFAULT_CACHE_TTL, DEFAULT_PORT,
 };
-use handlers::{config_handler, details_handler, doc_handler, health_handler, metrics_handler, subgroups_handler};
+use handlers::{
+    config_handler, details_handler, doc_handler, health_handler, metrics_handler,
+    subgroups_handler,
+};
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
-    parse_start_time_seconds, read_process_name, read_vmswap, should_include_process,
-    BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
-    MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
+    parse_start_time_seconds, read_process_name, read_vmswap, should_include_process, BufferConfig,
+    CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
 };
 use ringbuffer::RingbufferEntry;
 use ringbuffer_manager::RingbufferManager;
@@ -261,7 +263,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                     Ok((rss, pss, uss)) => {
                         let parse_duration_ms = parse_start.elapsed().as_secs_f64() * 1000.0;
                         state.health_stats.record_parsing_duration_ms(parse_duration_ms);
-                        
+
                         if uss < min_uss_bytes {
                             debug!(
                                 "Skipping process {}: USS {} bytes below threshold {} bytes",
@@ -348,11 +350,11 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
 
     // Count unique subgroups and aggregate metrics for ringbuffer
     let mut aggregated_by_subgroup: HashMap<String, AggregatedData> = HashMap::new();
-    
+
     for p in &results {
         let (group, subgroup) = classify_process_raw(&p.name);
         let key = format!("{}:{}", group, subgroup);
-        
+
         let agg = aggregated_by_subgroup.entry(key).or_insert(AggregatedData {
             rss_sum: 0,
             pss_sum: 0,
@@ -360,14 +362,14 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             cpu_percent_sum: 0.0,
             cpu_time_sum: 0.0,
         });
-        
+
         agg.rss_sum += p.rss;
         agg.pss_sum += p.pss;
         agg.uss_sum += p.uss;
         agg.cpu_percent_sum += p.cpu_percent as f64;
         agg.cpu_time_sum += p.cpu_time_seconds as f64;
     }
-    
+
     let subgroups_count = aggregated_by_subgroup.len() as u64;
 
     // Record ringbuffer entries for each subgroup
@@ -382,7 +384,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             cpu_time_seconds: agg_data.cpu_time_sum as f32,
             _padding: [0; 8],
         };
-        
+
         state.ringbuffer_manager.record(key, entry);
     }
 
@@ -428,12 +430,25 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     if let Some(ref ebpf_manager) = state.ebpf {
         let perf_stats = ebpf_manager.get_performance_stats();
         if perf_stats.enabled {
-            state.health_stats.record_ebpf_events_per_sec(perf_stats.events_per_sec);
-            state.health_stats.record_ebpf_lost_events(perf_stats.lost_events_total);
-            state.health_stats.ebpf_map_usage_percent.add_sample(perf_stats.map_usage_percent);
-            state.health_stats.ebpf_overhead_cpu_percent.add_sample(perf_stats.cpu_overhead_percent);
+            state
+                .health_stats
+                .record_ebpf_events_per_sec(perf_stats.events_per_sec);
+            state
+                .health_stats
+                .record_ebpf_lost_events(perf_stats.lost_events_total);
+            state
+                .health_stats
+                .ebpf_map_usage_percent
+                .add_sample(perf_stats.map_usage_percent);
+            state
+                .health_stats
+                .ebpf_overhead_cpu_percent
+                .add_sample(perf_stats.cpu_overhead_percent);
             // lost_events is cumulative, so just store it
-            state.health_stats.ebpf_lost_events.store(perf_stats.lost_events_total, Ordering::Relaxed);
+            state
+                .health_stats
+                .ebpf_lost_events
+                .store(perf_stats.lost_events_total, Ordering::Relaxed);
         }
     }
 
@@ -600,13 +615,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     info!("✅ eBPF initialized successfully - process I/O tracking enabled");
                 } else {
                     warn!("⚠️  eBPF initialization returned disabled state - running without eBPF metrics");
-                    health_stats.ebpf_init_failures.fetch_add(1, Ordering::Relaxed);
+                    health_stats
+                        .ebpf_init_failures
+                        .fetch_add(1, Ordering::Relaxed);
                 }
                 Some(Arc::new(manager))
             }
             Err(e) => {
-                warn!("⚠️  Failed to initialize eBPF: {} - running without eBPF metrics", e);
-                health_stats.ebpf_init_failures.fetch_add(1, Ordering::Relaxed);
+                warn!(
+                    "⚠️  Failed to initialize eBPF: {} - running without eBPF metrics",
+                    e
+                );
+                health_stats
+                    .ebpf_init_failures
+                    .fetch_add(1, Ordering::Relaxed);
                 None
             }
         }

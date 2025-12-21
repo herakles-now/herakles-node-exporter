@@ -67,9 +67,24 @@ pub fn read_filesystem_stats() -> Result<Vec<FilesystemStats>, String> {
 fn should_skip_filesystem(fstype: &str, mount_point: &str) -> bool {
     // Skip pseudo/virtual filesystems
     let skip_types = [
-        "proc", "sysfs", "devpts", "devtmpfs", "tmpfs", "cgroup", "cgroup2",
-        "pstore", "bpf", "debugfs", "tracefs", "fusectl", "configfs",
-        "securityfs", "hugetlbfs", "mqueue", "autofs", "binfmt_misc",
+        "proc",
+        "sysfs",
+        "devpts",
+        "devtmpfs",
+        "tmpfs",
+        "cgroup",
+        "cgroup2",
+        "pstore",
+        "bpf",
+        "debugfs",
+        "tracefs",
+        "fusectl",
+        "configfs",
+        "securityfs",
+        "hugetlbfs",
+        "mqueue",
+        "autofs",
+        "binfmt_misc",
     ];
 
     if skip_types.contains(&fstype) {
@@ -77,10 +92,11 @@ fn should_skip_filesystem(fstype: &str, mount_point: &str) -> bool {
     }
 
     // Skip system mount points
-    if mount_point.starts_with("/proc") 
-        || mount_point.starts_with("/sys") 
-        || mount_point.starts_with("/dev") 
-        || mount_point.starts_with("/run") {
+    if mount_point.starts_with("/proc")
+        || mount_point.starts_with("/sys")
+        || mount_point.starts_with("/dev")
+        || mount_point.starts_with("/run")
+    {
         return true;
     }
 
@@ -93,11 +109,11 @@ fn get_statvfs_stats(path: &str) -> Result<(u64, u64, u64, u64, u64), String> {
     use std::mem;
 
     let c_path = CString::new(path).map_err(|e| format!("Invalid path: {}", e))?;
-    
+
     unsafe {
         let mut stat: libc::statvfs = mem::zeroed();
         let result = libc::statvfs(c_path.as_ptr(), &mut stat);
-        
+
         if result != 0 {
             return Err(format!("statvfs failed for {}", path));
         }
@@ -106,15 +122,21 @@ fn get_statvfs_stats(path: &str) -> Result<(u64, u64, u64, u64, u64), String> {
         let total_blocks = stat.f_blocks;
         let free_blocks = stat.f_bfree;
         let available_blocks = stat.f_bavail;
-        
+
         let size_bytes = block_size * total_blocks;
         let available_bytes = block_size * available_blocks;
         let used_bytes = size_bytes - (block_size * free_blocks);
-        
+
         let files_total = stat.f_files;
         let files_free = stat.f_ffree;
 
-        Ok((size_bytes, available_bytes, used_bytes, files_total, files_free))
+        Ok((
+            size_bytes,
+            available_bytes,
+            used_bytes,
+            files_total,
+            files_free,
+        ))
     }
 }
 
@@ -125,12 +147,16 @@ mod tests {
     #[test]
     fn test_read_filesystem_stats() {
         let result = read_filesystem_stats();
-        assert!(result.is_ok(), "Failed to read filesystem stats: {:?}", result);
-        
+        assert!(
+            result.is_ok(),
+            "Failed to read filesystem stats: {:?}",
+            result
+        );
+
         let stats = result.unwrap();
         // Should have at least one filesystem (root)
         assert!(!stats.is_empty(), "No filesystem statistics found");
-        
+
         // Check that root filesystem is present
         let has_root = stats.iter().any(|fs| fs.mount_point == "/");
         assert!(has_root, "Root filesystem not found");

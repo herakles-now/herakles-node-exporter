@@ -20,24 +20,32 @@ pub struct RingbufferConfig {
     /// Maximum memory for all ringbuffers in MB (default: 15)
     #[serde(default = "default_max_memory_mb")]
     pub max_memory_mb: usize,
-    
+
     /// Sampling interval in seconds (default: 30)
     #[serde(default = "default_interval_seconds")]
     pub interval_seconds: u64,
-    
+
     /// Minimum entries per subgroup (default: 10)
     #[serde(default = "default_min_entries")]
     pub min_entries_per_subgroup: usize,
-    
+
     /// Maximum entries per subgroup (default: 120)
     #[serde(default = "default_max_entries")]
     pub max_entries_per_subgroup: usize,
 }
 
-fn default_max_memory_mb() -> usize { 15 }
-fn default_interval_seconds() -> u64 { 30 }
-fn default_min_entries() -> usize { 10 }
-fn default_max_entries() -> usize { 120 }
+fn default_max_memory_mb() -> usize {
+    15
+}
+fn default_interval_seconds() -> u64 {
+    30
+}
+fn default_min_entries() -> usize {
+    10
+}
+fn default_max_entries() -> usize {
+    120
+}
 
 impl Default for RingbufferConfig {
     fn default() -> Self {

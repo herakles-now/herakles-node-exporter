@@ -10,13 +10,13 @@ pub const ENTRY_SIZE_BYTES: usize = 48;
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RingbufferEntry {
-    pub timestamp: i64,           // 8 bytes - Unix timestamp
-    pub rss_kb: u64,              // 8 bytes
-    pub pss_kb: u64,              // 8 bytes
-    pub uss_kb: u64,              // 8 bytes
-    pub cpu_percent: f32,         // 4 bytes
-    pub cpu_time_seconds: f32,    // 4 bytes
-    pub _padding: [u8; 8],        // 8 bytes padding → 48 total
+    pub timestamp: i64,        // 8 bytes - Unix timestamp
+    pub rss_kb: u64,           // 8 bytes
+    pub pss_kb: u64,           // 8 bytes
+    pub uss_kb: u64,           // 8 bytes
+    pub cpu_percent: f32,      // 4 bytes
+    pub cpu_time_seconds: f32, // 4 bytes
+    pub _padding: [u8; 8],     // 8 bytes padding → 48 total
 }
 
 /// A circular buffer for storing metric entries with fixed capacity.
@@ -32,7 +32,7 @@ impl Ringbuffer {
     pub fn new(capacity: usize) -> Self {
         let mut entries = Vec::with_capacity(capacity);
         entries.resize(capacity, RingbufferEntry::default());
-        
+
         Self {
             entries,
             capacity,
@@ -42,12 +42,12 @@ impl Ringbuffer {
     }
 
     /// Pushes a new entry into the ringbuffer.
-    /// 
+    ///
     /// If the buffer is full, the oldest entry will be overwritten.
     pub fn push(&mut self, entry: RingbufferEntry) {
         self.entries[self.write_index] = entry;
         self.write_index = (self.write_index + 1) % self.capacity;
-        
+
         if self.count < self.capacity {
             self.count += 1;
         }
@@ -60,7 +60,7 @@ impl Ringbuffer {
         }
 
         let mut result = Vec::with_capacity(self.count);
-        
+
         if self.count < self.capacity {
             // Buffer not yet full, entries are in order from 0 to count-1
             result.extend_from_slice(&self.entries[0..self.count]);
@@ -69,7 +69,7 @@ impl Ringbuffer {
             result.extend_from_slice(&self.entries[self.write_index..]);
             result.extend_from_slice(&self.entries[0..self.write_index]);
         }
-        
+
         result
     }
 
@@ -103,10 +103,10 @@ mod tests {
     #[test]
     fn test_ringbuffer_push_and_read() {
         let mut rb = Ringbuffer::new(3);
-        
+
         assert_eq!(rb.len(), 0);
         assert_eq!(rb.capacity(), 3);
-        
+
         // Push first entry
         rb.push(RingbufferEntry {
             timestamp: 1000,
@@ -117,7 +117,7 @@ mod tests {
             cpu_time_seconds: 1.0,
             _padding: [0; 8],
         });
-        
+
         assert_eq!(rb.len(), 1);
         let history = rb.get_history();
         assert_eq!(history.len(), 1);
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn test_ringbuffer_chronological_order() {
         let mut rb = Ringbuffer::new(3);
-        
+
         // Push three entries
         for i in 0..3 {
             rb.push(RingbufferEntry {
@@ -140,7 +140,7 @@ mod tests {
                 _padding: [0; 8],
             });
         }
-        
+
         let history = rb.get_history();
         assert_eq!(history.len(), 3);
         assert_eq!(history[0].timestamp, 1000);
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn test_ringbuffer_wraparound() {
         let mut rb = Ringbuffer::new(3);
-        
+
         // Push 5 entries (will wrap around)
         for i in 0..5 {
             rb.push(RingbufferEntry {
@@ -164,7 +164,7 @@ mod tests {
                 _padding: [0; 8],
             });
         }
-        
+
         // Should only have the last 3 entries in chronological order
         let history = rb.get_history();
         assert_eq!(history.len(), 3);
@@ -178,7 +178,7 @@ mod tests {
         let rb = Ringbuffer::new(10);
         assert_eq!(rb.len(), 0);
         assert!(rb.is_empty());
-        
+
         let history = rb.get_history();
         assert_eq!(history.len(), 0);
     }

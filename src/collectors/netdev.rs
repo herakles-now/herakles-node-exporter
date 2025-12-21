@@ -42,7 +42,7 @@ pub fn read_netdev_stats() -> Result<HashMap<String, NetDevStats>, String> {
 
         let interface = parts[0].trim().to_string();
         let stats_str = parts[1].trim();
-        
+
         let values: Vec<&str> = stats_str.split_whitespace().collect();
         if values.len() < 16 {
             continue; // Skip malformed lines
@@ -73,11 +73,11 @@ mod tests {
     fn test_read_netdev_stats() {
         let result = read_netdev_stats();
         assert!(result.is_ok(), "Failed to read netdev stats: {:?}", result);
-        
+
         let stats = result.unwrap();
         // Should have at least one interface (lo)
         assert!(!stats.is_empty(), "No network interface statistics found");
-        
+
         // Check that loopback interface is present
         let has_lo = stats.contains_key("lo");
         assert!(has_lo, "Loopback interface not found");

@@ -39,7 +39,7 @@ pub fn read_diskstats() -> Result<HashMap<String, DiskStats>, String> {
         }
 
         let device = parts[2].to_string();
-        
+
         // Skip loop devices and partitions we don't want to track
         // You can customize this filter as needed
         if device.starts_with("loop") || device.starts_with("ram") {
@@ -79,7 +79,8 @@ pub fn read_psi_io() -> Result<f64, String> {
             // Parse: "avg10=0.00 avg60=0.00 avg300=0.00 total=12345"
             for part in some_line.split_whitespace() {
                 if let Some(total_str) = part.strip_prefix("total=") {
-                    let microseconds: u64 = total_str.parse()
+                    let microseconds: u64 = total_str
+                        .parse()
                         .map_err(|e| format!("Failed to parse PSI total: {}", e))?;
                     return Ok(microseconds as f64 / 1_000_000.0);
                 }
@@ -98,7 +99,7 @@ mod tests {
     fn test_read_diskstats() {
         let result = read_diskstats();
         assert!(result.is_ok(), "Failed to read diskstats: {:?}", result);
-        
+
         let stats = result.unwrap();
         // Should have at least one disk
         assert!(!stats.is_empty(), "No disk statistics found");

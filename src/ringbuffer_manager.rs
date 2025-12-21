@@ -101,7 +101,10 @@ impl RingbufferManager {
 
     /// Returns a list of all known subgroup names.
     pub fn get_all_subgroups(&self) -> Vec<String> {
-        self.buffers.iter().map(|entry| entry.key().clone()).collect()
+        self.buffers
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect()
     }
 }
 
@@ -123,7 +126,7 @@ mod tests {
         // With 10 subgroups, should get max entries (120)
         let manager = RingbufferManager::new(default_config(), 10);
         let stats = manager.get_stats();
-        
+
         assert_eq!(stats.max_memory_mb, 15);
         assert_eq!(stats.entry_size_bytes, 48);
         assert_eq!(stats.entries_per_subgroup, 120); // Capped at max
@@ -135,7 +138,7 @@ mod tests {
         // Should be clamped to min (10)
         let manager = RingbufferManager::new(default_config(), 40000);
         let stats = manager.get_stats();
-        
+
         assert_eq!(stats.entries_per_subgroup, 10); // Capped at min
     }
 
@@ -144,7 +147,7 @@ mod tests {
         // With 5000 subgroups: 15*1024*1024 / 48 / 5000 ≈ 65 entries
         let manager = RingbufferManager::new(default_config(), 5000);
         let stats = manager.get_stats();
-        
+
         // Should be between min and max
         assert!(stats.entries_per_subgroup >= 10);
         assert!(stats.entries_per_subgroup <= 120);
@@ -155,7 +158,7 @@ mod tests {
     #[test]
     fn test_record_and_retrieve() {
         let manager = RingbufferManager::new(default_config(), 10);
-        
+
         // Record an entry
         let entry = RingbufferEntry {
             timestamp: 1000,
@@ -166,13 +169,13 @@ mod tests {
             cpu_time_seconds: 1.0,
             _padding: [0; 8],
         };
-        
+
         manager.record("test_subgroup", entry);
-        
+
         // Retrieve it
         let history = manager.get_subgroup_history("test_subgroup");
         assert!(history.is_some());
-        
+
         let history = history.unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].timestamp, 1000);
@@ -181,7 +184,7 @@ mod tests {
     #[test]
     fn test_multiple_subgroups() {
         let manager = RingbufferManager::new(default_config(), 10);
-        
+
         // Record entries for different subgroups
         for i in 0..3 {
             let entry = RingbufferEntry {
@@ -195,10 +198,10 @@ mod tests {
             };
             manager.record(&format!("subgroup_{}", i), entry);
         }
-        
+
         let stats = manager.get_stats();
         assert_eq!(stats.total_subgroups, 3);
-        
+
         let subgroups = manager.get_all_subgroups();
         assert_eq!(subgroups.len(), 3);
     }
@@ -214,8 +217,11 @@ mod tests {
     fn test_history_seconds_calculation() {
         let manager = RingbufferManager::new(default_config(), 10);
         let stats = manager.get_stats();
-        
+
         // history_seconds = entries_per_subgroup * interval_seconds
-        assert_eq!(stats.history_seconds, stats.entries_per_subgroup as u64 * 30);
+        assert_eq!(
+            stats.history_seconds,
+            stats.entries_per_subgroup as u64 * 30
+        );
     }
 }

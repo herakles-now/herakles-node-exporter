@@ -60,9 +60,9 @@ pub struct MemoryMetrics {
     pub mem_rss_subgroup_top1_pid: GaugeVec,
     pub mem_rss_subgroup_top2_pid: GaugeVec,
     pub mem_rss_subgroup_top3_pid: GaugeVec,
-    pub mem_rss_subgroup_top1_comm: GaugeVec,  // Labels: group, subgroup, comm
-    pub mem_rss_subgroup_top2_comm: GaugeVec,  // Labels: group, subgroup, comm
-    pub mem_rss_subgroup_top3_comm: GaugeVec,  // Labels: group, subgroup, comm
+    pub mem_rss_subgroup_top1_comm: GaugeVec, // Labels: group, subgroup, comm
+    pub mem_rss_subgroup_top2_comm: GaugeVec, // Labels: group, subgroup, comm
+    pub mem_rss_subgroup_top3_comm: GaugeVec, // Labels: group, subgroup, comm
 
     // Top-3 CPU Usage metrics (9 metrics) - Labels: group, subgroup (and comm for _comm metrics)
     pub cpu_usage_subgroup_top1_percent: GaugeVec,
@@ -71,9 +71,9 @@ pub struct MemoryMetrics {
     pub cpu_usage_subgroup_top1_pid: GaugeVec,
     pub cpu_usage_subgroup_top2_pid: GaugeVec,
     pub cpu_usage_subgroup_top3_pid: GaugeVec,
-    pub cpu_usage_subgroup_top1_comm: GaugeVec,  // Labels: group, subgroup, comm
-    pub cpu_usage_subgroup_top2_comm: GaugeVec,  // Labels: group, subgroup, comm
-    pub cpu_usage_subgroup_top3_comm: GaugeVec,  // Labels: group, subgroup, comm
+    pub cpu_usage_subgroup_top1_comm: GaugeVec, // Labels: group, subgroup, comm
+    pub cpu_usage_subgroup_top2_comm: GaugeVec, // Labels: group, subgroup, comm
+    pub cpu_usage_subgroup_top3_comm: GaugeVec, // Labels: group, subgroup, comm
 }
 
 impl MemoryMetrics {
@@ -176,14 +176,8 @@ impl MemoryMetrics {
             "herakles_node_fd_used_ratio",
             "Ratio of used file descriptors (open / max)",
         )?;
-        let node_load1 = Gauge::new(
-            "herakles_node_load1",
-            "System load average over 1 minute",
-        )?;
-        let node_load5 = Gauge::new(
-            "herakles_node_load5",
-            "System load average over 5 minutes",
-        )?;
+        let node_load1 = Gauge::new("herakles_node_load1", "System load average over 1 minute")?;
+        let node_load5 = Gauge::new("herakles_node_load5", "System load average over 5 minutes")?;
         let node_load15 = Gauge::new(
             "herakles_node_load15",
             "System load average over 15 minutes",
