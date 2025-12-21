@@ -8,24 +8,15 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 env:
   CARGO_TERM_COLOR: always
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-binaries:
-    name: Build Binaries
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-musl
-            artifact_name: herakles-node-exporter-amd64-musl
-          - target: aarch64-unknown-linux-musl
-            artifact_name: herakles-node-exporter-arm64-musl
+  build-binary:
+    name: Build Linux Binary
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -33,179 +24,45 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
-      - name: Cache cargo registry
+      - name: Cache cargo
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
+            target
+          key: cargo-release-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-${{ matrix.target }}-
-
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build with cross
+      - name: Build release binary
         run: |
-          set -x
-          cross build --release --target ${{ matrix.target }}
+          cargo build --release
 
-      - name: Debug - List target directory
+      - name: Prepare artifact
         run: |
-          echo "Listing target directory contents:"
-          ls -la target/${{ matrix.target }}/release/ || echo "Directory does not exist"
-          echo ""
-          echo "Looking for herakles-node-exporter binary:"
-          find target/${{ matrix.target }}/release/ -name "*herakles*" -type f || echo "No matching files found"
-
-      - name: Rename binary
-        run: |
-          set -e
-          if [ ! -f "target/${{ matrix.target }}/release/herakles-node-exporter" ]; then
-            echo "ERROR: Binary not found at expected location: target/${{ matrix.target }}/release/herakles-node-exporter"
-            echo "Contents of target/${{ matrix.target }}/release/:"
-            ls -la target/${{ matrix.target }}/release/ || echo "Directory does not exist"
-            exit 1
-          fi
-          cp target/${{ matrix.target }}/release/herakles-node-exporter ${{ matrix.artifact_name }}
+          cp target/release/herakles-node-exporter herakles-node-exporter-linux-amd64
+          chmod +x herakles-node-exporter-linux-amd64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_name }}
+          name: herakles-node-exporter-linux-amd64
+          path: herakles-node-exporter-linux-amd64
           retention-days: 1
 
   create-release:
-    name: Create Release
-    needs: build-binaries
+    name: Create GitHub Release
+    needs: build-binary
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4.1.8
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: herakles-node-exporter-linux-amd64
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          files: |
-            artifacts/herakles-node-exporter-amd64-musl/herakles-node-exporter-amd64-musl
-            artifacts/herakles-node-exporter-arm64-musl/herakles-node-exporter-arm64-musl
-
-  build-docker:
-    name: Build Docker Image
-    needs: build-binaries
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download amd64 binary
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: herakles-node-exporter-amd64-musl
-          path: ./artifacts/amd64
-
-      - name: Download arm64 binary
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: herakles-node-exporter-arm64-musl
-          path: ./artifacts/arm64
-
-      - name: Debug - List downloaded artifacts
-        run: |
-          echo "Listing artifacts directory structure:"
-          ls -la artifacts/
-          ls -la artifacts/amd64/
-          ls -la artifacts/arm64/
-
-      - name: Prepare binaries
-        run: |
-          mkdir -p docker-build/linux/amd64 docker-build/linux/arm64
-          mv artifacts/amd64/herakles-node-exporter-amd64-musl docker-build/linux/amd64/herakles-node-exporter
-          mv artifacts/arm64/herakles-node-exporter-arm64-musl docker-build/linux/arm64/herakles-node-exporter
-          chmod +x docker-build/linux/amd64/herakles-node-exporter
-          chmod +x docker-build/linux/arm64/herakles-node-exporter
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-
-      - name: Create multi-arch Dockerfile
-        run: |
-          cat > Dockerfile.multiarch << 'EOF'
-          FROM alpine:3.19
-
-          RUN apk add --no-cache ca-certificates && rm -rf /var/cache/apk/*
-
-          RUN addgroup -g 1000 herakles && \
-              adduser -D -u 1000 -G herakles herakles
-
-          ARG TARGETPLATFORM
-          COPY --chmod=755 docker-build/${TARGETPLATFORM}/herakles-node-exporter /usr/local/bin/herakles-node-exporter
-
-          USER herakles
-
-          EXPOSE 9215
-
-          HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-              CMD wget -q -O /dev/null http://localhost:9215/health || exit 1
-
-          ENTRYPOINT ["/usr/local/bin/herakles-node-exporter"]
-          CMD []
-          EOF
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.multiarch
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          files: herakles-node-exporter-linux-amd64
