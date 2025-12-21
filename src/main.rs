@@ -48,8 +48,9 @@ use config::{
     DEFAULT_CACHE_TTL, DEFAULT_PORT,
 };
 use handlers::{
-    config_handler, details_handler, doc_handler, health_handler, metrics_handler,
-    subgroups_handler,
+    config_handler, details_handler, doc_handler, health_handler,
+    html_config_handler, html_details_handler, html_docs_handler, html_health_handler,
+    html_index_handler, html_subgroups_handler, metrics_handler, subgroups_handler,
 };
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
@@ -741,7 +742,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/config", get(config_handler))
         .route("/subgroups", get(subgroups_handler))
         .route("/doc", get(doc_handler))
-        .route("/details", get(details_handler));
+        .route("/details", get(details_handler))
+        .route("/html", get(html_index_handler))
+        .route("/html/", get(html_index_handler))
+        .route("/html/details", get(html_details_handler))
+        .route("/html/subgroups", get(html_subgroups_handler))
+        .route("/html/health", get(html_health_handler))
+        .route("/html/config", get(html_config_handler))
+        .route("/html/docs", get(html_docs_handler));
 
     if config.enable_pprof.unwrap_or(false) {
         debug!("Debug endpoints enabled at /debug/pprof");
