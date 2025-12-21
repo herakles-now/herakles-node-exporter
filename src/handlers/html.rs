@@ -9,14 +9,12 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 use serde::Deserialize;
-use std::fmt::Write;
 use std::sync::atomic::Ordering;
 use tracing::{debug, instrument};
 
 use crate::cache::ProcMem;
 use crate::handlers::health::FOOTER_TEXT;
-use crate::process::{classify_process_raw, SUBGROUPS};
-use crate::ringbuffer::RingbufferEntry;
+use crate::process::classify_process_raw;
 use crate::state::SharedState;
 
 /// Query parameters for HTML details endpoint.
