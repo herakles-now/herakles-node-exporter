@@ -19,22 +19,14 @@ pub async fn root_handler(State(state): State<SharedState>) -> impl IntoResponse
     debug!("Processing / request");
     state.health_stats.record_http_request();
 
-    // Determine if we should return HTML or plain text based on Accept header
-    // For simplicity, we'll always return HTML which is also readable via curl
-    
-    let cache = state.cache.read().await;
     let version = env!("CARGO_PKG_VERSION");
     
-    // Calculate uptime from last cache update
-    let uptime_str = if let Some(last_updated) = cache.last_updated {
-        let uptime_secs = last_updated.elapsed().as_secs();
-        let hours = uptime_secs / 3600;
-        let minutes = (uptime_secs % 3600) / 60;
-        let seconds = uptime_secs % 60;
-        format!("{}h {}m {}s", hours, minutes, seconds)
-    } else {
-        "Starting...".to_string()
-    };
+    // Calculate actual uptime from service start time
+    let uptime_secs = state.start_time.elapsed().as_secs();
+    let hours = uptime_secs / 3600;
+    let minutes = (uptime_secs % 3600) / 60;
+    let seconds = uptime_secs % 60;
+    let uptime_str = format!("{}h {}m {}s", hours, minutes, seconds);
 
     let html = format!(
         r#"<!DOCTYPE html>

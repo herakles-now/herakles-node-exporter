@@ -668,6 +668,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         system_cpu_cache: CpuStatsCache::new(),
         ebpf,
         ringbuffer_manager,
+        start_time: Instant::now(),
     });
 
     // Perform initial cache population
