@@ -50,7 +50,7 @@ use config::{
 use handlers::{
     config_handler, details_handler, doc_handler, health_handler,
     html_config_handler, html_details_handler, html_docs_handler, html_health_handler,
-    html_index_handler, html_subgroups_handler, metrics_handler, subgroups_handler,
+    html_index_handler, html_subgroups_handler, metrics_handler, root_handler, subgroups_handler,
 };
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
@@ -732,7 +732,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Configure HTTP server routes
     let addr: SocketAddr = format!("{}:{}", bind_ip_str, port).parse()?;
 
-    let mut app = Router::new().route("/metrics", get(metrics_handler));
+    let mut app = Router::new()
+        .route("/", get(root_handler))
+        .route("/metrics", get(metrics_handler));
 
     if config.enable_health.unwrap_or(true) {
         app = app.route("/health", get(health_handler));

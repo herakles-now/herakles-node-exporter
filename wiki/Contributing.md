@@ -368,7 +368,7 @@ Brief description of the changes.
 - **Questions**: Open a GitHub issue with `[Question]` prefix
 - **Bugs**: Open a GitHub issue with reproduction steps
 - **Feature requests**: Open a GitHub issue with `[Feature]` prefix
-- **Contact**: proc-mem@herakles.io
+- **Contact**: exporter@herakles.now
 
 ## Code of Conduct
 
@@ -389,4 +389,4 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now

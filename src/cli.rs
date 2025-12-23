@@ -35,10 +35,10 @@ pub enum ConfigFormat {
                   A high-performance Prometheus exporter for per-process memory and CPU metrics \
                   on Linux systems. Provides detailed RSS, PSS, USS memory metrics and CPU usage \
                   with intelligent process classification.",
-    author = "Michael Moll <proc-mem@herakles.io> - Herakles IO",
+    author = "Michael Moll <exporter@herakles.now> - Herakles",
     version = "0.1.0",
     propagate_version = true,
-    after_help = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io"
+    after_help = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now"
 )]
 pub struct Args {
     #[command(subcommand)]

@@ -113,8 +113,8 @@ herakles_mem_group_rss_bytes{group="web",subgroup="nginx"} 419430400
 
 - Check the [Troubleshooting](Troubleshooting.md) guide
 - Open an issue on [GitHub](https://github.com/cansp-dev/herakles-node-exporter/issues)
-- Contact: proc-mem@herakles.io
+- Contact: exporter@herakles.now
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now

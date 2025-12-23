@@ -15,6 +15,7 @@ pub mod doc;
 pub mod health;
 pub mod html;
 pub mod metrics;
+pub mod root;
 pub mod subgroups;
 
 // Re-export handlers
@@ -27,4 +28,5 @@ pub use html::{
     html_index_handler, html_subgroups_handler,
 };
 pub use metrics::metrics_handler;
+pub use root::root_handler;
 pub use subgroups::subgroups_handler;
