@@ -2,7 +2,7 @@
 name = "herakles-node-exporter"
 version = "0.1.0"
 description = "Comprehensive Prometheus exporter for Linux system metrics including per-process memory/CPU, disk I/O, filesystem, and network statistics"
-authors = ["Michael Moll <proc-mem@herakles.io>"]
+authors = ["Michael Moll <exporter@herakles.now>"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
 repository = "https://github.com/cansp-dev/herakles-node-exporter"
@@ -81,7 +81,7 @@ tempfile = "3.23.0"
 
 [package.metadata.deb]
 name = "herakles-node-exporter"
-maintainer = "Michael Moll <proc-mem@herakles.io>"
+maintainer = "Michael Moll <exporter@herakles.now>"
 copyright = "2024, Herakles IO"
 depends = "$auto"
 section = "utils"

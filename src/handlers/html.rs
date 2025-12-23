@@ -110,19 +110,14 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
     debug!("Processing /html/ request");
     state.health_stats.record_http_request();
 
-    let cache = state.cache.read().await;
     let stats = state.ringbuffer_manager.get_stats();
     
-    // Calculate uptime
-    let uptime_str = if let Some(last_updated) = cache.last_updated {
-        let uptime_secs = last_updated.elapsed().as_secs();
-        let hours = uptime_secs / 3600;
-        let minutes = (uptime_secs % 3600) / 60;
-        let seconds = uptime_secs % 60;
-        format!("{}h {}m {}s", hours, minutes, seconds)
-    } else {
-        "Unknown".to_string()
-    };
+    // Calculate uptime from service start time
+    let uptime_secs = state.start_time.elapsed().as_secs();
+    let hours = uptime_secs / 3600;
+    let minutes = (uptime_secs % 3600) / 60;
+    let seconds = uptime_secs % 60;
+    let uptime_str = format!("{}h {}m {}s", hours, minutes, seconds);
 
     let hostname = std::fs::read_to_string("/proc/sys/kernel/hostname")
         .unwrap_or_else(|_| "unknown".to_string())

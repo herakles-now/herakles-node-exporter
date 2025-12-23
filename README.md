@@ -994,8 +994,8 @@ at your option.
 
 ## 👥 Authors
 
-- Michael Moll <proc-mem@herakles.io> - [Herakles IO](https://herakles.io)
+- Michael Moll <exporter@herakles.now> - [Herakles](https://herakles.now)
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.io — Support: proc-mem@herakles.io
+Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now

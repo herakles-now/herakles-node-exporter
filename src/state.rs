@@ -7,6 +7,7 @@ use ahash::AHashMap as HashMap;
 use herakles_node_exporter::HealthState;
 use prometheus::{Gauge, Registry};
 use std::sync::{Arc, RwLock as StdRwLock};
+use std::time::Instant;
 use tokio::sync::{Notify, RwLock};
 
 use crate::cache::MetricsCache;
@@ -45,4 +46,6 @@ pub struct AppState {
     pub ebpf: Option<Arc<EbpfManager>>,
     /// Ringbuffer manager for historical metrics tracking.
     pub ringbuffer_manager: Arc<RingbufferManager>,
+    /// Server start time for uptime calculation.
+    pub start_time: Instant,
 }
