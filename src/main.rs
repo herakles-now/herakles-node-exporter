@@ -744,6 +744,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/config", get(config_handler))
         .route("/subgroups", get(subgroups_handler))
         .route("/doc", get(doc_handler))
+        .route("/docs", get(html_docs_handler))
         .route("/details", get(details_handler))
         .route("/html", get(html_index_handler))
         .route("/html/", get(html_index_handler))

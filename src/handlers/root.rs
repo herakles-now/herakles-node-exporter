@@ -165,7 +165,7 @@ pub async fn root_handler(State(state): State<SharedState>) -> impl IntoResponse
         </li>
         <li>
             <a href="/docs">/docs</a>
-            <div class="endpoint-desc">Static documentation about metrics & concepts (redirects to /html/docs)</div>
+            <div class="endpoint-desc">HTML documentation about metrics & concepts</div>
         </li>
         <li>
             <a href="/html/details">/html/details</a>
