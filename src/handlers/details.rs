@@ -152,15 +152,14 @@ fn format_uptime(seconds: f64) -> String {
 }
 
 /// Renders historical ringbuffer data for a subgroup.
-fn render_history(out: &mut String, subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry]) {
+fn render_history(out: &mut String, subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) {
     if history.is_empty() {
         writeln!(out, "No history available").ok();
         return;
     }
 
     let history_length = history.len();
-    let interval_seconds = 30; // Default from config
-    let history_minutes = (history_length * interval_seconds) / 60;
+    let history_minutes = (history_length as u64 * interval_seconds) / 60;
 
     // Calculate averages
     let avg_rss_kb: f64 = history.iter().map(|e| e.rss_kb as f64).sum::<f64>() / history_length as f64;
@@ -189,7 +188,8 @@ fn render_snapshot(out: &mut String, snapshot: &SubgroupSnapshot) {
     writeln!(out, "  Total PSS:            {}", format_bytes(snapshot.total_pss)).ok();
     writeln!(out, "  Total USS:            {}", format_bytes(snapshot.total_uss)).ok();
     writeln!(out, "  Oldest uptime:        {}", format_uptime(snapshot.oldest_uptime_seconds)).ok();
-    writeln!(out, "  Alert armed:          NO").ok(); // Placeholder logic
+    // Placeholder for future alert_armed logic - currently always NO
+    writeln!(out, "  Alert armed:          NO").ok();
 
     writeln!(out).ok();
     writeln!(out, "TOP PROCESSES (by RSS):").ok();
@@ -276,7 +276,7 @@ pub async fn details_handler(
             .ringbuffer_manager
             .get_subgroup_history(&subgroup_name)
         {
-            render_history(&mut out, &subgroup_name, &history);
+            render_history(&mut out, &subgroup_name, &history, stats.interval_seconds);
         } else {
             writeln!(out, "AGGREGATED HISTORY (from ringbuffer):").ok();
             writeln!(out, "  No history available").ok();
@@ -309,6 +309,7 @@ pub async fn details_handler(
                 writeln!(out, "  Total PSS:        {}", format_bytes(snapshot.total_pss)).ok();
                 writeln!(out, "  Total USS:        {}", format_bytes(snapshot.total_uss)).ok();
                 writeln!(out, "  Oldest uptime:    {}", format_uptime(snapshot.oldest_uptime_seconds)).ok();
+                // Placeholder for future alert_armed logic - currently always NO
                 writeln!(out, "  Alert armed:      NO").ok();
             }
 
