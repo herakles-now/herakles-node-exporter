@@ -108,6 +108,9 @@ pub struct Config {
     /// Top-N processes to export for "other" group
     #[serde(alias = "top-n-others")]
     pub top_n_others: Option<usize>,
+    /// Top-N processes to display in /details endpoint (default: 5)
+    #[serde(alias = "details-top-n")]
+    pub details_top_n: Option<usize>,
 
     // Metrics enable flags
     #[serde(alias = "enable-rss")]
@@ -173,6 +176,7 @@ impl Default for Config {
             disable_others: Some(false),
             top_n_subgroup: Some(3),
             top_n_others: Some(10),
+            details_top_n: Some(5),
             enable_rss: Some(true),
             enable_pss: Some(true),
             enable_uss: Some(true),
