@@ -943,6 +943,9 @@ impl MemoryMetrics {
         self.cpu_group_time_seconds_sum.reset();
         self.cpu_group_uptime_oldest_process_seconds.reset();
 
+        // Note: System Ratio metrics (cpu_system_*, mem_system_*) are single Gauges
+        // (not GaugeVec) and are set fresh on every scrape, so no reset needed
+
         // Reset Disk Device-Level metrics
         self.disk_reads_completed_total.reset();
         self.disk_read_bytes_total.reset();
