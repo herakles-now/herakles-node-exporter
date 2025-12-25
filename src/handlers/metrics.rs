@@ -11,7 +11,8 @@ use std::time::Instant;
 use tracing::{debug, error, instrument, warn};
 
 use crate::cache::ProcMem;
-use crate::process::classify_process_with_config;
+use crate::collectors;
+use crate::process::{classify_process_raw, classify_process_with_config};
 use crate::state::SharedState;
 use crate::system;
 
@@ -359,6 +360,83 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
             }
 
+            // Group Core Metrics - Aggregate all processes by (group, subgroup)
+            let mut group_aggregations: HashMap<(String, String), (u64, u64, u64, f64, f64, f64)> =
+                HashMap::new();
+
+            for p in &processes_vec {
+                if let Some((group, subgroup)) =
+                    classify_process_with_config(&p.name, &state.config)
+                {
+                    let entry = group_aggregations
+                        .entry((group.to_string(), subgroup.to_string()))
+                        .or_insert((0, 0, 0, 0.0, 0.0, f64::MAX));
+
+                    entry.0 += p.rss; // RSS
+                    entry.1 += p.pss; // PSS
+                    entry.2 += p.uss; // USS
+                    entry.3 += p.cpu_percent as f64; // CPU %
+                    entry.4 += p.cpu_time_seconds as f64; // CPU time
+                    entry.5 = entry.5.min(p.start_time_seconds); // Oldest start time
+                }
+            }
+
+            let system_uptime = system::read_uptime().unwrap_or(0.0);
+
+            for ((group, subgroup), (rss, pss, uss, cpu_pct, cpu_time, oldest_start)) in
+                group_aggregations
+            {
+                if enable_rss {
+                    state
+                        .metrics
+                        .mem_group_rss_bytes_sum
+                        .with_label_values(&[&group, &subgroup])
+                        .set(rss as f64);
+                }
+
+                if enable_pss {
+                    state
+                        .metrics
+                        .mem_group_pss_bytes_sum
+                        .with_label_values(&[&group, &subgroup])
+                        .set(pss as f64);
+                }
+
+                if enable_uss {
+                    state
+                        .metrics
+                        .mem_group_uss_bytes_sum
+                        .with_label_values(&[&group, &subgroup])
+                        .set(uss as f64);
+                }
+
+                if enable_cpu {
+                    state
+                        .metrics
+                        .cpu_group_usage_percent_sum
+                        .with_label_values(&[&group, &subgroup])
+                        .set(cpu_pct);
+
+                    state
+                        .metrics
+                        .cpu_group_time_seconds_sum
+                        .with_label_values(&[&group, &subgroup])
+                        .set(cpu_time);
+
+                    // Uptime = NOW - oldest_start_time
+                    let uptime = if oldest_start < f64::MAX {
+                        system_uptime - oldest_start
+                    } else {
+                        0.0
+                    };
+                    state
+                        .metrics
+                        .cpu_group_uptime_oldest_process_seconds
+                        .with_label_values(&[&group, &subgroup])
+                        .set(uptime);
+                }
+            }
+
             // Set node-level metrics
             // Uptime
             match system::read_uptime() {
@@ -468,6 +546,259 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
                 Err(e) => {
                     warn!("Failed to calculate CPU usage ratios: {}", e);
+                }
+            }
+
+            // System Ratios
+            match state.system_cpu_cache.calculate_usage_ratios() {
+                Ok(cpu_ratios) => {
+                    // Get the "cpu" (total) values for system ratios
+                    if let Some(&usage_ratio) = cpu_ratios.usage.get("cpu") {
+                        state.metrics.cpu_system_usage_ratio.set(usage_ratio);
+                    }
+                    if let Some(&idle_ratio) = cpu_ratios.idle.get("cpu") {
+                        state.metrics.cpu_system_idle_ratio.set(idle_ratio);
+                    }
+                    if let Some(&iowait_ratio) = cpu_ratios.iowait.get("cpu") {
+                        state.metrics.cpu_system_iowait_ratio.set(iowait_ratio);
+                    }
+                    if let Some(&steal_ratio) = cpu_ratios.steal.get("cpu") {
+                        state.metrics.cpu_system_steal_ratio.set(steal_ratio);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to calculate CPU ratios for system metrics: {}", e);
+                }
+            }
+
+            // Memory Ratios
+            match system::read_extended_memory_info() {
+                Ok(mem_info) => {
+                    if mem_info.total_bytes > 0 {
+                        let mem_used_ratio = (mem_info.total_bytes - mem_info.available_bytes)
+                            as f64
+                            / mem_info.total_bytes as f64;
+                        state.metrics.mem_system_used_ratio.set(mem_used_ratio);
+                    }
+
+                    if mem_info.swap_total_bytes > 0 {
+                        let swap_used_ratio = (mem_info.swap_total_bytes
+                            - mem_info.swap_free_bytes)
+                            as f64
+                            / mem_info.swap_total_bytes as f64;
+                        state
+                            .metrics
+                            .mem_system_swap_used_ratio
+                            .set(swap_used_ratio);
+                    } else {
+                        state.metrics.mem_system_swap_used_ratio.set(0.0);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read memory info for ratios: {}", e);
+                }
+            }
+
+            // Disk Device-Level Metrics
+            match collectors::diskstats::read_diskstats() {
+                Ok(diskstats) => {
+                    for (device, stats) in diskstats {
+                        state
+                            .metrics
+                            .disk_reads_completed_total
+                            .with_label_values(&[&device])
+                            .set(stats.reads_completed as f64);
+
+                        state
+                            .metrics
+                            .disk_read_bytes_total
+                            .with_label_values(&[&device])
+                            .set(stats.sectors_read as f64 * 512.0);
+
+                        state
+                            .metrics
+                            .disk_writes_completed_total
+                            .with_label_values(&[&device])
+                            .set(stats.writes_completed as f64);
+
+                        state
+                            .metrics
+                            .disk_write_bytes_total
+                            .with_label_values(&[&device])
+                            .set(stats.sectors_written as f64 * 512.0);
+
+                        state
+                            .metrics
+                            .disk_io_now
+                            .with_label_values(&[&device])
+                            .set(stats.ios_in_progress as f64);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read disk statistics: {}", e);
+                }
+            }
+
+            // Filesystem Metrics
+            match collectors::filesystem::read_filesystem_stats() {
+                Ok(filesystems) => {
+                    for fs in filesystems {
+                        state
+                            .metrics
+                            .filesystem_avail_bytes
+                            .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                            .set(fs.available_bytes as f64);
+
+                        state
+                            .metrics
+                            .filesystem_size_bytes
+                            .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                            .set(fs.size_bytes as f64);
+
+                        state
+                            .metrics
+                            .filesystem_files
+                            .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                            .set(fs.files_total as f64);
+
+                        state
+                            .metrics
+                            .filesystem_files_free
+                            .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                            .set(fs.files_free as f64);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read filesystem statistics: {}", e);
+                }
+            }
+
+            // Network Device-Level Metrics
+            match collectors::netdev::read_netdev_stats() {
+                Ok(netdevs) => {
+                    for (device, stats) in netdevs {
+                        state
+                            .metrics
+                            .network_receive_bytes_total
+                            .with_label_values(&[&device])
+                            .set(stats.receive_bytes as f64);
+
+                        state
+                            .metrics
+                            .network_transmit_bytes_total
+                            .with_label_values(&[&device])
+                            .set(stats.transmit_bytes as f64);
+
+                        state
+                            .metrics
+                            .network_receive_packets_total
+                            .with_label_values(&[&device])
+                            .set(stats.receive_packets as f64);
+
+                        state
+                            .metrics
+                            .network_receive_errs_total
+                            .with_label_values(&[&device])
+                            .set(stats.receive_errs as f64);
+
+                        state
+                            .metrics
+                            .network_receive_drop_total
+                            .with_label_values(&[&device])
+                            .set(stats.receive_drop as f64);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read network device statistics: {}", e);
+                }
+            }
+
+            // eBPF Group Network Aggregation
+            if let Some(ebpf) = &state.ebpf {
+                match ebpf.read_process_net_stats() {
+                    Ok(net_stats) => {
+                        // Aggregated per (group, subgroup)
+                        let mut net_groups: HashMap<(String, String), (u64, u64, u64, u64)> =
+                            HashMap::new();
+
+                        for stat in net_stats {
+                            let (group, subgroup) = classify_process_raw(&stat.comm);
+                            let entry = net_groups
+                                .entry((group.to_string(), subgroup.to_string()))
+                                .or_insert((0, 0, 0, 0));
+
+                            entry.0 += stat.rx_bytes;
+                            entry.1 += stat.tx_bytes;
+                            entry.2 += stat.rx_packets + stat.tx_packets;
+                            entry.3 += stat.dropped;
+                        }
+
+                        for ((group, subgroup), (rx, tx, packets, dropped)) in net_groups {
+                            state
+                                .metrics
+                                .net_group_rx_bytes_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(rx as f64);
+
+                            state
+                                .metrics
+                                .net_group_tx_bytes_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(tx as f64);
+
+                            state
+                                .metrics
+                                .net_group_packets_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(packets as f64);
+
+                            state
+                                .metrics
+                                .net_group_dropped_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(dropped as f64);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to read eBPF network statistics: {}", e);
+                    }
+                }
+            }
+
+            // eBPF Group I/O Aggregation
+            if let Some(ebpf) = &state.ebpf {
+                match ebpf.read_process_blkio_stats() {
+                    Ok(blkio_stats) => {
+                        // Aggregated per (group, subgroup)
+                        let mut io_groups: HashMap<(String, String), (u64, u64)> = HashMap::new();
+
+                        for stat in blkio_stats {
+                            let (group, subgroup) = classify_process_raw(&stat.comm);
+                            let entry = io_groups
+                                .entry((group.to_string(), subgroup.to_string()))
+                                .or_insert((0, 0));
+
+                            entry.0 += stat.read_bytes;
+                            entry.1 += stat.write_bytes;
+                        }
+
+                        for ((group, subgroup), (read, write)) in io_groups {
+                            state
+                                .metrics
+                                .io_group_read_bytes_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(read as f64);
+
+                            state
+                                .metrics
+                                .io_group_write_bytes_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(write as f64);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to read eBPF block I/O statistics: {}", e);
+                    }
                 }
             }
 
