@@ -442,10 +442,40 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             match system::read_uptime() {
                 Ok(uptime) => {
                     state.metrics.node_uptime_seconds.set(uptime);
+                    state.metrics.system_uptime_seconds.set(uptime);
                 }
                 Err(e) => {
                     warn!("Failed to read system uptime: {}", e);
                 }
+            }
+
+            // Read boot time, context switches, and forks from /proc/stat
+            match system::read_stat_counters() {
+                Ok((boot_time, context_switches, forks)) => {
+                    state.metrics.system_boot_time_seconds.set(boot_time as f64);
+                    state.metrics.system_context_switches_total.set(context_switches as f64);
+                    state.metrics.system_forks_total.set(forks as f64);
+                }
+                Err(e) => warn!("Failed to read stat counters: {}", e),
+            }
+
+            // Read entropy
+            match system::read_entropy() {
+                Ok(entropy) => {
+                    state.metrics.system_entropy_bits.set(entropy as f64);
+                }
+                Err(e) => warn!("Failed to read entropy: {}", e),
+            }
+
+            // Read PSI (Pressure Stall Information)
+            if let Ok(cpu_psi) = system::read_psi_some_total("/proc/pressure/cpu") {
+                state.metrics.system_cpu_psi_wait_seconds_total.set(cpu_psi);
+            }
+            if let Ok(mem_psi) = system::read_psi_some_total("/proc/pressure/memory") {
+                state.metrics.system_memory_psi_wait_seconds_total.set(mem_psi);
+            }
+            if let Ok(io_psi) = system::read_psi_some_total("/proc/pressure/io") {
+                state.metrics.system_disk_psi_wait_seconds_total.set(io_psi);
             }
 
             // File descriptors
@@ -453,6 +483,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 Ok((open_fds, _unused_fds, max_fds)) => {
                     state.metrics.node_fd_open.set(open_fds as f64);
                     state.metrics.node_fd_kernel_max.set(max_fds as f64);
+                    state.metrics.system_open_fds.set(open_fds as f64);
                     if max_fds > 0 {
                         let used_ratio = open_fds as f64 / max_fds as f64;
                         state.metrics.node_fd_used_ratio.set(used_ratio);

@@ -38,6 +38,17 @@ pub struct MemoryMetrics {
     pub node_load5: Gauge,
     pub node_load15: Gauge,
 
+    // New system-level metrics
+    pub system_uptime_seconds: Gauge,
+    pub system_boot_time_seconds: Gauge,
+    pub system_context_switches_total: Gauge,
+    pub system_forks_total: Gauge,
+    pub system_open_fds: Gauge,
+    pub system_entropy_bits: Gauge,
+    pub system_cpu_psi_wait_seconds_total: Gauge,
+    pub system_memory_psi_wait_seconds_total: Gauge,
+    pub system_disk_psi_wait_seconds_total: Gauge,
+
     // Subgroup-Level Metrics (13 metrics) - Labels: group, subgroup
     pub subgroup_info: GaugeVec,
     pub mem_rss_subgroup_bytes: GaugeVec,
@@ -227,6 +238,44 @@ impl MemoryMetrics {
         let node_load15 = Gauge::new(
             "herakles_node_load15",
             "System load average over 15 minutes",
+        )?;
+
+        // New system-level metrics
+        let system_uptime_seconds = Gauge::new(
+            "herakles_system_uptime_seconds",
+            "System uptime in seconds",
+        )?;
+        let system_boot_time_seconds = Gauge::new(
+            "herakles_system_boot_time_seconds",
+            "System boot time as Unix timestamp",
+        )?;
+        let system_context_switches_total = Gauge::new(
+            "herakles_system_context_switches_total",
+            "Total number of context switches",
+        )?;
+        let system_forks_total = Gauge::new(
+            "herakles_system_forks_total",
+            "Total number of forks since boot",
+        )?;
+        let system_open_fds = Gauge::new(
+            "herakles_system_open_fds",
+            "Number of open file descriptors system-wide",
+        )?;
+        let system_entropy_bits = Gauge::new(
+            "herakles_system_entropy_bits",
+            "Available entropy in bits",
+        )?;
+        let system_cpu_psi_wait_seconds_total = Gauge::new(
+            "herakles_system_cpu_psi_wait_seconds_total",
+            "Total CPU pressure stall time in seconds",
+        )?;
+        let system_memory_psi_wait_seconds_total = Gauge::new(
+            "herakles_system_memory_psi_wait_seconds_total",
+            "Total memory pressure stall time in seconds",
+        )?;
+        let system_disk_psi_wait_seconds_total = Gauge::new(
+            "herakles_system_disk_psi_wait_seconds_total",
+            "Total I/O pressure stall time in seconds",
         )?;
 
         // Subgroup metadata metrics
@@ -715,6 +764,17 @@ impl MemoryMetrics {
         registry.register(Box::new(node_load5.clone()))?;
         registry.register(Box::new(node_load15.clone()))?;
 
+        // Register new system-level metrics
+        registry.register(Box::new(system_uptime_seconds.clone()))?;
+        registry.register(Box::new(system_boot_time_seconds.clone()))?;
+        registry.register(Box::new(system_context_switches_total.clone()))?;
+        registry.register(Box::new(system_forks_total.clone()))?;
+        registry.register(Box::new(system_open_fds.clone()))?;
+        registry.register(Box::new(system_entropy_bits.clone()))?;
+        registry.register(Box::new(system_cpu_psi_wait_seconds_total.clone()))?;
+        registry.register(Box::new(system_memory_psi_wait_seconds_total.clone()))?;
+        registry.register(Box::new(system_disk_psi_wait_seconds_total.clone()))?;
+
         // Register subgroup metadata metrics
         registry.register(Box::new(subgroup_info.clone()))?;
         registry.register(Box::new(subgroup_oldest_uptime_seconds.clone()))?;
@@ -828,6 +888,15 @@ impl MemoryMetrics {
             node_load1,
             node_load5,
             node_load15,
+            system_uptime_seconds,
+            system_boot_time_seconds,
+            system_context_switches_total,
+            system_forks_total,
+            system_open_fds,
+            system_entropy_bits,
+            system_cpu_psi_wait_seconds_total,
+            system_memory_psi_wait_seconds_total,
+            system_disk_psi_wait_seconds_total,
             subgroup_info,
             subgroup_oldest_uptime_seconds,
             subgroup_alert_armed,

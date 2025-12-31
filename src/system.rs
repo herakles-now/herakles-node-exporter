@@ -478,3 +478,46 @@ pub fn read_uptime() -> Result<f64, String> {
 
     Ok(uptime_seconds)
 }
+
+/// Reads system boot time and context switches/forks from /proc/stat.
+/// Returns (boot_time_seconds, context_switches, forks).
+pub fn read_stat_counters() -> Result<(u64, u64, u64), String> {
+    let content =
+        fs::read_to_string("/proc/stat").map_err(|e| format!("Failed to read /proc/stat: {}", e))?;
+
+    let mut boot_time: Option<u64> = None;
+    let mut context_switches: Option<u64> = None;
+    let mut forks: Option<u64> = None;
+
+    for line in content.lines() {
+        if line.starts_with("btime ") {
+            if let Some(value_str) = line.strip_prefix("btime ") {
+                boot_time = value_str.trim().parse::<u64>().ok();
+            }
+        } else if line.starts_with("ctxt ") {
+            if let Some(value_str) = line.strip_prefix("ctxt ") {
+                context_switches = value_str.trim().parse::<u64>().ok();
+            }
+        } else if line.starts_with("processes ") {
+            if let Some(value_str) = line.strip_prefix("processes ") {
+                forks = value_str.trim().parse::<u64>().ok();
+            }
+        }
+    }
+
+    match (boot_time, context_switches, forks) {
+        (Some(bt), Some(cs), Some(f)) => Ok((bt, cs, f)),
+        _ => Err("Failed to parse all stat counters from /proc/stat".to_string()),
+    }
+}
+
+/// Reads available entropy from /proc/sys/kernel/random/entropy_avail.
+pub fn read_entropy() -> Result<u64, String> {
+    let content = fs::read_to_string("/proc/sys/kernel/random/entropy_avail")
+        .map_err(|e| format!("Failed to read entropy: {}", e))?;
+
+    content
+        .trim()
+        .parse::<u64>()
+        .map_err(|e| format!("Failed to parse entropy: {}", e))
+}
