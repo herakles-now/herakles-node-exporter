@@ -149,13 +149,16 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .set(cpu_ratio);
 
                     // CPU time in seconds (user mode)
+                    // NOTE: Current ProcMem.cpu_time_seconds is total time.
+                    // Splitting into user/system requires parsing /proc/[pid]/stat
+                    // separately. This is a future enhancement.
                     state
                         .metrics
                         .group_cpu_seconds_total
                         .with_label_values(&[group.as_str(), subgroup.as_str(), "user"])
                         .set(metrics.cpu_time_user_sum);
 
-                    // CPU time in seconds (system mode)
+                    // CPU time in seconds (system mode) - placeholder
                     state
                         .metrics
                         .group_cpu_seconds_total
@@ -163,8 +166,12 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .set(metrics.cpu_time_system_sum);
                 }
 
-                // TODO: Block I/O Group Metrics
-                // These require per-process I/O stats which are not yet collected
+                // Block I/O Group Metrics
+                // NOTE: These are placeholders set to 0 pending implementation.
+                // Per the German spec, these should aggregate per-process I/O from:
+                // - /proc/[pid]/io (read_bytes, write_bytes, syscr, syscw)
+                // - OR eBPF-based I/O tracking
+                // This is a future enhancement.
                 state
                     .metrics
                     .group_blkio_read_bytes_total
@@ -496,8 +503,10 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     }
                 }
 
-                // TODO: Group network connections (proto: tcp/udp)
-                // This requires connection tracking which is not yet implemented
+                // NOTE: Group network connections tracking requires eBPF-based
+                // connection state tracking which is not yet implemented.
+                // The metric group_net_connections_total{proto="tcp/udp"} will be
+                // added in a future enhancement.
             }
 
             // ========== PHASE 11: Encode and Return Metrics ==========

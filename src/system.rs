@@ -529,6 +529,8 @@ pub fn read_uname_info() -> Result<(String, String, String, String), String> {
     use std::mem;
 
     unsafe {
+        // SAFETY: libc::utsname is a C struct with only arrays of i8/c_char
+        // which are valid for zeroed memory initialization
         let mut utsname: libc::utsname = mem::zeroed();
         if libc::uname(&mut utsname) == 0 {
             let sysname = CStr::from_ptr(utsname.sysname.as_ptr())
