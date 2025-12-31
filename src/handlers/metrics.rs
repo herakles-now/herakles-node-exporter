@@ -250,11 +250,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .set(p.rss as f64);
                     state
                         .metrics
-                        .mem_rss_subgroup_top1_pid
-                        .with_label_values(&[subgroup_ref])
-                        .set(p.pid as f64);
-                    state
-                        .metrics
                         .mem_rss_subgroup_top1_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
@@ -268,11 +263,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .set(p.rss as f64);
                     state
                         .metrics
-                        .mem_rss_subgroup_top2_pid
-                        .with_label_values(&[subgroup_ref])
-                        .set(p.pid as f64);
-                    state
-                        .metrics
                         .mem_rss_subgroup_top2_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
@@ -284,11 +274,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .mem_rss_subgroup_top3_bytes
                         .with_label_values(&[subgroup_ref])
                         .set(p.rss as f64);
-                    state
-                        .metrics
-                        .mem_rss_subgroup_top3_pid
-                        .with_label_values(&[subgroup_ref])
-                        .set(p.pid as f64);
                     state
                         .metrics
                         .mem_rss_subgroup_top3_comm
@@ -313,11 +298,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .set(p.cpu_percent as f64);
                     state
                         .metrics
-                        .cpu_usage_subgroup_top1_pid
-                        .with_label_values(&[subgroup_ref])
-                        .set(p.pid as f64);
-                    state
-                        .metrics
                         .cpu_usage_subgroup_top1_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
@@ -331,11 +311,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .set(p.cpu_percent as f64);
                     state
                         .metrics
-                        .cpu_usage_subgroup_top2_pid
-                        .with_label_values(&[subgroup_ref])
-                        .set(p.pid as f64);
-                    state
-                        .metrics
                         .cpu_usage_subgroup_top2_comm
                         .with_label_values(&[subgroup_ref, &p.name])
                         .set(1.0);
@@ -347,11 +322,6 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .cpu_usage_subgroup_top3_percent
                         .with_label_values(&[subgroup_ref])
                         .set(p.cpu_percent as f64);
-                    state
-                        .metrics
-                        .cpu_usage_subgroup_top3_pid
-                        .with_label_values(&[subgroup_ref])
-                        .set(p.pid as f64);
                     state
                         .metrics
                         .cpu_usage_subgroup_top3_comm
