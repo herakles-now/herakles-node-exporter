@@ -43,12 +43,16 @@ herakles_mem_process_uss_bytes           - Unique Set Size per process
 herakles_cpu_process_usage_percent       - CPU usage per process
 herakles_cpu_process_time_seconds        - Total CPU time per process
 
-herakles_mem_group_*                     - Aggregated memory metrics per subgroup
-herakles_cpu_group_*                     - Aggregated CPU metrics per subgroup
+herakles_group_memory_*                  - Aggregated memory metrics per subgroup
+herakles_group_cpu_*                     - Aggregated CPU metrics per subgroup
 herakles_mem_top_process_*               - Top-N memory metrics per subgroup
 herakles_cpu_top_process_*               - Top-N CPU metrics per subgroup
-herakles_mem_system_*                    - System-wide memory metrics
-herakles_cpu_system_*                    - System-wide CPU metrics
+herakles_system_memory_*                 - System-wide memory metrics
+herakles_system_cpu_*                    - System-wide CPU metrics
+herakles_system_disk_*                   - System-wide disk metrics
+herakles_system_net_*                    - System-wide network metrics
+herakles_group_blkio_*                   - Group block I/O metrics
+herakles_group_net_*                     - Group network metrics
 herakles_exporter_*                      - Internal exporter metrics
 
 CONFIGURATION
