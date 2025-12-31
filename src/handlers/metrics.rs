@@ -833,6 +833,22 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
             }
 
+            // Thermal Sensor metrics
+            match collectors::thermal::collect_temperatures() {
+                Ok(temperatures) => {
+                    for (sensor, temp) in temperatures {
+                        state
+                            .metrics
+                            .system_cpu_temp_celsius
+                            .with_label_values(&[&sensor])
+                            .set(temp);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to read thermal sensors: {}", e);
+                }
+            }
+
             // TODO: Calculate node-level I/O rates (bytes and IOPS per second)
             // These require tracking previous values and calculating deltas
             // For now, set to 0 as placeholders

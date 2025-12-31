@@ -109,6 +109,9 @@ pub struct MemoryMetrics {
     pub system_disk_write_bytes_total: GaugeVec,
     pub system_disk_io_now: GaugeVec,
 
+    // Thermal Metrics - Labels: sensor
+    pub system_cpu_temp_celsius: GaugeVec,
+
     // Filesystem (4 new metrics) - Labels: device, mountpoint, fstype
     pub filesystem_avail_bytes: GaugeVec,
     pub filesystem_size_bytes: GaugeVec,
@@ -622,6 +625,15 @@ impl MemoryMetrics {
             &["device"],
         )?;
 
+        // Thermal Metrics
+        let system_cpu_temp_celsius = GaugeVec::new(
+            Opts::new(
+                "herakles_system_cpu_temp_celsius",
+                "CPU/sensor temperature in Celsius",
+            ),
+            &["sensor"],
+        )?;
+
         // Filesystem Metrics (4 new metrics)
         let filesystem_avail_bytes = GaugeVec::new(
             Opts::new(
@@ -837,6 +849,9 @@ impl MemoryMetrics {
         registry.register(Box::new(disk_write_bytes_total.clone()))?;
         registry.register(Box::new(disk_io_now.clone()))?;
 
+        // Register Thermal metrics
+        registry.register(Box::new(system_cpu_temp_celsius.clone()))?;
+
         // Register Filesystem metrics
         registry.register(Box::new(filesystem_avail_bytes.clone()))?;
         registry.register(Box::new(filesystem_size_bytes.clone()))?;
@@ -945,6 +960,7 @@ impl MemoryMetrics {
             system_disk_writes_completed_total: disk_writes_completed_total,
             system_disk_write_bytes_total: disk_write_bytes_total,
             system_disk_io_now: disk_io_now,
+            system_cpu_temp_celsius,
             filesystem_avail_bytes,
             filesystem_size_bytes,
             filesystem_files,
@@ -1021,6 +1037,9 @@ impl MemoryMetrics {
         self.system_disk_writes_completed_total.reset();
         self.system_disk_write_bytes_total.reset();
         self.system_disk_io_now.reset();
+
+        // Reset Thermal metrics
+        self.system_cpu_temp_celsius.reset();
 
         // Reset Filesystem metrics
         self.filesystem_avail_bytes.reset();
