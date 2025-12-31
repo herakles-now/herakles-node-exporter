@@ -64,24 +64,20 @@ pub struct MemoryMetrics {
     pub subgroup_oldest_uptime_seconds: GaugeVec,
     pub subgroup_alert_armed: GaugeVec,
 
-    // Top-3 RSS Memory metrics (9 metrics) - Labels: group, subgroup (and comm for _comm metrics)
+    // Top-3 RSS Memory metrics (6 metrics) - Labels: group, subgroup (and comm for _comm metrics)
+    // NOTE: PID metrics removed - PIDs are kept internal only
     pub mem_rss_subgroup_top1_bytes: GaugeVec,
     pub mem_rss_subgroup_top2_bytes: GaugeVec,
     pub mem_rss_subgroup_top3_bytes: GaugeVec,
-    pub mem_rss_subgroup_top1_pid: GaugeVec,
-    pub mem_rss_subgroup_top2_pid: GaugeVec,
-    pub mem_rss_subgroup_top3_pid: GaugeVec,
     pub mem_rss_subgroup_top1_comm: GaugeVec, // Labels: group, subgroup, comm
     pub mem_rss_subgroup_top2_comm: GaugeVec, // Labels: group, subgroup, comm
     pub mem_rss_subgroup_top3_comm: GaugeVec, // Labels: group, subgroup, comm
 
-    // Top-3 CPU Usage metrics (9 metrics) - Labels: group, subgroup (and comm for _comm metrics)
+    // Top-3 CPU Usage metrics (6 metrics) - Labels: group, subgroup (and comm for _comm metrics)
+    // NOTE: PID metrics removed - PIDs are kept internal only
     pub cpu_usage_subgroup_top1_percent: GaugeVec,
     pub cpu_usage_subgroup_top2_percent: GaugeVec,
     pub cpu_usage_subgroup_top3_percent: GaugeVec,
-    pub cpu_usage_subgroup_top1_pid: GaugeVec,
-    pub cpu_usage_subgroup_top2_pid: GaugeVec,
-    pub cpu_usage_subgroup_top3_pid: GaugeVec,
     pub cpu_usage_subgroup_top1_comm: GaugeVec, // Labels: group, subgroup, comm
     pub cpu_usage_subgroup_top2_comm: GaugeVec, // Labels: group, subgroup, comm
     pub cpu_usage_subgroup_top3_comm: GaugeVec, // Labels: group, subgroup, comm
@@ -398,27 +394,6 @@ impl MemoryMetrics {
             ),
             &["subgroup"],
         )?;
-        let mem_rss_subgroup_top1_pid = GaugeVec::new(
-            Opts::new(
-                "herakles_mem_rss_subgroup_top1_pid",
-                "Top 1 RSS process PID per subgroup",
-            ),
-            &["subgroup"],
-        )?;
-        let mem_rss_subgroup_top2_pid = GaugeVec::new(
-            Opts::new(
-                "herakles_mem_rss_subgroup_top2_pid",
-                "Top 2 RSS process PID per subgroup",
-            ),
-            &["subgroup"],
-        )?;
-        let mem_rss_subgroup_top3_pid = GaugeVec::new(
-            Opts::new(
-                "herakles_mem_rss_subgroup_top3_pid",
-                "Top 3 RSS process PID per subgroup",
-            ),
-            &["subgroup"],
-        )?;
         // Info-style metric: value is always 1.0, actual data is in the 'comm' label
         let mem_rss_subgroup_top1_comm = GaugeVec::new(
             Opts::new(
@@ -466,27 +441,6 @@ impl MemoryMetrics {
             Opts::new(
                 "herakles_cpu_usage_subgroup_top3_percent",
                 "Top 3 CPU usage percentage per subgroup",
-            ),
-            &["subgroup"],
-        )?;
-        let cpu_usage_subgroup_top1_pid = GaugeVec::new(
-            Opts::new(
-                "herakles_cpu_usage_subgroup_top1_pid",
-                "Top 1 CPU usage process PID per subgroup",
-            ),
-            &["subgroup"],
-        )?;
-        let cpu_usage_subgroup_top2_pid = GaugeVec::new(
-            Opts::new(
-                "herakles_cpu_usage_subgroup_top2_pid",
-                "Top 2 CPU usage process PID per subgroup",
-            ),
-            &["subgroup"],
-        )?;
-        let cpu_usage_subgroup_top3_pid = GaugeVec::new(
-            Opts::new(
-                "herakles_cpu_usage_subgroup_top3_pid",
-                "Top 3 CPU usage process PID per subgroup",
             ),
             &["subgroup"],
         )?;
@@ -808,9 +762,6 @@ impl MemoryMetrics {
         registry.register(Box::new(mem_rss_subgroup_top1_bytes.clone()))?;
         registry.register(Box::new(mem_rss_subgroup_top2_bytes.clone()))?;
         registry.register(Box::new(mem_rss_subgroup_top3_bytes.clone()))?;
-        registry.register(Box::new(mem_rss_subgroup_top1_pid.clone()))?;
-        registry.register(Box::new(mem_rss_subgroup_top2_pid.clone()))?;
-        registry.register(Box::new(mem_rss_subgroup_top3_pid.clone()))?;
         registry.register(Box::new(mem_rss_subgroup_top1_comm.clone()))?;
         registry.register(Box::new(mem_rss_subgroup_top2_comm.clone()))?;
         registry.register(Box::new(mem_rss_subgroup_top3_comm.clone()))?;
@@ -819,9 +770,6 @@ impl MemoryMetrics {
         registry.register(Box::new(cpu_usage_subgroup_top1_percent.clone()))?;
         registry.register(Box::new(cpu_usage_subgroup_top2_percent.clone()))?;
         registry.register(Box::new(cpu_usage_subgroup_top3_percent.clone()))?;
-        registry.register(Box::new(cpu_usage_subgroup_top1_pid.clone()))?;
-        registry.register(Box::new(cpu_usage_subgroup_top2_pid.clone()))?;
-        registry.register(Box::new(cpu_usage_subgroup_top3_pid.clone()))?;
         registry.register(Box::new(cpu_usage_subgroup_top1_comm.clone()))?;
         registry.register(Box::new(cpu_usage_subgroup_top2_comm.clone()))?;
         registry.register(Box::new(cpu_usage_subgroup_top3_comm.clone()))?;
@@ -928,18 +876,12 @@ impl MemoryMetrics {
             mem_rss_subgroup_top1_bytes,
             mem_rss_subgroup_top2_bytes,
             mem_rss_subgroup_top3_bytes,
-            mem_rss_subgroup_top1_pid,
-            mem_rss_subgroup_top2_pid,
-            mem_rss_subgroup_top3_pid,
             mem_rss_subgroup_top1_comm,
             mem_rss_subgroup_top2_comm,
             mem_rss_subgroup_top3_comm,
             cpu_usage_subgroup_top1_percent,
             cpu_usage_subgroup_top2_percent,
             cpu_usage_subgroup_top3_percent,
-            cpu_usage_subgroup_top1_pid,
-            cpu_usage_subgroup_top2_pid,
-            cpu_usage_subgroup_top3_pid,
             cpu_usage_subgroup_top1_comm,
             cpu_usage_subgroup_top2_comm,
             cpu_usage_subgroup_top3_comm,
@@ -1002,9 +944,6 @@ impl MemoryMetrics {
         self.mem_rss_subgroup_top1_bytes.reset();
         self.mem_rss_subgroup_top2_bytes.reset();
         self.mem_rss_subgroup_top3_bytes.reset();
-        self.mem_rss_subgroup_top1_pid.reset();
-        self.mem_rss_subgroup_top2_pid.reset();
-        self.mem_rss_subgroup_top3_pid.reset();
         self.mem_rss_subgroup_top1_comm.reset();
         self.mem_rss_subgroup_top2_comm.reset();
         self.mem_rss_subgroup_top3_comm.reset();
@@ -1013,9 +952,6 @@ impl MemoryMetrics {
         self.cpu_usage_subgroup_top1_percent.reset();
         self.cpu_usage_subgroup_top2_percent.reset();
         self.cpu_usage_subgroup_top3_percent.reset();
-        self.cpu_usage_subgroup_top1_pid.reset();
-        self.cpu_usage_subgroup_top2_pid.reset();
-        self.cpu_usage_subgroup_top3_pid.reset();
         self.cpu_usage_subgroup_top1_comm.reset();
         self.cpu_usage_subgroup_top2_comm.reset();
         self.cpu_usage_subgroup_top3_comm.reset();
