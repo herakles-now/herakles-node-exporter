@@ -76,27 +76,27 @@ pub struct MemoryMetrics {
     pub cpu_usage_subgroup_top3_comm: GaugeVec, // Labels: group, subgroup, comm
 
     // Group Core Metrics (6 new metrics) - Labels: group, subgroup
-    pub mem_group_rss_bytes_sum: GaugeVec,
-    pub mem_group_pss_bytes_sum: GaugeVec,
-    pub mem_group_uss_bytes_sum: GaugeVec,
-    pub cpu_group_usage_percent_sum: GaugeVec,
-    pub cpu_group_time_seconds_sum: GaugeVec,
-    pub cpu_group_uptime_oldest_process_seconds: GaugeVec,
+    pub group_memory_rss_bytes_sum: GaugeVec,
+    pub group_memory_pss_bytes_sum: GaugeVec,
+    pub group_memory_uss_bytes_sum: GaugeVec,
+    pub group_cpu_usage_percent_sum: GaugeVec,
+    pub group_cpu_time_seconds_sum: GaugeVec,
+    pub group_cpu_uptime_oldest_process_seconds: GaugeVec,
 
     // System Ratios (6 new metrics) - No labels
-    pub cpu_system_usage_ratio: Gauge,
-    pub cpu_system_idle_ratio: Gauge,
-    pub cpu_system_iowait_ratio: Gauge,
-    pub cpu_system_steal_ratio: Gauge,
-    pub mem_system_used_ratio: Gauge,
-    pub mem_system_swap_used_ratio: Gauge,
+    pub system_cpu_usage_ratio: Gauge,
+    pub system_cpu_idle_ratio: Gauge,
+    pub system_cpu_iowait_ratio: Gauge,
+    pub system_cpu_steal_ratio: Gauge,
+    pub system_memory_used_ratio: Gauge,
+    pub system_memory_swap_used_ratio: Gauge,
 
     // Disk Device-Level (5 new metrics) - Labels: device
-    pub disk_reads_completed_total: GaugeVec,
-    pub disk_read_bytes_total: GaugeVec,
-    pub disk_writes_completed_total: GaugeVec,
-    pub disk_write_bytes_total: GaugeVec,
-    pub disk_io_now: GaugeVec,
+    pub system_disk_reads_completed_total: GaugeVec,
+    pub system_disk_read_bytes_total: GaugeVec,
+    pub system_disk_writes_completed_total: GaugeVec,
+    pub system_disk_write_bytes_total: GaugeVec,
+    pub system_disk_io_now: GaugeVec,
 
     // Filesystem (4 new metrics) - Labels: device, mountpoint, fstype
     pub filesystem_avail_bytes: GaugeVec,
@@ -105,21 +105,21 @@ pub struct MemoryMetrics {
     pub filesystem_files_free: GaugeVec,
 
     // Network Device-Level (5 new metrics) - Labels: device
-    pub network_receive_bytes_total: GaugeVec,
-    pub network_transmit_bytes_total: GaugeVec,
-    pub network_receive_packets_total: GaugeVec,
-    pub network_receive_errs_total: GaugeVec,
-    pub network_receive_drop_total: GaugeVec,
+    pub system_net_receive_bytes_total: GaugeVec,
+    pub system_net_transmit_bytes_total: GaugeVec,
+    pub system_net_receive_packets_total: GaugeVec,
+    pub system_net_receive_errs_total: GaugeVec,
+    pub system_net_receive_drop_total: GaugeVec,
 
     // eBPF Group Network (4 new metrics) - Labels: group, subgroup
-    pub net_group_rx_bytes_total: GaugeVec,
-    pub net_group_tx_bytes_total: GaugeVec,
-    pub net_group_packets_total: GaugeVec,
-    pub net_group_dropped_total: GaugeVec,
+    pub group_net_rx_bytes_total: GaugeVec,
+    pub group_net_tx_bytes_total: GaugeVec,
+    pub group_net_packets_total: GaugeVec,
+    pub group_net_dropped_total: GaugeVec,
 
     // eBPF Group I/O (2 new metrics) - Labels: group, subgroup
-    pub io_group_read_bytes_total: GaugeVec,
-    pub io_group_write_bytes_total: GaugeVec,
+    pub group_blkio_read_bytes_total: GaugeVec,
+    pub group_blkio_write_bytes_total: GaugeVec,
 }
 
 impl MemoryMetrics {
@@ -469,42 +469,42 @@ impl MemoryMetrics {
         // Group Core Metrics (6 new metrics)
         let mem_group_rss_bytes_sum = GaugeVec::new(
             Opts::new(
-                "herakles_mem_group_rss_bytes_sum",
+                "herakles_group_memory_rss_bytes",
                 "Sum of RSS bytes per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
         let mem_group_pss_bytes_sum = GaugeVec::new(
             Opts::new(
-                "herakles_mem_group_pss_bytes_sum",
+                "herakles_group_memory_pss_bytes",
                 "Sum of PSS bytes per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
         let mem_group_uss_bytes_sum = GaugeVec::new(
             Opts::new(
-                "herakles_mem_group_uss_bytes_sum",
+                "herakles_group_memory_uss_bytes",
                 "Sum of USS bytes per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
         let cpu_group_usage_percent_sum = GaugeVec::new(
             Opts::new(
-                "herakles_cpu_group_usage_percent_sum",
+                "herakles_group_cpu_usage_percent",
                 "Sum of CPU usage percentage per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
         let cpu_group_time_seconds_sum = GaugeVec::new(
             Opts::new(
-                "herakles_cpu_group_time_seconds_sum",
+                "herakles_group_cpu_time_seconds",
                 "Sum of CPU time in seconds per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
         let cpu_group_uptime_oldest_process_seconds = GaugeVec::new(
             Opts::new(
-                "herakles_cpu_group_uptime_oldest_process_seconds",
+                "herakles_group_cpu_uptime_oldest_process_seconds",
                 "Uptime in seconds of oldest process per group and subgroup",
             ),
             &["group", "subgroup"],
@@ -512,62 +512,62 @@ impl MemoryMetrics {
 
         // System Ratios (6 new metrics)
         let cpu_system_usage_ratio = Gauge::new(
-            "herakles_cpu_system_usage_ratio",
+            "herakles_system_cpu_usage_ratio",
             "System CPU usage ratio (0.0-1.0)",
         )?;
         let cpu_system_idle_ratio = Gauge::new(
-            "herakles_cpu_system_idle_ratio",
+            "herakles_system_cpu_idle_ratio",
             "System CPU idle ratio (0.0-1.0)",
         )?;
         let cpu_system_iowait_ratio = Gauge::new(
-            "herakles_cpu_system_iowait_ratio",
+            "herakles_system_cpu_iowait_ratio",
             "System CPU iowait ratio (0.0-1.0)",
         )?;
         let cpu_system_steal_ratio = Gauge::new(
-            "herakles_cpu_system_steal_ratio",
+            "herakles_system_cpu_steal_ratio",
             "System CPU steal ratio (0.0-1.0)",
         )?;
         let mem_system_used_ratio = Gauge::new(
-            "herakles_mem_system_used_ratio",
+            "herakles_system_memory_used_ratio",
             "System memory used ratio (0.0-1.0)",
         )?;
         let mem_system_swap_used_ratio = Gauge::new(
-            "herakles_mem_system_swap_used_ratio",
+            "herakles_system_memory_swap_used_ratio",
             "System swap memory used ratio (0.0-1.0)",
         )?;
 
         // Disk Device-Level Metrics (5 new metrics)
         let disk_reads_completed_total = GaugeVec::new(
             Opts::new(
-                "herakles_disk_reads_completed_total",
+                "herakles_system_disk_reads_completed_total",
                 "Total number of read operations completed per disk device",
             ),
             &["device"],
         )?;
         let disk_read_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_disk_read_bytes_total",
+                "herakles_system_disk_read_bytes_total",
                 "Total bytes read from disk device",
             ),
             &["device"],
         )?;
         let disk_writes_completed_total = GaugeVec::new(
             Opts::new(
-                "herakles_disk_writes_completed_total",
+                "herakles_system_disk_writes_completed_total",
                 "Total number of write operations completed per disk device",
             ),
             &["device"],
         )?;
         let disk_write_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_disk_write_bytes_total",
+                "herakles_system_disk_write_bytes_total",
                 "Total bytes written to disk device",
             ),
             &["device"],
         )?;
         let disk_io_now = GaugeVec::new(
             Opts::new(
-                "herakles_disk_io_now",
+                "herakles_system_disk_io_now",
                 "Number of I/O operations currently in progress for disk device",
             ),
             &["device"],
@@ -606,35 +606,35 @@ impl MemoryMetrics {
         // Network Device-Level Metrics (5 new metrics)
         let network_receive_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_network_receive_bytes_total",
+                "herakles_system_net_rx_bytes_total",
                 "Total bytes received per network device",
             ),
             &["device"],
         )?;
         let network_transmit_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_network_transmit_bytes_total",
+                "herakles_system_net_tx_bytes_total",
                 "Total bytes transmitted per network device",
             ),
             &["device"],
         )?;
         let network_receive_packets_total = GaugeVec::new(
             Opts::new(
-                "herakles_network_receive_packets_total",
+                "herakles_system_net_rx_packets_total",
                 "Total packets received per network device",
             ),
             &["device"],
         )?;
         let network_receive_errs_total = GaugeVec::new(
             Opts::new(
-                "herakles_network_receive_errs_total",
+                "herakles_system_net_rx_errors_total",
                 "Total receive errors per network device",
             ),
             &["device"],
         )?;
         let network_receive_drop_total = GaugeVec::new(
             Opts::new(
-                "herakles_network_receive_drop_total",
+                "herakles_system_net_rx_drop_total",
                 "Total receive drops per network device",
             ),
             &["device"],
@@ -643,28 +643,28 @@ impl MemoryMetrics {
         // eBPF Group Network Metrics (4 new metrics)
         let net_group_rx_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_net_group_rx_bytes_total",
+                "herakles_group_net_rx_bytes_total",
                 "Total bytes received per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
         )?;
         let net_group_tx_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_net_group_tx_bytes_total",
+                "herakles_group_net_tx_bytes_total",
                 "Total bytes transmitted per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
         )?;
         let net_group_packets_total = GaugeVec::new(
             Opts::new(
-                "herakles_net_group_packets_total",
+                "herakles_group_net_packets_total",
                 "Total packets per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
         )?;
         let net_group_dropped_total = GaugeVec::new(
             Opts::new(
-                "herakles_net_group_dropped_total",
+                "herakles_group_net_dropped_total",
                 "Total dropped packets per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
@@ -673,14 +673,14 @@ impl MemoryMetrics {
         // eBPF Group I/O Metrics (2 new metrics)
         let io_group_read_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_io_group_read_bytes_total",
+                "herakles_group_blkio_read_bytes_total",
                 "Total bytes read per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
         )?;
         let io_group_write_bytes_total = GaugeVec::new(
             Opts::new(
-                "herakles_io_group_write_bytes_total",
+                "herakles_group_blkio_write_bytes_total",
                 "Total bytes written per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
@@ -859,38 +859,38 @@ impl MemoryMetrics {
             cpu_usage_subgroup_top1_comm,
             cpu_usage_subgroup_top2_comm,
             cpu_usage_subgroup_top3_comm,
-            mem_group_rss_bytes_sum,
-            mem_group_pss_bytes_sum,
-            mem_group_uss_bytes_sum,
-            cpu_group_usage_percent_sum,
-            cpu_group_time_seconds_sum,
-            cpu_group_uptime_oldest_process_seconds,
-            cpu_system_usage_ratio,
-            cpu_system_idle_ratio,
-            cpu_system_iowait_ratio,
-            cpu_system_steal_ratio,
-            mem_system_used_ratio,
-            mem_system_swap_used_ratio,
-            disk_reads_completed_total,
-            disk_read_bytes_total,
-            disk_writes_completed_total,
-            disk_write_bytes_total,
-            disk_io_now,
+            group_memory_rss_bytes_sum: mem_group_rss_bytes_sum,
+            group_memory_pss_bytes_sum: mem_group_pss_bytes_sum,
+            group_memory_uss_bytes_sum: mem_group_uss_bytes_sum,
+            group_cpu_usage_percent_sum: cpu_group_usage_percent_sum,
+            group_cpu_time_seconds_sum: cpu_group_time_seconds_sum,
+            group_cpu_uptime_oldest_process_seconds: cpu_group_uptime_oldest_process_seconds,
+            system_cpu_usage_ratio: cpu_system_usage_ratio,
+            system_cpu_idle_ratio: cpu_system_idle_ratio,
+            system_cpu_iowait_ratio: cpu_system_iowait_ratio,
+            system_cpu_steal_ratio: cpu_system_steal_ratio,
+            system_memory_used_ratio: mem_system_used_ratio,
+            system_memory_swap_used_ratio: mem_system_swap_used_ratio,
+            system_disk_reads_completed_total: disk_reads_completed_total,
+            system_disk_read_bytes_total: disk_read_bytes_total,
+            system_disk_writes_completed_total: disk_writes_completed_total,
+            system_disk_write_bytes_total: disk_write_bytes_total,
+            system_disk_io_now: disk_io_now,
             filesystem_avail_bytes,
             filesystem_size_bytes,
             filesystem_files,
             filesystem_files_free,
-            network_receive_bytes_total,
-            network_transmit_bytes_total,
-            network_receive_packets_total,
-            network_receive_errs_total,
-            network_receive_drop_total,
-            net_group_rx_bytes_total,
-            net_group_tx_bytes_total,
-            net_group_packets_total,
-            net_group_dropped_total,
-            io_group_read_bytes_total,
-            io_group_write_bytes_total,
+            system_net_receive_bytes_total: network_receive_bytes_total,
+            system_net_transmit_bytes_total: network_transmit_bytes_total,
+            system_net_receive_packets_total: network_receive_packets_total,
+            system_net_receive_errs_total: network_receive_errs_total,
+            system_net_receive_drop_total: network_receive_drop_total,
+            group_net_rx_bytes_total: net_group_rx_bytes_total,
+            group_net_tx_bytes_total: net_group_tx_bytes_total,
+            group_net_packets_total: net_group_packets_total,
+            group_net_dropped_total: net_group_dropped_total,
+            group_blkio_read_bytes_total: io_group_read_bytes_total,
+            group_blkio_write_bytes_total: io_group_write_bytes_total,
         })
     }
 
@@ -936,22 +936,22 @@ impl MemoryMetrics {
         self.cpu_usage_subgroup_top3_comm.reset();
 
         // Reset Group Core metrics
-        self.mem_group_rss_bytes_sum.reset();
-        self.mem_group_pss_bytes_sum.reset();
-        self.mem_group_uss_bytes_sum.reset();
-        self.cpu_group_usage_percent_sum.reset();
-        self.cpu_group_time_seconds_sum.reset();
-        self.cpu_group_uptime_oldest_process_seconds.reset();
+        self.group_memory_rss_bytes_sum.reset();
+        self.group_memory_pss_bytes_sum.reset();
+        self.group_memory_uss_bytes_sum.reset();
+        self.group_cpu_usage_percent_sum.reset();
+        self.group_cpu_time_seconds_sum.reset();
+        self.group_cpu_uptime_oldest_process_seconds.reset();
 
-        // Note: System Ratio metrics (cpu_system_*, mem_system_*) are single Gauges
+        // Note: System Ratio metrics (system_cpu_*, system_memory_*) are single Gauges
         // (not GaugeVec) and are set fresh on every scrape, so no reset needed
 
         // Reset Disk Device-Level metrics
-        self.disk_reads_completed_total.reset();
-        self.disk_read_bytes_total.reset();
-        self.disk_writes_completed_total.reset();
-        self.disk_write_bytes_total.reset();
-        self.disk_io_now.reset();
+        self.system_disk_reads_completed_total.reset();
+        self.system_disk_read_bytes_total.reset();
+        self.system_disk_writes_completed_total.reset();
+        self.system_disk_write_bytes_total.reset();
+        self.system_disk_io_now.reset();
 
         // Reset Filesystem metrics
         self.filesystem_avail_bytes.reset();
@@ -960,20 +960,20 @@ impl MemoryMetrics {
         self.filesystem_files_free.reset();
 
         // Reset Network Device-Level metrics
-        self.network_receive_bytes_total.reset();
-        self.network_transmit_bytes_total.reset();
-        self.network_receive_packets_total.reset();
-        self.network_receive_errs_total.reset();
-        self.network_receive_drop_total.reset();
+        self.system_net_receive_bytes_total.reset();
+        self.system_net_transmit_bytes_total.reset();
+        self.system_net_receive_packets_total.reset();
+        self.system_net_receive_errs_total.reset();
+        self.system_net_receive_drop_total.reset();
 
         // Reset eBPF Group Network metrics
-        self.net_group_rx_bytes_total.reset();
-        self.net_group_tx_bytes_total.reset();
-        self.net_group_packets_total.reset();
-        self.net_group_dropped_total.reset();
+        self.group_net_rx_bytes_total.reset();
+        self.group_net_tx_bytes_total.reset();
+        self.group_net_packets_total.reset();
+        self.group_net_dropped_total.reset();
 
         // Reset eBPF Group I/O metrics
-        self.io_group_read_bytes_total.reset();
-        self.io_group_write_bytes_total.reset();
+        self.group_blkio_read_bytes_total.reset();
+        self.group_blkio_write_bytes_total.reset();
     }
 }

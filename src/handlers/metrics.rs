@@ -389,7 +389,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if enable_rss {
                     state
                         .metrics
-                        .mem_group_rss_bytes_sum
+                        .group_memory_rss_bytes_sum
                         .with_label_values(&[&group, &subgroup])
                         .set(rss as f64);
                 }
@@ -397,7 +397,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if enable_pss {
                     state
                         .metrics
-                        .mem_group_pss_bytes_sum
+                        .group_memory_pss_bytes_sum
                         .with_label_values(&[&group, &subgroup])
                         .set(pss as f64);
                 }
@@ -405,7 +405,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if enable_uss {
                     state
                         .metrics
-                        .mem_group_uss_bytes_sum
+                        .group_memory_uss_bytes_sum
                         .with_label_values(&[&group, &subgroup])
                         .set(uss as f64);
                 }
@@ -413,13 +413,13 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if enable_cpu {
                     state
                         .metrics
-                        .cpu_group_usage_percent_sum
+                        .group_cpu_usage_percent_sum
                         .with_label_values(&[&group, &subgroup])
                         .set(cpu_pct);
 
                     state
                         .metrics
-                        .cpu_group_time_seconds_sum
+                        .group_cpu_time_seconds_sum
                         .with_label_values(&[&group, &subgroup])
                         .set(cpu_time);
 
@@ -431,7 +431,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     };
                     state
                         .metrics
-                        .cpu_group_uptime_oldest_process_seconds
+                        .group_cpu_uptime_oldest_process_seconds
                         .with_label_values(&[&group, &subgroup])
                         .set(uptime);
                 }
@@ -554,16 +554,16 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 Ok(cpu_ratios) => {
                     // Get the "cpu" (total) values for system ratios
                     if let Some(&usage_ratio) = cpu_ratios.usage.get("cpu") {
-                        state.metrics.cpu_system_usage_ratio.set(usage_ratio);
+                        state.metrics.system_cpu_usage_ratio.set(usage_ratio);
                     }
                     if let Some(&idle_ratio) = cpu_ratios.idle.get("cpu") {
-                        state.metrics.cpu_system_idle_ratio.set(idle_ratio);
+                        state.metrics.system_cpu_idle_ratio.set(idle_ratio);
                     }
                     if let Some(&iowait_ratio) = cpu_ratios.iowait.get("cpu") {
-                        state.metrics.cpu_system_iowait_ratio.set(iowait_ratio);
+                        state.metrics.system_cpu_iowait_ratio.set(iowait_ratio);
                     }
                     if let Some(&steal_ratio) = cpu_ratios.steal.get("cpu") {
-                        state.metrics.cpu_system_steal_ratio.set(steal_ratio);
+                        state.metrics.system_cpu_steal_ratio.set(steal_ratio);
                     }
                 }
                 Err(e) => {
@@ -578,7 +578,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         let mem_used_ratio = (mem_info.total_bytes - mem_info.available_bytes)
                             as f64
                             / mem_info.total_bytes as f64;
-                        state.metrics.mem_system_used_ratio.set(mem_used_ratio);
+                        state.metrics.system_memory_used_ratio.set(mem_used_ratio);
                     }
 
                     if mem_info.swap_total_bytes > 0 {
@@ -588,10 +588,10 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                             / mem_info.swap_total_bytes as f64;
                         state
                             .metrics
-                            .mem_system_swap_used_ratio
+                            .system_memory_swap_used_ratio
                             .set(swap_used_ratio);
                     } else {
-                        state.metrics.mem_system_swap_used_ratio.set(0.0);
+                        state.metrics.system_memory_swap_used_ratio.set(0.0);
                     }
                 }
                 Err(e) => {
@@ -605,31 +605,31 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     for (device, stats) in diskstats {
                         state
                             .metrics
-                            .disk_reads_completed_total
+                            .system_disk_reads_completed_total
                             .with_label_values(&[&device])
                             .set(stats.reads_completed as f64);
 
                         state
                             .metrics
-                            .disk_read_bytes_total
+                            .system_disk_read_bytes_total
                             .with_label_values(&[&device])
                             .set(stats.sectors_read as f64 * 512.0);
 
                         state
                             .metrics
-                            .disk_writes_completed_total
+                            .system_disk_writes_completed_total
                             .with_label_values(&[&device])
                             .set(stats.writes_completed as f64);
 
                         state
                             .metrics
-                            .disk_write_bytes_total
+                            .system_disk_write_bytes_total
                             .with_label_values(&[&device])
                             .set(stats.sectors_written as f64 * 512.0);
 
                         state
                             .metrics
-                            .disk_io_now
+                            .system_disk_io_now
                             .with_label_values(&[&device])
                             .set(stats.ios_in_progress as f64);
                     }
@@ -679,31 +679,31 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     for (device, stats) in netdevs {
                         state
                             .metrics
-                            .network_receive_bytes_total
+                            .system_net_receive_bytes_total
                             .with_label_values(&[&device])
                             .set(stats.receive_bytes as f64);
 
                         state
                             .metrics
-                            .network_transmit_bytes_total
+                            .system_net_transmit_bytes_total
                             .with_label_values(&[&device])
                             .set(stats.transmit_bytes as f64);
 
                         state
                             .metrics
-                            .network_receive_packets_total
+                            .system_net_receive_packets_total
                             .with_label_values(&[&device])
                             .set(stats.receive_packets as f64);
 
                         state
                             .metrics
-                            .network_receive_errs_total
+                            .system_net_receive_errs_total
                             .with_label_values(&[&device])
                             .set(stats.receive_errs as f64);
 
                         state
                             .metrics
-                            .network_receive_drop_total
+                            .system_net_receive_drop_total
                             .with_label_values(&[&device])
                             .set(stats.receive_drop as f64);
                     }
@@ -736,25 +736,25 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         for ((group, subgroup), (rx, tx, packets, dropped)) in net_groups {
                             state
                                 .metrics
-                                .net_group_rx_bytes_total
+                                .group_net_rx_bytes_total
                                 .with_label_values(&[&group, &subgroup])
                                 .set(rx as f64);
 
                             state
                                 .metrics
-                                .net_group_tx_bytes_total
+                                .group_net_tx_bytes_total
                                 .with_label_values(&[&group, &subgroup])
                                 .set(tx as f64);
 
                             state
                                 .metrics
-                                .net_group_packets_total
+                                .group_net_packets_total
                                 .with_label_values(&[&group, &subgroup])
                                 .set(packets as f64);
 
                             state
                                 .metrics
-                                .net_group_dropped_total
+                                .group_net_dropped_total
                                 .with_label_values(&[&group, &subgroup])
                                 .set(dropped as f64);
                         }
@@ -785,13 +785,13 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         for ((group, subgroup), (read, write)) in io_groups {
                             state
                                 .metrics
-                                .io_group_read_bytes_total
+                                .group_blkio_read_bytes_total
                                 .with_label_values(&[&group, &subgroup])
                                 .set(read as f64);
 
                             state
                                 .metrics
-                                .io_group_write_bytes_total
+                                .group_blkio_write_bytes_total
                                 .with_label_values(&[&group, &subgroup])
                                 .set(write as f64);
                         }
