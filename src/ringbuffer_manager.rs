@@ -128,13 +128,13 @@ mod tests {
         let stats = manager.get_stats();
 
         assert_eq!(stats.max_memory_mb, 15);
-        assert_eq!(stats.entry_size_bytes, 48);
+        assert_eq!(stats.entry_size_bytes, 256); // Updated for new structure
         assert_eq!(stats.entries_per_subgroup, 120); // Capped at max
     }
 
     #[test]
     fn test_manager_initialization_large_subgroup_count() {
-        // With 40000 subgroups: 15*1024*1024 / 48 / 40000 ≈ 8 entries
+        // With 40000 subgroups: 15*1024*1024 / 256 / 40000 ≈ 1.5 entries
         // Should be clamped to min (10)
         let manager = RingbufferManager::new(default_config(), 40000);
         let stats = manager.get_stats();
@@ -144,15 +144,16 @@ mod tests {
 
     #[test]
     fn test_manager_initialization_medium_subgroup_count() {
-        // With 5000 subgroups: 15*1024*1024 / 48 / 5000 ≈ 65 entries
+        // With 5000 subgroups: 15*1024*1024 / 256 / 5000 ≈ 12 entries
         let manager = RingbufferManager::new(default_config(), 5000);
         let stats = manager.get_stats();
 
-        // Should be between min and max
+        // Should be between min and max, closer to min now due to larger entry size
         assert!(stats.entries_per_subgroup >= 10);
         assert!(stats.entries_per_subgroup <= 120);
-        assert!(stats.entries_per_subgroup > 60);
-        assert!(stats.entries_per_subgroup < 70);
+        // With 256-byte entries, we get fewer entries per subgroup
+        assert!(stats.entries_per_subgroup >= 10);
+        assert!(stats.entries_per_subgroup < 15);
     }
 
     #[test]
