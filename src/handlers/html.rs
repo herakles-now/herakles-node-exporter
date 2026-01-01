@@ -268,6 +268,106 @@ pub async fn html_details_handler(
                     oldest_uptime
                 ));
                 html.push_str("</table>\n");
+                
+                // Add Top Process Metrics section
+                html.push_str("<h3>Top Process Metrics</h3>\n");
+                html.push_str(r#"<div class="info-box">Data sources: /proc/[pid]/stat (CPU), /proc/[pid]/statm (RSS), /proc/[pid]/smaps_rollup (PSS), /proc/[pid]/io (Block I/O)</div>"#);
+                html.push_str("\n");
+                
+                // Top-3 by CPU Usage
+                html.push_str("<h4>Top-3 Processes by CPU Usage</h4>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th><th>CPU Time (s)</th></tr>\n");
+                
+                let mut sorted_by_cpu: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
+                sorted_by_cpu.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+                for (rank, proc) in sorted_by_cpu.iter().take(3).enumerate() {
+                    html.push_str(&format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td><td>{:.2}</td></tr>\n",
+                        rank + 1,
+                        proc.pid,
+                        proc.name,
+                        proc.cpu_percent,
+                        proc.cpu_time_seconds
+                    ));
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by Memory (RSS)
+                html.push_str("<h4>Top-3 Processes by Memory (RSS)</h4>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>RSS</th></tr>\n");
+                
+                let mut sorted_by_rss: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
+                sorted_by_rss.sort_by(|a, b| b.rss.cmp(&a.rss));
+                for (rank, proc) in sorted_by_rss.iter().take(3).enumerate() {
+                    html.push_str(&format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                        rank + 1,
+                        proc.pid,
+                        proc.name,
+                        format_bytes(proc.rss)
+                    ));
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by Memory (PSS)
+                html.push_str("<h4>Top-3 Processes by Memory (PSS)</h4>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>PSS</th></tr>\n");
+                
+                let mut sorted_by_pss: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
+                sorted_by_pss.sort_by(|a, b| b.pss.cmp(&a.pss));
+                for (rank, proc) in sorted_by_pss.iter().take(3).enumerate() {
+                    html.push_str(&format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                        rank + 1,
+                        proc.pid,
+                        proc.name,
+                        format_bytes(proc.pss)
+                    ));
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by Block I/O Read
+                html.push_str("<h4>Top-3 Processes by Block I/O Read</h4>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>Read Bytes</th></tr>\n");
+                
+                let mut sorted_by_read: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
+                sorted_by_read.sort_by(|a, b| b.read_bytes.cmp(&a.read_bytes));
+                for (rank, proc) in sorted_by_read.iter().take(3).enumerate() {
+                    html.push_str(&format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                        rank + 1,
+                        proc.pid,
+                        proc.name,
+                        if proc.read_bytes > 0 { format_bytes(proc.read_bytes) } else { "N/A".to_string() }
+                    ));
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by Block I/O Write
+                html.push_str("<h4>Top-3 Processes by Block I/O Write</h4>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>Write Bytes</th></tr>\n");
+                
+                let mut sorted_by_write: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
+                sorted_by_write.sort_by(|a, b| b.write_bytes.cmp(&a.write_bytes));
+                for (rank, proc) in sorted_by_write.iter().take(3).enumerate() {
+                    html.push_str(&format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                        rank + 1,
+                        proc.pid,
+                        proc.name,
+                        if proc.write_bytes > 0 { format_bytes(proc.write_bytes) } else { "N/A".to_string() }
+                    ));
+                }
+                html.push_str("</table>\n");
+                
+                // Note about network metrics
+                html.push_str(r#"<div class="info-box"><strong>Note:</strong> Network metrics (RX/TX) require eBPF support. See <a href="/html/docs">documentation</a> for setup.</div>"#);
+                html.push_str("\n");
             }
 
             // Show ringbuffer history
