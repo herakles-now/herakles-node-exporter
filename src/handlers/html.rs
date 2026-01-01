@@ -104,6 +104,36 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Helper function to render top-N processes table in HTML
+fn render_top_processes_table<F>(
+    html: &mut String,
+    title: &str,
+    processes: &[&ProcMem],
+    value_fn: F,
+    value_header: &str,
+) where
+    F: Fn(&ProcMem) -> String,
+{
+    html.push_str(&format!("<h4>{}</h4>\n", title));
+    html.push_str("<table>\n");
+    html.push_str(&format!(
+        "<tr><th>Rank</th><th>PID</th><th>Name</th><th>{}</th></tr>\n",
+        value_header
+    ));
+
+    for (rank, proc) in processes.iter().take(3).enumerate() {
+        html.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+            rank + 1,
+            proc.pid,
+            proc.name,
+            value_fn(proc)
+        ));
+    }
+
+    html.push_str("</table>\n");
+}
+
 /// Handler for /html/ (landing page).
 #[instrument(skip(state))]
 pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoResponse {
@@ -274,7 +304,7 @@ pub async fn html_details_handler(
                 html.push_str(r#"<div class="info-box">Data sources: /proc/[pid]/stat (CPU), /proc/[pid]/statm (RSS), /proc/[pid]/smaps_rollup (PSS), /proc/[pid]/io (Block I/O)</div>"#);
                 html.push_str("\n");
                 
-                // Top-3 by CPU Usage
+                // Top-3 by CPU Usage (custom rendering for CPU with two columns)
                 html.push_str("<h4>Top-3 Processes by CPU Usage</h4>\n");
                 html.push_str("<table>\n");
                 html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th><th>CPU Time (s)</th></tr>\n");
@@ -294,76 +324,48 @@ pub async fn html_details_handler(
                 html.push_str("</table>\n");
                 
                 // Top-3 by Memory (RSS)
-                html.push_str("<h4>Top-3 Processes by Memory (RSS)</h4>\n");
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>RSS</th></tr>\n");
-                
                 let mut sorted_by_rss: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
                 sorted_by_rss.sort_by(|a, b| b.rss.cmp(&a.rss));
-                for (rank, proc) in sorted_by_rss.iter().take(3).enumerate() {
-                    html.push_str(&format!(
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                        rank + 1,
-                        proc.pid,
-                        proc.name,
-                        format_bytes(proc.rss)
-                    ));
-                }
-                html.push_str("</table>\n");
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Memory (RSS)",
+                    &sorted_by_rss,
+                    |p| format_bytes(p.rss),
+                    "RSS",
+                );
                 
                 // Top-3 by Memory (PSS)
-                html.push_str("<h4>Top-3 Processes by Memory (PSS)</h4>\n");
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>PSS</th></tr>\n");
-                
                 let mut sorted_by_pss: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
                 sorted_by_pss.sort_by(|a, b| b.pss.cmp(&a.pss));
-                for (rank, proc) in sorted_by_pss.iter().take(3).enumerate() {
-                    html.push_str(&format!(
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                        rank + 1,
-                        proc.pid,
-                        proc.name,
-                        format_bytes(proc.pss)
-                    ));
-                }
-                html.push_str("</table>\n");
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Memory (PSS)",
+                    &sorted_by_pss,
+                    |p| format_bytes(p.pss),
+                    "PSS",
+                );
                 
                 // Top-3 by Block I/O Read
-                html.push_str("<h4>Top-3 Processes by Block I/O Read</h4>\n");
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>Read Bytes</th></tr>\n");
-                
                 let mut sorted_by_read: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
                 sorted_by_read.sort_by(|a, b| b.read_bytes.cmp(&a.read_bytes));
-                for (rank, proc) in sorted_by_read.iter().take(3).enumerate() {
-                    html.push_str(&format!(
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                        rank + 1,
-                        proc.pid,
-                        proc.name,
-                        if proc.read_bytes > 0 { format_bytes(proc.read_bytes) } else { "N/A".to_string() }
-                    ));
-                }
-                html.push_str("</table>\n");
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Block I/O Read",
+                    &sorted_by_read,
+                    |p| if p.read_bytes > 0 { format_bytes(p.read_bytes) } else { "N/A".to_string() },
+                    "Read Bytes",
+                );
                 
                 // Top-3 by Block I/O Write
-                html.push_str("<h4>Top-3 Processes by Block I/O Write</h4>\n");
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>Write Bytes</th></tr>\n");
-                
                 let mut sorted_by_write: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
                 sorted_by_write.sort_by(|a, b| b.write_bytes.cmp(&a.write_bytes));
-                for (rank, proc) in sorted_by_write.iter().take(3).enumerate() {
-                    html.push_str(&format!(
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                        rank + 1,
-                        proc.pid,
-                        proc.name,
-                        if proc.write_bytes > 0 { format_bytes(proc.write_bytes) } else { "N/A".to_string() }
-                    ));
-                }
-                html.push_str("</table>\n");
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Block I/O Write",
+                    &sorted_by_write,
+                    |p| if p.write_bytes > 0 { format_bytes(p.write_bytes) } else { "N/A".to_string() },
+                    "Write Bytes",
+                );
                 
                 // Note about network metrics
                 html.push_str(r#"<div class="info-box"><strong>Note:</strong> Network metrics (RX/TX) require eBPF support. See <a href="/html/docs">documentation</a> for setup.</div>"#);

@@ -107,53 +107,56 @@ async fn compute_live_snapshots(
             write_bytes: p.write_bytes,
         };
 
-        // Sort and get top-N by RSS
-        let mut sorted_by_rss = procs.clone();
-        sorted_by_rss.sort_by(|a, b| b.rss.cmp(&a.rss));
-        let top_processes_by_rss: Vec<ProcessInfo> = sorted_by_rss
+        // Create indices and sort them instead of cloning the entire vector
+        let mut indices: Vec<usize> = (0..procs.len()).collect();
+        
+        // Sort by RSS descending
+        let mut indices_rss = indices.clone();
+        indices_rss.sort_by(|&a, &b| procs[b].rss.cmp(&procs[a].rss));
+        let top_processes_by_rss: Vec<ProcessInfo> = indices_rss
             .iter()
             .take(top_n)
-            .map(to_process_info)
+            .map(|&i| to_process_info(&procs[i]))
             .collect();
 
-        // Sort and get top-N by CPU
-        let mut sorted_by_cpu = procs.clone();
-        sorted_by_cpu.sort_by(|a, b| {
-            b.cpu_percent
-                .partial_cmp(&a.cpu_percent)
+        // Sort by CPU descending
+        let mut indices_cpu = indices.clone();
+        indices_cpu.sort_by(|&a, &b| {
+            procs[b].cpu_percent
+                .partial_cmp(&procs[a].cpu_percent)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        let top_processes_by_cpu: Vec<ProcessInfo> = sorted_by_cpu
+        let top_processes_by_cpu: Vec<ProcessInfo> = indices_cpu
             .iter()
             .take(top_n)
-            .map(to_process_info)
+            .map(|&i| to_process_info(&procs[i]))
             .collect();
 
-        // Sort and get top-N by PSS
-        let mut sorted_by_pss = procs.clone();
-        sorted_by_pss.sort_by(|a, b| b.pss.cmp(&a.pss));
-        let top_processes_by_pss: Vec<ProcessInfo> = sorted_by_pss
+        // Sort by PSS descending
+        let mut indices_pss = indices.clone();
+        indices_pss.sort_by(|&a, &b| procs[b].pss.cmp(&procs[a].pss));
+        let top_processes_by_pss: Vec<ProcessInfo> = indices_pss
             .iter()
             .take(top_n)
-            .map(to_process_info)
+            .map(|&i| to_process_info(&procs[i]))
             .collect();
 
-        // Sort and get top-N by Block I/O Read
-        let mut sorted_by_blkio_read = procs.clone();
-        sorted_by_blkio_read.sort_by(|a, b| b.read_bytes.cmp(&a.read_bytes));
-        let top_processes_by_blkio_read: Vec<ProcessInfo> = sorted_by_blkio_read
+        // Sort by Block I/O Read descending
+        let mut indices_read = indices.clone();
+        indices_read.sort_by(|&a, &b| procs[b].read_bytes.cmp(&procs[a].read_bytes));
+        let top_processes_by_blkio_read: Vec<ProcessInfo> = indices_read
             .iter()
             .take(top_n)
-            .map(to_process_info)
+            .map(|&i| to_process_info(&procs[i]))
             .collect();
 
-        // Sort and get top-N by Block I/O Write
-        let mut sorted_by_blkio_write = procs.clone();
-        sorted_by_blkio_write.sort_by(|a, b| b.write_bytes.cmp(&a.write_bytes));
-        let top_processes_by_blkio_write: Vec<ProcessInfo> = sorted_by_blkio_write
+        // Sort by Block I/O Write descending
+        let mut indices_write = indices;
+        indices_write.sort_by(|&a, &b| procs[b].write_bytes.cmp(&procs[a].write_bytes));
+        let top_processes_by_blkio_write: Vec<ProcessInfo> = indices_write
             .iter()
             .take(top_n)
-            .map(to_process_info)
+            .map(|&i| to_process_info(&procs[i]))
             .collect();
 
         snapshots.insert(
@@ -208,7 +211,7 @@ fn format_uptime(seconds: f64) -> String {
 }
 
 /// Renders historical ringbuffer data for a subgroup.
-fn render_history(out: &mut String, subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) {
+fn render_history(out: &mut String, _subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) {
     if history.is_empty() {
         writeln!(out, "No history available").ok();
         return;

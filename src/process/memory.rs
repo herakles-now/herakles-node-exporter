@@ -152,12 +152,26 @@ pub fn read_block_io(proc_path: &Path) -> Result<(u64, u64), std::io::Error> {
     
     let mut read_bytes = 0u64;
     let mut write_bytes = 0u64;
+    let mut found_both = false;
     
     for line in content.lines() {
         if let Some(v) = line.strip_prefix("read_bytes:") {
             read_bytes = v.trim().parse().unwrap_or(0);
+            if write_bytes > 0 {
+                found_both = true;
+                break;
+            }
         } else if let Some(v) = line.strip_prefix("write_bytes:") {
             write_bytes = v.trim().parse().unwrap_or(0);
+            if read_bytes > 0 || line.contains("read_bytes") {
+                found_both = true;
+                break;
+            }
+        }
+        
+        // Early exit if we've found both values
+        if found_both {
+            break;
         }
     }
     
