@@ -17,6 +17,9 @@ use crate::handlers::health::FOOTER_TEXT;
 use crate::process::classify_process_raw;
 use crate::state::SharedState;
 
+/// CPU percentage scaling factor (must match the constant in main.rs).
+const CPU_SCALE_FACTOR: f32 = 1000.0;
+
 /// Query parameters for HTML details endpoint.
 #[derive(Deserialize, Debug)]
 pub struct HtmlDetailsQuery {
@@ -470,7 +473,7 @@ function collapseAll() {
                             rank + 1,
                             top.pid,
                             top.name_str(),
-                            top.value as f32 / 1000.0 // Un-scale CPU value
+                            top.value as f32 / CPU_SCALE_FACTOR
                         ));
                     }
                 }

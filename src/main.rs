@@ -153,6 +153,11 @@ fn read_self_cpu_percent() -> Option<f64> {
     }
 }
 
+/// CPU percentage scaling factor to preserve precision in u32 storage.
+/// CPU percent values are multiplied by this factor before storing,
+/// and divided by this factor when displaying.
+const CPU_SCALE_FACTOR: f32 = 1000.0;
+
 /// Aggregated metrics data for a subgroup.
 struct AggregatedData {
     rss_sum: u64,
@@ -422,7 +427,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         let top_cpu = extract_top_3(
             procs,
             |a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal),
-            |p| (p.cpu_percent * 1000.0) as u32, // Scale CPU to avoid losing precision
+            |p| (p.cpu_percent * CPU_SCALE_FACTOR) as u32,
         );
 
         let top_rss = extract_top_3(

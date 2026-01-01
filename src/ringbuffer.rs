@@ -30,7 +30,8 @@ impl TopProcessInfo {
     pub fn new(pid: u32, value: u32, name: &str) -> Self {
         let mut name_bytes = [0u8; 16];
         let bytes = name.as_bytes();
-        let len = bytes.len().min(15); // Leave room for null terminator
+        // Truncate to 15 bytes max, ensuring the 16th byte remains 0 for null termination
+        let len = bytes.len().min(15);
         name_bytes[..len].copy_from_slice(&bytes[..len]);
         Self {
             pid,
@@ -41,8 +42,8 @@ impl TopProcessInfo {
 
     /// Get the process name as a string.
     pub fn name_str(&self) -> String {
-        // Find the null terminator
-        let len = self.name.iter().position(|&b| b == 0).unwrap_or(16);
+        // Find the null terminator, or use full length if none found
+        let len = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
         String::from_utf8_lossy(&self.name[..len]).to_string()
     }
 }
