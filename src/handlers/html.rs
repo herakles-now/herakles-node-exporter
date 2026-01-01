@@ -44,6 +44,8 @@ fn html_header(title: &str) -> String {
         h1 {{ color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }}
         h2 {{ color: #555; margin-top: 30px; }}
         h3 {{ color: #666; }}
+        h4 {{ color: #777; margin-top: 20px; }}
+        h5 {{ color: #888; }}
         nav {{ background: #007bff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }}
         nav a {{ color: white; text-decoration: none; margin-right: 20px; font-weight: 500; }}
         nav a:hover {{ text-decoration: underline; }}
@@ -62,6 +64,32 @@ fn html_header(title: &str) -> String {
         a:hover {{ text-decoration: underline; }}
         .info-box {{ background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; padding: 15px; margin: 20px 0; }}
         code {{ background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }}
+        
+        /* Collapsible sections styling */
+        details {{ 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            margin: 10px 0; 
+            padding: 0;
+            background: #f9f9f9; 
+        }}
+        summary {{ 
+            cursor: pointer; 
+            font-weight: 600; 
+            padding: 15px; 
+            background: #007bff; 
+            color: white; 
+            border-radius: 4px;
+            user-select: none;
+        }}
+        summary:hover {{ 
+            background: #0056b3; 
+        }}
+        .subgroup-content {{ 
+            padding: 20px; 
+            margin-top: 0;
+            background: white;
+        }}
     </style>
 </head>
 <body>
@@ -195,7 +223,7 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
 #[instrument(skip(state))]
 pub async fn html_details_handler(
     State(state): State<SharedState>,
-    Query(params): Query<HtmlDetailsQuery>,
+    Query(_params): Query<HtmlDetailsQuery>,
 ) -> impl IntoResponse {
     debug!("Processing /html/details request");
     state.health_stats.record_http_request();
@@ -204,7 +232,7 @@ pub async fn html_details_handler(
     let stats = state.ringbuffer_manager.get_stats();
 
     let mut html = html_header("Details");
-    html.push_str("<h1>Details</h1>\n");
+    html.push_str("<h1>Details - All Subgroups</h1>\n");
 
     // Show ringbuffer configuration
     html.push_str("<h2>Ringbuffer Configuration</h2>\n");
@@ -241,202 +269,251 @@ pub async fn html_details_handler(
     ));
     html.push_str("</table>\n");
 
-    if let Some(subgroup_name) = params.subgroup {
-        // Show specific subgroup details
-        if let Some(history) = state.ringbuffer_manager.get_subgroup_history(&subgroup_name) {
-            html.push_str(&format!("<h2>Subgroup: {}</h2>\n", subgroup_name));
+    // Add expand/collapse all buttons
+    html.push_str(r#"
+<div style="margin: 20px 0;">
+    <button onclick="expandAll()" style="padding: 10px 20px; margin-right: 10px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;">Expand All</button>
+    <button onclick="collapseAll()" style="padding: 10px 20px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px;">Collapse All</button>
+</div>
+<script>
+function expandAll() {
+    document.querySelectorAll('details').forEach(d => d.open = true);
+}
+function collapseAll() {
+    document.querySelectorAll('details').forEach(d => d.open = false);
+}
+</script>
+"#);
 
-            // Calculate current aggregated values from cache
-            let mut subgroup_processes: Vec<&ProcMem> = Vec::new();
-            for proc in cache.processes.values() {
-                let (_, sg) = classify_process_raw(&proc.name);
-                let key = format!("{}:{}", classify_process_raw(&proc.name).0, sg);
-                if key == subgroup_name {
-                    subgroup_processes.push(proc);
-                }
+    // Get all subgroups and sort them
+    let mut subgroups = state.ringbuffer_manager.get_all_subgroups();
+    subgroups.sort();
+
+    html.push_str("<h2>All Subgroups</h2>\n");
+    html.push_str(&format!("<p>Showing {} subgroups. Click to expand/collapse details.</p>\n", subgroups.len()));
+
+    // Render each subgroup in a collapsible section
+    for subgroup_name in subgroups {
+        // Get history for this subgroup
+        let history = state.ringbuffer_manager.get_subgroup_history(&subgroup_name);
+        
+        // Calculate current aggregated values from cache
+        let mut subgroup_processes: Vec<&ProcMem> = Vec::new();
+        for proc in cache.processes.values() {
+            let (_, sg) = classify_process_raw(&proc.name);
+            let key = format!("{}:{}", classify_process_raw(&proc.name).0, sg);
+            if key == subgroup_name {
+                subgroup_processes.push(proc);
             }
+        }
 
-            if !subgroup_processes.is_empty() {
-                html.push_str("<h3>Current Aggregated Values</h3>\n");
-                
-                let total_rss: u64 = subgroup_processes.iter().map(|p| p.rss).sum();
-                let total_pss: u64 = subgroup_processes.iter().map(|p| p.pss).sum();
-                let total_uss: u64 = subgroup_processes.iter().map(|p| p.uss).sum();
-                let total_cpu: f64 = subgroup_processes.iter().map(|p| p.cpu_percent as f64).sum();
+        // Start collapsible section
+        html.push_str("<details>\n");
+        html.push_str(&format!("<summary>{}</summary>\n", subgroup_name));
+        html.push_str(r#"<div class="subgroup-content">"#);
+        html.push_str("\n");
 
-                // Find oldest uptime
-                let oldest_uptime = subgroup_processes
-                    .iter()
-                    .map(|p| p.start_time_seconds)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap())
-                    .unwrap_or(0.0);
+        if !subgroup_processes.is_empty() {
+            html.push_str("<h3>Current Live Snapshot</h3>\n");
+            
+            let total_rss: u64 = subgroup_processes.iter().map(|p| p.rss).sum();
+            let total_pss: u64 = subgroup_processes.iter().map(|p| p.pss).sum();
+            let total_uss: u64 = subgroup_processes.iter().map(|p| p.uss).sum();
+            let total_cpu: f64 = subgroup_processes.iter().map(|p| p.cpu_percent as f64).sum();
 
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>Metric</th><th>Value</th></tr>\n");
-                html.push_str(&format!(
-                    "<tr><td>Process Count</td><td>{}</td></tr>\n",
-                    subgroup_processes.len()
-                ));
-                html.push_str(&format!(
-                    "<tr><td>Total RSS</td><td>{}</td></tr>\n",
-                    format_bytes(total_rss)
-                ));
-                html.push_str(&format!(
-                    "<tr><td>Total PSS</td><td>{}</td></tr>\n",
-                    format_bytes(total_pss)
-                ));
-                html.push_str(&format!(
-                    "<tr><td>Total USS</td><td>{}</td></tr>\n",
-                    format_bytes(total_uss)
-                ));
-                html.push_str(&format!(
-                    "<tr><td>Total CPU Usage</td><td>{:.2}%</td></tr>\n",
-                    total_cpu
-                ));
-                html.push_str(&format!(
-                    "<tr><td>Oldest Process Start</td><td>{:.2}s</td></tr>\n",
-                    oldest_uptime
-                ));
-                html.push_str("</table>\n");
-                
-                // Add Top Process Metrics section
-                html.push_str("<h3>Top Process Metrics</h3>\n");
-                html.push_str(r#"<div class="info-box">Data sources: /proc/[pid]/stat (CPU), /proc/[pid]/statm (RSS), /proc/[pid]/smaps_rollup (PSS), /proc/[pid]/io (Block I/O)</div>"#);
-                html.push_str("\n");
-                
-                // Create indices for sorting (more efficient than cloning vectors)
-                let mut indices: Vec<usize> = (0..subgroup_processes.len()).collect();
-                
-                // Top-3 by CPU Usage (custom rendering for CPU with two columns)
-                html.push_str("<h4>Top-3 Processes by CPU Usage</h4>\n");
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th><th>CPU Time (s)</th></tr>\n");
-                
-                let mut indices_cpu = indices.clone();
-                indices_cpu.sort_by(|&a, &b| {
-                    subgroup_processes[b].cpu_percent
-                        .partial_cmp(&subgroup_processes[a].cpu_percent)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-                for (rank, &idx) in indices_cpu.iter().take(3).enumerate() {
-                    let proc = subgroup_processes[idx];
-                    html.push_str(&format!(
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td><td>{:.2}</td></tr>\n",
-                        rank + 1,
-                        proc.pid,
-                        proc.name,
-                        proc.cpu_percent,
-                        proc.cpu_time_seconds
-                    ));
-                }
-                html.push_str("</table>\n");
-                
-                // Top-3 by Memory (RSS)
-                let mut indices_rss = indices.clone();
-                indices_rss.sort_by(|&a, &b| subgroup_processes[b].rss.cmp(&subgroup_processes[a].rss));
-                let sorted_by_rss: Vec<&ProcMem> = indices_rss.iter().map(|&i| subgroup_processes[i]).collect();
-                render_top_processes_table(
-                    &mut html,
-                    "Top-3 Processes by Memory (RSS)",
-                    &sorted_by_rss,
-                    |p| format_bytes(p.rss),
-                    "RSS",
-                );
-                
-                // Top-3 by Memory (PSS)
-                let mut indices_pss = indices.clone();
-                indices_pss.sort_by(|&a, &b| subgroup_processes[b].pss.cmp(&subgroup_processes[a].pss));
-                let sorted_by_pss: Vec<&ProcMem> = indices_pss.iter().map(|&i| subgroup_processes[i]).collect();
-                render_top_processes_table(
-                    &mut html,
-                    "Top-3 Processes by Memory (PSS)",
-                    &sorted_by_pss,
-                    |p| format_bytes(p.pss),
-                    "PSS",
-                );
-                
-                // Top-3 by Block I/O Read
-                let mut indices_read = indices.clone();
-                indices_read.sort_by(|&a, &b| subgroup_processes[b].read_bytes.cmp(&subgroup_processes[a].read_bytes));
-                let sorted_by_read: Vec<&ProcMem> = indices_read.iter().map(|&i| subgroup_processes[i]).collect();
-                render_top_processes_table(
-                    &mut html,
-                    "Top-3 Processes by Block I/O Read",
-                    &sorted_by_read,
-                    |p| if p.read_bytes > 0 { format_bytes(p.read_bytes) } else { "N/A".to_string() },
-                    "Read Bytes",
-                );
-                
-                // Top-3 by Block I/O Write
-                let mut indices_write = indices;
-                indices_write.sort_by(|&a, &b| subgroup_processes[b].write_bytes.cmp(&subgroup_processes[a].write_bytes));
-                let sorted_by_write: Vec<&ProcMem> = indices_write.iter().map(|&i| subgroup_processes[i]).collect();
-                render_top_processes_table(
-                    &mut html,
-                    "Top-3 Processes by Block I/O Write",
-                    &sorted_by_write,
-                    |p| if p.write_bytes > 0 { format_bytes(p.write_bytes) } else { "N/A".to_string() },
-                    "Write Bytes",
-                );
-                
-                // Note about network metrics
-                html.push_str(r#"<div class="info-box"><strong>Note:</strong> Network metrics (RX/TX) require eBPF support. See <a href="/html/docs">documentation</a> for setup.</div>"#);
-                html.push_str("\n");
-            }
+            // Find oldest uptime
+            let oldest_uptime = subgroup_processes
+                .iter()
+                .map(|p| p.start_time_seconds)
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or(0.0);
 
-            // Show ringbuffer history
-            html.push_str("<h3>Ringbuffer History</h3>\n");
             html.push_str("<table>\n");
-            html.push_str("<tr><th>Timestamp</th><th>RSS (KB)</th><th>PSS (KB)</th><th>USS (KB)</th><th>CPU %</th><th>CPU Time (s)</th></tr>\n");
-
-            for entry in history {
-                let dt = chrono::NaiveDateTime::from_timestamp_opt(entry.timestamp, 0)
-                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-                    .unwrap_or_else(|| entry.timestamp.to_string());
-
+            html.push_str("<tr><th>Metric</th><th>Value</th></tr>\n");
+            html.push_str(&format!(
+                "<tr><td>Process Count</td><td>{}</td></tr>\n",
+                subgroup_processes.len()
+            ));
+            html.push_str(&format!(
+                "<tr><td>Total RSS</td><td>{}</td></tr>\n",
+                format_bytes(total_rss)
+            ));
+            html.push_str(&format!(
+                "<tr><td>Total PSS</td><td>{}</td></tr>\n",
+                format_bytes(total_pss)
+            ));
+            html.push_str(&format!(
+                "<tr><td>Total USS</td><td>{}</td></tr>\n",
+                format_bytes(total_uss)
+            ));
+            html.push_str(&format!(
+                "<tr><td>Total CPU Usage</td><td>{:.2}%</td></tr>\n",
+                total_cpu
+            ));
+            html.push_str(&format!(
+                "<tr><td>Oldest Process Start</td><td>{:.2}s since boot</td></tr>\n",
+                oldest_uptime
+            ));
+            html.push_str("</table>\n");
+            
+            // Add Top Process Metrics section (Current)
+            html.push_str("<h3>Top-3 Processes (Current)</h3>\n");
+            
+            let indices: Vec<usize> = (0..subgroup_processes.len()).collect();
+            
+            // Top-3 by CPU Usage
+            html.push_str("<h4>By CPU Usage</h4>\n");
+            html.push_str("<table>\n");
+            html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th></tr>\n");
+            
+            let mut indices_cpu = indices.clone();
+            indices_cpu.sort_by(|&a, &b| {
+                subgroup_processes[b].cpu_percent
+                    .partial_cmp(&subgroup_processes[a].cpu_percent)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            for (rank, &idx) in indices_cpu.iter().take(3).enumerate() {
+                let proc = subgroup_processes[idx];
                 html.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.1}</td><td>{:.2}</td></tr>\n",
-                    dt, entry.rss_kb, entry.pss_kb, entry.uss_kb, entry.cpu_percent, entry.cpu_time_seconds
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td></tr>\n",
+                    rank + 1,
+                    proc.pid,
+                    proc.name,
+                    proc.cpu_percent
                 ));
             }
-
             html.push_str("</table>\n");
-
-            // Show top-1 process details if available
-            if let Some(top_proc) = subgroup_processes.iter().max_by_key(|p| p.rss) {
-                html.push_str("<h3>Top Process (by RSS)</h3>\n");
-                html.push_str("<table>\n");
-                html.push_str("<tr><th>PID</th><th>Name</th><th>RSS</th><th>PSS</th><th>USS</th><th>CPU %</th></tr>\n");
+            
+            // Top-3 by RSS
+            html.push_str("<h4>By Memory (RSS)</h4>\n");
+            html.push_str("<table>\n");
+            html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>RSS</th></tr>\n");
+            let mut indices_rss = indices.clone();
+            indices_rss.sort_by(|&a, &b| subgroup_processes[b].rss.cmp(&subgroup_processes[a].rss));
+            for (rank, &idx) in indices_rss.iter().take(3).enumerate() {
+                let proc = subgroup_processes[idx];
                 html.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.2}</td></tr>\n",
-                    top_proc.pid,
-                    top_proc.name,
-                    format_bytes(top_proc.rss),
-                    format_bytes(top_proc.pss),
-                    format_bytes(top_proc.uss),
-                    top_proc.cpu_percent
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                    rank + 1,
+                    proc.pid,
+                    proc.name,
+                    format_bytes(proc.rss)
+                ));
+            }
+            html.push_str("</table>\n");
+            
+            // Top-3 by PSS
+            html.push_str("<h4>By Memory (PSS)</h4>\n");
+            html.push_str("<table>\n");
+            html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>PSS</th></tr>\n");
+            let mut indices_pss = indices;
+            indices_pss.sort_by(|&a, &b| subgroup_processes[b].pss.cmp(&subgroup_processes[a].pss));
+            for (rank, &idx) in indices_pss.iter().take(3).enumerate() {
+                let proc = subgroup_processes[idx];
+                html.push_str(&format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                    rank + 1,
+                    proc.pid,
+                    proc.name,
+                    format_bytes(proc.pss)
+                ));
+            }
+            html.push_str("</table>\n");
+        } else {
+            html.push_str("<p><em>No processes currently in this subgroup.</em></p>\n");
+        }
+
+        // Show ringbuffer history with top-N data
+        if let Some(history) = history {
+            if !history.is_empty() {
+                html.push_str("<h3>Historical Ringbuffer Data</h3>\n");
+                html.push_str(&format!("<p>Showing {} historical entries.</p>\n", history.len()));
+                
+                // Calculate averages
+                let avg_rss = history.iter().map(|e| e.rss_kb).sum::<u64>() / history.len() as u64;
+                let avg_pss = history.iter().map(|e| e.pss_kb).sum::<u64>() / history.len() as u64;
+                let avg_uss = history.iter().map(|e| e.uss_kb).sum::<u64>() / history.len() as u64;
+                let avg_cpu = history.iter().map(|e| e.cpu_percent).sum::<f32>() / history.len() as f32;
+                
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Metric</th><th>Average</th><th>Latest</th></tr>\n");
+                let latest = &history[history.len() - 1];
+                html.push_str(&format!(
+                    "<tr><td>RSS</td><td>{} KB</td><td>{} KB</td></tr>\n",
+                    avg_rss, latest.rss_kb
+                ));
+                html.push_str(&format!(
+                    "<tr><td>PSS</td><td>{} KB</td><td>{} KB</td></tr>\n",
+                    avg_pss, latest.pss_kb
+                ));
+                html.push_str(&format!(
+                    "<tr><td>USS</td><td>{} KB</td><td>{} KB</td></tr>\n",
+                    avg_uss, latest.uss_kb
+                ));
+                html.push_str(&format!(
+                    "<tr><td>CPU %</td><td>{:.1}%</td><td>{:.1}%</td></tr>\n",
+                    avg_cpu, latest.cpu_percent
                 ));
                 html.push_str("</table>\n");
+                
+                // Show top-N from latest historical entry
+                html.push_str("<h4>Historical Top-3 (Latest Entry)</h4>\n");
+                
+                // Top-3 by CPU from history
+                html.push_str("<h5>By CPU Usage</h5>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU (scaled)</th></tr>\n");
+                for (rank, top) in latest.top_cpu.iter().enumerate() {
+                    if top.pid != 0 {
+                        html.push_str(&format!(
+                            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td></tr>\n",
+                            rank + 1,
+                            top.pid,
+                            top.name_str(),
+                            top.value as f32 / 1000.0 // Un-scale CPU value
+                        ));
+                    }
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by RSS from history
+                html.push_str("<h5>By Memory (RSS)</h5>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>RSS</th></tr>\n");
+                for (rank, top) in latest.top_rss.iter().enumerate() {
+                    if top.pid != 0 {
+                        html.push_str(&format!(
+                            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} KB</td></tr>\n",
+                            rank + 1,
+                            top.pid,
+                            top.name_str(),
+                            top.value
+                        ));
+                    }
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by PSS from history
+                html.push_str("<h5>By Memory (PSS)</h5>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>PSS</th></tr>\n");
+                for (rank, top) in latest.top_pss.iter().enumerate() {
+                    if top.pid != 0 {
+                        html.push_str(&format!(
+                            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} KB</td></tr>\n",
+                            rank + 1,
+                            top.pid,
+                            top.name_str(),
+                            top.value
+                        ));
+                    }
+                }
+                html.push_str("</table>\n");
             }
-        } else {
-            html.push_str(&format!("<p>Subgroup '{}' not found.</p>\n", subgroup_name));
         }
-    } else {
-        // List all available subgroups
-        html.push_str("<h2>Available Subgroups</h2>\n");
-        html.push_str("<p>Click a subgroup to view its history and details.</p>\n");
 
-        let mut subgroups = state.ringbuffer_manager.get_all_subgroups();
-        subgroups.sort();
-
-        html.push_str("<ul>\n");
-        for sg in subgroups {
-            html.push_str(&format!(
-                r#"<li><a href="/html/details?subgroup={}">{}</a></li>"#,
-                sg, sg
-            ));
-        }
-        html.push_str("</ul>\n");
+        html.push_str("</div>\n");
+        html.push_str("</details>\n");
     }
 
     html.push_str(&html_footer());
