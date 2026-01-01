@@ -60,7 +60,7 @@ use process::{
     BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
     SUBGROUPS,
 };
-use ringbuffer::RingbufferEntry;
+use ringbuffer::{RingbufferEntry, TopProcessInfo};
 use ringbuffer_manager::RingbufferManager;
 use state::{AppState, SharedState};
 use system::CpuStatsCache;
@@ -160,6 +160,34 @@ struct AggregatedData {
     uss_sum: u64,
     cpu_percent_sum: f64,
     cpu_time_sum: f64,
+}
+
+/// Helper function to extract top-3 processes from a slice.
+fn extract_top_3<F, V>(procs: &[&ProcMem], compare_fn: F, value_fn: V) -> [TopProcessInfo; 3]
+where
+    F: Fn(&ProcMem, &ProcMem) -> std::cmp::Ordering,
+    V: Fn(&ProcMem) -> u32,
+{
+    let mut sorted: Vec<&ProcMem> = procs.to_vec();
+    sorted.sort_by(|a, b| compare_fn(a, b));
+    
+    [
+        if !sorted.is_empty() {
+            TopProcessInfo::new(sorted[0].pid, value_fn(sorted[0]), &sorted[0].name)
+        } else {
+            TopProcessInfo::default()
+        },
+        if sorted.len() > 1 {
+            TopProcessInfo::new(sorted[1].pid, value_fn(sorted[1]), &sorted[1].name)
+        } else {
+            TopProcessInfo::default()
+        },
+        if sorted.len() > 2 {
+            TopProcessInfo::new(sorted[2].pid, value_fn(sorted[2]), &sorted[2].name)
+        } else {
+            TopProcessInfo::default()
+        },
+    ]
 }
 
 /// Cache update function.
@@ -390,86 +418,24 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         // Get top-3 processes for this subgroup
         let procs = processes_by_subgroup.get(key).map(|v| v.as_slice()).unwrap_or(&[]);
         
-        // Calculate top-3 by CPU
-        let mut top_cpu_procs: Vec<&ProcMem> = procs.to_vec();
-        top_cpu_procs.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
-        let top_cpu = [
-            if top_cpu_procs.len() > 0 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_cpu_procs[0].pid, 
-                    (top_cpu_procs[0].cpu_percent * 1000.0) as u32, // Scale CPU to avoid losing precision
-                    &top_cpu_procs[0].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-            if top_cpu_procs.len() > 1 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_cpu_procs[1].pid, 
-                    (top_cpu_procs[1].cpu_percent * 1000.0) as u32,
-                    &top_cpu_procs[1].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-            if top_cpu_procs.len() > 2 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_cpu_procs[2].pid, 
-                    (top_cpu_procs[2].cpu_percent * 1000.0) as u32,
-                    &top_cpu_procs[2].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-        ];
+        // Calculate top-3 by CPU, RSS, and PSS using helper function
+        let top_cpu = extract_top_3(
+            procs,
+            |a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal),
+            |p| (p.cpu_percent * 1000.0) as u32, // Scale CPU to avoid losing precision
+        );
 
-        // Calculate top-3 by RSS
-        let mut top_rss_procs: Vec<&ProcMem> = procs.to_vec();
-        top_rss_procs.sort_by(|a, b| b.rss.cmp(&a.rss));
-        let top_rss = [
-            if top_rss_procs.len() > 0 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_rss_procs[0].pid, 
-                    (top_rss_procs[0].rss / 1024) as u32, // Convert to KB
-                    &top_rss_procs[0].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-            if top_rss_procs.len() > 1 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_rss_procs[1].pid, 
-                    (top_rss_procs[1].rss / 1024) as u32,
-                    &top_rss_procs[1].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-            if top_rss_procs.len() > 2 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_rss_procs[2].pid, 
-                    (top_rss_procs[2].rss / 1024) as u32,
-                    &top_rss_procs[2].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-        ];
+        let top_rss = extract_top_3(
+            procs,
+            |a, b| b.rss.cmp(&a.rss),
+            |p| (p.rss / 1024) as u32, // Convert to KB
+        );
 
-        // Calculate top-3 by PSS
-        let mut top_pss_procs: Vec<&ProcMem> = procs.to_vec();
-        top_pss_procs.sort_by(|a, b| b.pss.cmp(&a.pss));
-        let top_pss = [
-            if top_pss_procs.len() > 0 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_pss_procs[0].pid, 
-                    (top_pss_procs[0].pss / 1024) as u32, // Convert to KB
-                    &top_pss_procs[0].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-            if top_pss_procs.len() > 1 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_pss_procs[1].pid, 
-                    (top_pss_procs[1].pss / 1024) as u32,
-                    &top_pss_procs[1].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-            if top_pss_procs.len() > 2 { 
-                ringbuffer::TopProcessInfo::new(
-                    top_pss_procs[2].pid, 
-                    (top_pss_procs[2].pss / 1024) as u32,
-                    &top_pss_procs[2].name
-                ) 
-            } else { ringbuffer::TopProcessInfo::default() },
-        ];
+        let top_pss = extract_top_3(
+            procs,
+            |a, b| b.pss.cmp(&a.pss),
+            |p| (p.pss / 1024) as u32, // Convert to KB
+        );
 
         let entry = RingbufferEntry {
             timestamp,

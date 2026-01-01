@@ -59,17 +59,13 @@ pub struct RingbufferEntry {
     pub cpu_percent: f32,      // 4 bytes
     pub cpu_time_seconds: f32, // 4 bytes
 
-    // Top-3 processes by each metric (24 * 3 * 5 = 360 bytes would exceed budget)
-    // Reduced to fit in 256 bytes: 24 * 3 * 5 = 360, need to fit in ~216 bytes
-    // Using 3 entries per metric × 5 metrics = 15 × 24 = 360 bytes (too much)
-    // Let's store 3 entries per metric, 24 bytes each = 72 bytes per metric type
+    // Top-3 processes by each metric
+    // 3 entries per metric × 3 metrics = 9 entries × 24 bytes = 216 bytes
     pub top_cpu: [TopProcessInfo; 3],         // 72 bytes - Top 3 by CPU
     pub top_rss: [TopProcessInfo; 3],         // 72 bytes - Top 3 by RSS
     pub top_pss: [TopProcessInfo; 3],         // 72 bytes - Top 3 by PSS
     
-    // Note: Block I/O read/write would add 144 more bytes (72*2), exceeding 256 byte budget
-    // We'll store only the most critical metrics within 256 bytes
-    // Total so far: 40 + 72*3 = 256 bytes exactly
+    // Total: 40 + 216 = 256 bytes exactly
 
     pub _padding: [u8; 0],     // No padding needed - exactly 256 bytes
 }
