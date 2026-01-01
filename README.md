@@ -37,6 +37,21 @@ A high-performance Prometheus exporter for comprehensive Linux system monitoring
 | `herakles_cpu_group_*` | Aggregated CPU metrics per subgroup | group, subgroup |
 | `herakles_cpu_top_process_*` | Top-N CPU metrics per subgroup | group, subgroup, rank, pid, comm |
 
+### Top Process Metrics
+
+Track the highest resource-consuming processes within each group/subgroup. See [Top Process Metrics](wiki/Top-Process-Metrics.md) for detailed documentation.
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `herakles_top_cpu_process_usage_ratio` | Gauge | Top-3 processes by CPU usage (0.0 to 1.0) |
+| `herakles_top_cpu_process_seconds_total` | Counter | Cumulative CPU time for top-3 CPU processes |
+| `herakles_top_mem_process_rss_bytes` | Gauge | Top-3 processes by RSS memory |
+| `herakles_top_mem_process_pss_bytes` | Gauge | Top-3 processes by PSS memory |
+| `herakles_top_blkio_process_read_bytes_total` | Counter | Top-3 processes by disk read bytes |
+| `herakles_top_blkio_process_write_bytes_total` | Counter | Top-3 processes by disk write bytes |
+| `herakles_top_net_process_rx_bytes_total` | Counter | Top-3 processes by network RX bytes (eBPF) |
+| `herakles_top_net_process_tx_bytes_total` | Counter | Top-3 processes by network TX bytes (eBPF) |
+
 ### System Metrics
 
 | Metric | Description | Labels |
@@ -915,6 +930,7 @@ For detailed documentation, see the [Wiki](wiki/Home.md):
 - [Installation Guide](wiki/Installation.md)
 - [Configuration Reference](wiki/Configuration.md)
 - [Metrics Overview](wiki/Metrics-Overview.md)
+- [Top Process Metrics](wiki/Top-Process-Metrics.md) - **Detailed guide for top-N resource metrics**
 - [Subgroups System](wiki/Subgroups-System.md)
 - [Prometheus Integration](wiki/Prometheus-Integration.md)
 - [Performance Tuning](wiki/Performance-Tuning.md)

@@ -9,6 +9,7 @@ Welcome to the Herakles Process Memory Exporter documentation! This wiki provide
 | [Installation](Installation.md) | How to install the exporter |
 | [Configuration](Configuration.md) | Complete configuration reference |
 | [Metrics Overview](Metrics-Overview.md) | Understanding the exported metrics |
+| [Top Process Metrics](Top-Process-Metrics.md) | **Detailed guide for top-N resource metrics** |
 | [Subgroups System](Subgroups-System.md) | Process classification system |
 | [Prometheus Integration](Prometheus-Integration.md) | Scrape config and PromQL queries |
 | [Performance Tuning](Performance-Tuning.md) | Optimization guide |
