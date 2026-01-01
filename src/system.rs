@@ -521,3 +521,34 @@ pub fn read_entropy() -> Result<u64, String> {
         .parse::<u64>()
         .map_err(|e| format!("Failed to parse entropy: {}", e))
 }
+
+/// Reads system information from uname syscall.
+/// Returns (sysname, release, version, machine).
+pub fn read_uname_info() -> Result<(String, String, String, String), String> {
+    use std::ffi::CStr;
+    use std::mem;
+
+    unsafe {
+        // SAFETY: libc::utsname is a C struct with only arrays of i8/c_char
+        // which are valid for zeroed memory initialization
+        let mut utsname: libc::utsname = mem::zeroed();
+        if libc::uname(&mut utsname) == 0 {
+            let sysname = CStr::from_ptr(utsname.sysname.as_ptr())
+                .to_string_lossy()
+                .into_owned();
+            let release = CStr::from_ptr(utsname.release.as_ptr())
+                .to_string_lossy()
+                .into_owned();
+            let version = CStr::from_ptr(utsname.version.as_ptr())
+                .to_string_lossy()
+                .into_owned();
+            let machine = CStr::from_ptr(utsname.machine.as_ptr())
+                .to_string_lossy()
+                .into_owned();
+            
+            Ok((sysname, release, version, machine))
+        } else {
+            Err("Failed to call uname".to_string())
+        }
+    }
+}
