@@ -49,6 +49,8 @@ impl From<TestProcess> for ProcMem {
             cpu_time_seconds: tp.cpu_time_seconds as f32,
             vmswap: 0,               // Test data doesn't have swap, default to 0
             start_time_seconds: 0.0, // Test data doesn't have start_time, default to 0
+            read_bytes: 0,           // Test data doesn't have block I/O, default to 0
+            write_bytes: 0,          // Test data doesn't have block I/O, default to 0
         }
     }
 }

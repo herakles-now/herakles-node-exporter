@@ -18,6 +18,9 @@ pub struct ProcMem {
     pub cpu_time_seconds: f32,
     pub vmswap: u64,
     pub start_time_seconds: f64, // Process start time (seconds since system boot)
+    // Block I/O metrics from /proc/[pid]/io
+    pub read_bytes: u64,  // Total bytes read from storage
+    pub write_bytes: u64, // Total bytes written to storage
 }
 
 /// Cache state for storing process metrics with update timing information.
