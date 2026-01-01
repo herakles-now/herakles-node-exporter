@@ -60,7 +60,7 @@ use process::{
     BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
     SUBGROUPS,
 };
-use ringbuffer::RingbufferEntry;
+use ringbuffer::{RingbufferEntry, TopProcessInfo};
 use ringbuffer_manager::RingbufferManager;
 use state::{AppState, SharedState};
 use system::CpuStatsCache;
@@ -153,6 +153,11 @@ fn read_self_cpu_percent() -> Option<f64> {
     }
 }
 
+/// CPU percentage scaling factor to preserve precision in u32 storage.
+/// CPU percent values are multiplied by this factor before storing,
+/// and divided by this factor when displaying.
+const CPU_SCALE_FACTOR: f32 = 1000.0;
+
 /// Aggregated metrics data for a subgroup.
 struct AggregatedData {
     rss_sum: u64,
@@ -160,6 +165,34 @@ struct AggregatedData {
     uss_sum: u64,
     cpu_percent_sum: f64,
     cpu_time_sum: f64,
+}
+
+/// Helper function to extract top-3 processes from a slice.
+fn extract_top_3<F, V>(procs: &[&ProcMem], compare_fn: F, value_fn: V) -> [TopProcessInfo; 3]
+where
+    F: Fn(&ProcMem, &ProcMem) -> std::cmp::Ordering,
+    V: Fn(&ProcMem) -> u32,
+{
+    let mut sorted: Vec<&ProcMem> = procs.to_vec();
+    sorted.sort_by(|a, b| compare_fn(a, b));
+    
+    [
+        if !sorted.is_empty() {
+            TopProcessInfo::new(sorted[0].pid, value_fn(sorted[0]), &sorted[0].name)
+        } else {
+            TopProcessInfo::default()
+        },
+        if sorted.len() > 1 {
+            TopProcessInfo::new(sorted[1].pid, value_fn(sorted[1]), &sorted[1].name)
+        } else {
+            TopProcessInfo::default()
+        },
+        if sorted.len() > 2 {
+            TopProcessInfo::new(sorted[2].pid, value_fn(sorted[2]), &sorted[2].name)
+        } else {
+            TopProcessInfo::default()
+        },
+    ]
 }
 
 /// Cache update function.
@@ -356,13 +389,15 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     state.cache_ready.notify_waiters();
 
     // Count unique subgroups and aggregate metrics for ringbuffer
+    // Also collect processes per subgroup for top-N calculation
     let mut aggregated_by_subgroup: HashMap<String, AggregatedData> = HashMap::new();
+    let mut processes_by_subgroup: HashMap<String, Vec<&ProcMem>> = HashMap::new();
 
     for p in &results {
         let (group, subgroup) = classify_process_raw(&p.name);
         let key = format!("{}:{}", group, subgroup);
 
-        let agg = aggregated_by_subgroup.entry(key).or_insert(AggregatedData {
+        let agg = aggregated_by_subgroup.entry(key.clone()).or_insert(AggregatedData {
             rss_sum: 0,
             pss_sum: 0,
             uss_sum: 0,
@@ -375,6 +410,9 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         agg.uss_sum += p.uss;
         agg.cpu_percent_sum += p.cpu_percent as f64;
         agg.cpu_time_sum += p.cpu_time_seconds as f64;
+
+        // Store process reference for top-N calculation
+        processes_by_subgroup.entry(key).or_insert_with(Vec::new).push(p);
     }
 
     let subgroups_count = aggregated_by_subgroup.len() as u64;
@@ -382,6 +420,28 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     // Record ringbuffer entries for each subgroup
     let timestamp = chrono::Utc::now().timestamp();
     for (key, agg_data) in &aggregated_by_subgroup {
+        // Get top-3 processes for this subgroup
+        let procs = processes_by_subgroup.get(key).map(|v| v.as_slice()).unwrap_or(&[]);
+        
+        // Calculate top-3 by CPU, RSS, and PSS using helper function
+        let top_cpu = extract_top_3(
+            procs,
+            |a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal),
+            |p| (p.cpu_percent * CPU_SCALE_FACTOR) as u32,
+        );
+
+        let top_rss = extract_top_3(
+            procs,
+            |a, b| b.rss.cmp(&a.rss),
+            |p| (p.rss / 1024) as u32, // Convert to KB
+        );
+
+        let top_pss = extract_top_3(
+            procs,
+            |a, b| b.pss.cmp(&a.pss),
+            |p| (p.pss / 1024) as u32, // Convert to KB
+        );
+
         let entry = RingbufferEntry {
             timestamp,
             rss_kb: agg_data.rss_sum / 1024,
@@ -389,7 +449,10 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             uss_kb: agg_data.uss_sum / 1024,
             cpu_percent: agg_data.cpu_percent_sum as f32,
             cpu_time_seconds: agg_data.cpu_time_sum as f32,
-            _padding: [0; 8],
+            top_cpu,
+            top_rss,
+            top_pss,
+            _padding: [],
         };
 
         state.ringbuffer_manager.record(key, entry);
