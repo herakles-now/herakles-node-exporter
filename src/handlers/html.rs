@@ -304,14 +304,22 @@ pub async fn html_details_handler(
                 html.push_str(r#"<div class="info-box">Data sources: /proc/[pid]/stat (CPU), /proc/[pid]/statm (RSS), /proc/[pid]/smaps_rollup (PSS), /proc/[pid]/io (Block I/O)</div>"#);
                 html.push_str("\n");
                 
+                // Create indices for sorting (more efficient than cloning vectors)
+                let mut indices: Vec<usize> = (0..subgroup_processes.len()).collect();
+                
                 // Top-3 by CPU Usage (custom rendering for CPU with two columns)
                 html.push_str("<h4>Top-3 Processes by CPU Usage</h4>\n");
                 html.push_str("<table>\n");
                 html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th><th>CPU Time (s)</th></tr>\n");
                 
-                let mut sorted_by_cpu: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
-                sorted_by_cpu.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
-                for (rank, proc) in sorted_by_cpu.iter().take(3).enumerate() {
+                let mut indices_cpu = indices.clone();
+                indices_cpu.sort_by(|&a, &b| {
+                    subgroup_processes[b].cpu_percent
+                        .partial_cmp(&subgroup_processes[a].cpu_percent)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                for (rank, &idx) in indices_cpu.iter().take(3).enumerate() {
+                    let proc = subgroup_processes[idx];
                     html.push_str(&format!(
                         "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td><td>{:.2}</td></tr>\n",
                         rank + 1,
@@ -324,8 +332,9 @@ pub async fn html_details_handler(
                 html.push_str("</table>\n");
                 
                 // Top-3 by Memory (RSS)
-                let mut sorted_by_rss: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
-                sorted_by_rss.sort_by(|a, b| b.rss.cmp(&a.rss));
+                let mut indices_rss = indices.clone();
+                indices_rss.sort_by(|&a, &b| subgroup_processes[b].rss.cmp(&subgroup_processes[a].rss));
+                let sorted_by_rss: Vec<&ProcMem> = indices_rss.iter().map(|&i| subgroup_processes[i]).collect();
                 render_top_processes_table(
                     &mut html,
                     "Top-3 Processes by Memory (RSS)",
@@ -335,8 +344,9 @@ pub async fn html_details_handler(
                 );
                 
                 // Top-3 by Memory (PSS)
-                let mut sorted_by_pss: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
-                sorted_by_pss.sort_by(|a, b| b.pss.cmp(&a.pss));
+                let mut indices_pss = indices.clone();
+                indices_pss.sort_by(|&a, &b| subgroup_processes[b].pss.cmp(&subgroup_processes[a].pss));
+                let sorted_by_pss: Vec<&ProcMem> = indices_pss.iter().map(|&i| subgroup_processes[i]).collect();
                 render_top_processes_table(
                     &mut html,
                     "Top-3 Processes by Memory (PSS)",
@@ -346,8 +356,9 @@ pub async fn html_details_handler(
                 );
                 
                 // Top-3 by Block I/O Read
-                let mut sorted_by_read: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
-                sorted_by_read.sort_by(|a, b| b.read_bytes.cmp(&a.read_bytes));
+                let mut indices_read = indices.clone();
+                indices_read.sort_by(|&a, &b| subgroup_processes[b].read_bytes.cmp(&subgroup_processes[a].read_bytes));
+                let sorted_by_read: Vec<&ProcMem> = indices_read.iter().map(|&i| subgroup_processes[i]).collect();
                 render_top_processes_table(
                     &mut html,
                     "Top-3 Processes by Block I/O Read",
@@ -357,8 +368,9 @@ pub async fn html_details_handler(
                 );
                 
                 // Top-3 by Block I/O Write
-                let mut sorted_by_write: Vec<_> = subgroup_processes.iter().map(|&p| p).collect();
-                sorted_by_write.sort_by(|a, b| b.write_bytes.cmp(&a.write_bytes));
+                let mut indices_write = indices;
+                indices_write.sort_by(|&a, &b| subgroup_processes[b].write_bytes.cmp(&subgroup_processes[a].write_bytes));
+                let sorted_by_write: Vec<&ProcMem> = indices_write.iter().map(|&i| subgroup_processes[i]).collect();
                 render_top_processes_table(
                     &mut html,
                     "Top-3 Processes by Block I/O Write",
