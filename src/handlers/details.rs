@@ -33,7 +33,11 @@ struct SubgroupSnapshot {
     total_pss: u64,
     total_uss: u64,
     oldest_uptime_seconds: f64,
-    top_processes: Vec<ProcessInfo>,
+    top_processes_by_rss: Vec<ProcessInfo>,
+    top_processes_by_cpu: Vec<ProcessInfo>,
+    top_processes_by_pss: Vec<ProcessInfo>,
+    top_processes_by_blkio_read: Vec<ProcessInfo>,
+    top_processes_by_blkio_write: Vec<ProcessInfo>,
 }
 
 /// Information about a single process for display.
@@ -42,8 +46,11 @@ struct ProcessInfo {
     pid: u32,
     name: String,
     rss: u64,
+    pss: u64,
     cpu_percent: f32,
     uptime_seconds: f64,
+    read_bytes: u64,
+    write_bytes: u64,
 }
 
 /// Computes live snapshot for all subgroups from the current cache.
@@ -88,20 +95,68 @@ async fn compute_live_snapshots(
 
         let oldest_uptime_seconds = system_uptime - min_start_time;
 
-        // Sort by RSS descending and take top N
-        let mut sorted_procs = procs.clone();
-        sorted_procs.sort_by(|a, b| b.rss.cmp(&a.rss));
+        // Helper function to create ProcessInfo from ProcMem
+        let to_process_info = |p: &ProcMem| ProcessInfo {
+            pid: p.pid,
+            name: p.name.clone(),
+            rss: p.rss,
+            pss: p.pss,
+            cpu_percent: p.cpu_percent,
+            uptime_seconds: system_uptime - p.start_time_seconds,
+            read_bytes: p.read_bytes,
+            write_bytes: p.write_bytes,
+        };
 
-        let top_processes: Vec<ProcessInfo> = sorted_procs
+        // Create indices and sort them instead of cloning the entire vector
+        let mut indices: Vec<usize> = (0..procs.len()).collect();
+        
+        // Sort by RSS descending
+        let mut indices_rss = indices.clone();
+        indices_rss.sort_by(|&a, &b| procs[b].rss.cmp(&procs[a].rss));
+        let top_processes_by_rss: Vec<ProcessInfo> = indices_rss
             .iter()
             .take(top_n)
-            .map(|p| ProcessInfo {
-                pid: p.pid,
-                name: p.name.clone(),
-                rss: p.rss,
-                cpu_percent: p.cpu_percent,
-                uptime_seconds: system_uptime - p.start_time_seconds,
-            })
+            .map(|&i| to_process_info(&procs[i]))
+            .collect();
+
+        // Sort by CPU descending
+        let mut indices_cpu = indices.clone();
+        indices_cpu.sort_by(|&a, &b| {
+            procs[b].cpu_percent
+                .partial_cmp(&procs[a].cpu_percent)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let top_processes_by_cpu: Vec<ProcessInfo> = indices_cpu
+            .iter()
+            .take(top_n)
+            .map(|&i| to_process_info(&procs[i]))
+            .collect();
+
+        // Sort by PSS descending
+        let mut indices_pss = indices.clone();
+        indices_pss.sort_by(|&a, &b| procs[b].pss.cmp(&procs[a].pss));
+        let top_processes_by_pss: Vec<ProcessInfo> = indices_pss
+            .iter()
+            .take(top_n)
+            .map(|&i| to_process_info(&procs[i]))
+            .collect();
+
+        // Sort by Block I/O Read descending
+        let mut indices_read = indices.clone();
+        indices_read.sort_by(|&a, &b| procs[b].read_bytes.cmp(&procs[a].read_bytes));
+        let top_processes_by_blkio_read: Vec<ProcessInfo> = indices_read
+            .iter()
+            .take(top_n)
+            .map(|&i| to_process_info(&procs[i]))
+            .collect();
+
+        // Sort by Block I/O Write descending
+        let mut indices_write = indices;
+        indices_write.sort_by(|&a, &b| procs[b].write_bytes.cmp(&procs[a].write_bytes));
+        let top_processes_by_blkio_write: Vec<ProcessInfo> = indices_write
+            .iter()
+            .take(top_n)
+            .map(|&i| to_process_info(&procs[i]))
             .collect();
 
         snapshots.insert(
@@ -112,7 +167,11 @@ async fn compute_live_snapshots(
                 total_pss,
                 total_uss,
                 oldest_uptime_seconds,
-                top_processes,
+                top_processes_by_rss,
+                top_processes_by_cpu,
+                top_processes_by_pss,
+                top_processes_by_blkio_read,
+                top_processes_by_blkio_write,
             },
         );
     }
@@ -152,7 +211,7 @@ fn format_uptime(seconds: f64) -> String {
 }
 
 /// Renders historical ringbuffer data for a subgroup.
-fn render_history(out: &mut String, subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) {
+fn render_history(out: &mut String, _subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) {
     if history.is_empty() {
         writeln!(out, "No history available").ok();
         return;
@@ -192,18 +251,51 @@ fn render_snapshot(out: &mut String, snapshot: &SubgroupSnapshot) {
     writeln!(out, "  Alert armed:          NO").ok();
 
     writeln!(out).ok();
+    writeln!(out, "TOP PROCESS METRICS:").ok();
+    writeln!(out, "====================").ok();
+    
+    // Top-3 by CPU Usage
+    writeln!(out).ok();
+    writeln!(out, "TOP PROCESSES (by CPU):").ok();
+    writeln!(
+        out,
+        "  {:<6} {:<8} {:<16} {:<8} {}",
+        "Rank", "PID", "Name", "CPU%", "CPU Time"
+    )
+    .ok();
+    
+    for (rank, proc) in snapshot.top_processes_by_cpu.iter().enumerate() {
+        writeln!(
+            out,
+            "  {:<6} {:<8} {:<16} {:>6.1}% {:.2}s",
+            rank + 1,
+            proc.pid,
+            if proc.name.len() > 16 {
+                &proc.name[..16]
+            } else {
+                &proc.name
+            },
+            proc.cpu_percent,
+            proc.uptime_seconds
+        )
+        .ok();
+    }
+    
+    // Top-3 by Memory (RSS)
+    writeln!(out).ok();
     writeln!(out, "TOP PROCESSES (by RSS):").ok();
     writeln!(
         out,
-        "  {:<8} {:<16} {:<12} {:<8} {}",
-        "PID", "Name", "RSS", "CPU%", "Uptime"
+        "  {:<6} {:<8} {:<16} {:<12} {}",
+        "Rank", "PID", "Name", "RSS", "Uptime"
     )
     .ok();
 
-    for proc in &snapshot.top_processes {
+    for (rank, proc) in snapshot.top_processes_by_rss.iter().enumerate() {
         writeln!(
             out,
-            "  {:<8} {:<16} {:<12} {:>6.1}% {}",
+            "  {:<6} {:<8} {:<16} {:<12} {}",
+            rank + 1,
             proc.pid,
             if proc.name.len() > 16 {
                 &proc.name[..16]
@@ -211,11 +303,101 @@ fn render_snapshot(out: &mut String, snapshot: &SubgroupSnapshot) {
                 &proc.name
             },
             format_bytes(proc.rss),
-            proc.cpu_percent,
             format_uptime(proc.uptime_seconds)
         )
         .ok();
     }
+    
+    // Top-3 by Memory (PSS)
+    writeln!(out).ok();
+    writeln!(out, "TOP PROCESSES (by PSS):").ok();
+    writeln!(
+        out,
+        "  {:<6} {:<8} {:<16} {:<12} {}",
+        "Rank", "PID", "Name", "PSS", "Uptime"
+    )
+    .ok();
+
+    for (rank, proc) in snapshot.top_processes_by_pss.iter().enumerate() {
+        writeln!(
+            out,
+            "  {:<6} {:<8} {:<16} {:<12} {}",
+            rank + 1,
+            proc.pid,
+            if proc.name.len() > 16 {
+                &proc.name[..16]
+            } else {
+                &proc.name
+            },
+            format_bytes(proc.pss),
+            format_uptime(proc.uptime_seconds)
+        )
+        .ok();
+    }
+    
+    // Top-3 by Block I/O Read
+    writeln!(out).ok();
+    writeln!(out, "TOP PROCESSES (by Block I/O Read):").ok();
+    writeln!(
+        out,
+        "  {:<6} {:<8} {:<16} {}",
+        "Rank", "PID", "Name", "Read Bytes"
+    )
+    .ok();
+
+    for (rank, proc) in snapshot.top_processes_by_blkio_read.iter().enumerate() {
+        writeln!(
+            out,
+            "  {:<6} {:<8} {:<16} {}",
+            rank + 1,
+            proc.pid,
+            if proc.name.len() > 16 {
+                &proc.name[..16]
+            } else {
+                &proc.name
+            },
+            if proc.read_bytes > 0 {
+                format_bytes(proc.read_bytes)
+            } else {
+                "N/A".to_string()
+            }
+        )
+        .ok();
+    }
+    
+    // Top-3 by Block I/O Write
+    writeln!(out).ok();
+    writeln!(out, "TOP PROCESSES (by Block I/O Write):").ok();
+    writeln!(
+        out,
+        "  {:<6} {:<8} {:<16} {}",
+        "Rank", "PID", "Name", "Write Bytes"
+    )
+    .ok();
+
+    for (rank, proc) in snapshot.top_processes_by_blkio_write.iter().enumerate() {
+        writeln!(
+            out,
+            "  {:<6} {:<8} {:<16} {}",
+            rank + 1,
+            proc.pid,
+            if proc.name.len() > 16 {
+                &proc.name[..16]
+            } else {
+                &proc.name
+            },
+            if proc.write_bytes > 0 {
+                format_bytes(proc.write_bytes)
+            } else {
+                "N/A".to_string()
+            }
+        )
+        .ok();
+    }
+    
+    writeln!(out).ok();
+    writeln!(out, "Note: Block I/O data from /proc/[pid]/io").ok();
+    writeln!(out, "      Network metrics require eBPF support (see /html/docs)").ok();
 }
 
 /// Handler for the /details endpoint.

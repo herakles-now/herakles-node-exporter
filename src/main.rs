@@ -56,8 +56,9 @@ use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
-    parse_start_time_seconds, read_process_name, read_vmswap, should_include_process, BufferConfig,
-    CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
+    parse_start_time_seconds, read_block_io, read_process_name, read_vmswap, should_include_process,
+    BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
+    SUBGROUPS,
 };
 use ringbuffer::RingbufferEntry;
 use ringbuffer_manager::RingbufferManager;
@@ -280,6 +281,9 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                         // Read process start time from /proc/[pid]/stat
                         let start_time_seconds = parse_start_time_seconds(&entry.proc_path).unwrap_or(0.0);
 
+                        // Read Block I/O from /proc/[pid]/io
+                        let (read_bytes, write_bytes) = read_block_io(&entry.proc_path).unwrap_or((0, 0));
+
                         debug!(
                             "Including process {}: {} (RSS: {} MB, PSS: {} MB, USS: {} MB, CPU: {:.6}%)",
                             entry.pid,
@@ -301,6 +305,8 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                             cpu_time_seconds: cpu.cpu_time_seconds as f32,
                             vmswap,
                             start_time_seconds,
+                            read_bytes,
+                            write_bytes,
                         })
                     }
                     Err(e) => {

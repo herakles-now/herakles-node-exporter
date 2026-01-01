@@ -143,6 +143,36 @@ pub fn read_vmswap(proc_path: &Path) -> Result<u64, std::io::Error> {
     Ok(0)
 }
 
+/// Reads Block I/O statistics from /proc/[pid]/io.
+/// Returns (read_bytes, write_bytes) from storage devices.
+/// Note: Requires appropriate permissions (usually root or CAP_SYS_PTRACE).
+pub fn read_block_io(proc_path: &Path) -> Result<(u64, u64), std::io::Error> {
+    let io_path = proc_path.join("io");
+    let content = fs::read_to_string(io_path)?;
+    
+    let mut read_bytes = 0u64;
+    let mut write_bytes = 0u64;
+    let mut found_read = false;
+    let mut found_write = false;
+    
+    for line in content.lines() {
+        if let Some(v) = line.strip_prefix("read_bytes:") {
+            read_bytes = v.trim().parse().unwrap_or(0);
+            found_read = true;
+        } else if let Some(v) = line.strip_prefix("write_bytes:") {
+            write_bytes = v.trim().parse().unwrap_or(0);
+            found_write = true;
+        }
+        
+        // Early exit if we've found both values
+        if found_read && found_write {
+            break;
+        }
+    }
+    
+    Ok((read_bytes, write_bytes))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

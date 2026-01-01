@@ -104,6 +104,36 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Helper function to render top-N processes table in HTML
+fn render_top_processes_table<F>(
+    html: &mut String,
+    title: &str,
+    processes: &[&ProcMem],
+    value_fn: F,
+    value_header: &str,
+) where
+    F: Fn(&ProcMem) -> String,
+{
+    html.push_str(&format!("<h4>{}</h4>\n", title));
+    html.push_str("<table>\n");
+    html.push_str(&format!(
+        "<tr><th>Rank</th><th>PID</th><th>Name</th><th>{}</th></tr>\n",
+        value_header
+    ));
+
+    for (rank, proc) in processes.iter().take(3).enumerate() {
+        html.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+            rank + 1,
+            proc.pid,
+            proc.name,
+            value_fn(proc)
+        ));
+    }
+
+    html.push_str("</table>\n");
+}
+
 /// Handler for /html/ (landing page).
 #[instrument(skip(state))]
 pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoResponse {
@@ -268,6 +298,90 @@ pub async fn html_details_handler(
                     oldest_uptime
                 ));
                 html.push_str("</table>\n");
+                
+                // Add Top Process Metrics section
+                html.push_str("<h3>Top Process Metrics</h3>\n");
+                html.push_str(r#"<div class="info-box">Data sources: /proc/[pid]/stat (CPU), /proc/[pid]/statm (RSS), /proc/[pid]/smaps_rollup (PSS), /proc/[pid]/io (Block I/O)</div>"#);
+                html.push_str("\n");
+                
+                // Create indices for sorting (more efficient than cloning vectors)
+                let mut indices: Vec<usize> = (0..subgroup_processes.len()).collect();
+                
+                // Top-3 by CPU Usage (custom rendering for CPU with two columns)
+                html.push_str("<h4>Top-3 Processes by CPU Usage</h4>\n");
+                html.push_str("<table>\n");
+                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th><th>CPU Time (s)</th></tr>\n");
+                
+                let mut indices_cpu = indices.clone();
+                indices_cpu.sort_by(|&a, &b| {
+                    subgroup_processes[b].cpu_percent
+                        .partial_cmp(&subgroup_processes[a].cpu_percent)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                for (rank, &idx) in indices_cpu.iter().take(3).enumerate() {
+                    let proc = subgroup_processes[idx];
+                    html.push_str(&format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td><td>{:.2}</td></tr>\n",
+                        rank + 1,
+                        proc.pid,
+                        proc.name,
+                        proc.cpu_percent,
+                        proc.cpu_time_seconds
+                    ));
+                }
+                html.push_str("</table>\n");
+                
+                // Top-3 by Memory (RSS)
+                let mut indices_rss = indices.clone();
+                indices_rss.sort_by(|&a, &b| subgroup_processes[b].rss.cmp(&subgroup_processes[a].rss));
+                let sorted_by_rss: Vec<&ProcMem> = indices_rss.iter().map(|&i| subgroup_processes[i]).collect();
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Memory (RSS)",
+                    &sorted_by_rss,
+                    |p| format_bytes(p.rss),
+                    "RSS",
+                );
+                
+                // Top-3 by Memory (PSS)
+                let mut indices_pss = indices.clone();
+                indices_pss.sort_by(|&a, &b| subgroup_processes[b].pss.cmp(&subgroup_processes[a].pss));
+                let sorted_by_pss: Vec<&ProcMem> = indices_pss.iter().map(|&i| subgroup_processes[i]).collect();
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Memory (PSS)",
+                    &sorted_by_pss,
+                    |p| format_bytes(p.pss),
+                    "PSS",
+                );
+                
+                // Top-3 by Block I/O Read
+                let mut indices_read = indices.clone();
+                indices_read.sort_by(|&a, &b| subgroup_processes[b].read_bytes.cmp(&subgroup_processes[a].read_bytes));
+                let sorted_by_read: Vec<&ProcMem> = indices_read.iter().map(|&i| subgroup_processes[i]).collect();
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Block I/O Read",
+                    &sorted_by_read,
+                    |p| if p.read_bytes > 0 { format_bytes(p.read_bytes) } else { "N/A".to_string() },
+                    "Read Bytes",
+                );
+                
+                // Top-3 by Block I/O Write
+                let mut indices_write = indices;
+                indices_write.sort_by(|&a, &b| subgroup_processes[b].write_bytes.cmp(&subgroup_processes[a].write_bytes));
+                let sorted_by_write: Vec<&ProcMem> = indices_write.iter().map(|&i| subgroup_processes[i]).collect();
+                render_top_processes_table(
+                    &mut html,
+                    "Top-3 Processes by Block I/O Write",
+                    &sorted_by_write,
+                    |p| if p.write_bytes > 0 { format_bytes(p.write_bytes) } else { "N/A".to_string() },
+                    "Write Bytes",
+                );
+                
+                // Note about network metrics
+                html.push_str(r#"<div class="info-box"><strong>Note:</strong> Network metrics (RX/TX) require eBPF support. See <a href="/html/docs">documentation</a> for setup.</div>"#);
+                html.push_str("\n");
             }
 
             // Show ringbuffer history
