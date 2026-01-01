@@ -3,20 +3,75 @@
 //! This module provides a fixed-size ringbuffer for storing historical
 //! metrics entries with predictable memory usage.
 
-/// Size of a single ringbuffer entry in bytes (exactly 48 bytes).
-pub const ENTRY_SIZE_BYTES: usize = 48;
+/// Size of a single ringbuffer entry in bytes (256 bytes with extended top-N data).
+pub const ENTRY_SIZE_BYTES: usize = 256;
 
-/// Fixed-size entry for ringbuffer storage (exactly 48 bytes).
+/// Top process information stored in ringbuffer (24 bytes per entry).
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct TopProcessInfo {
+    pub pid: u32,              // 4 bytes - Process ID
+    pub value: u32,            // 4 bytes - Value in KB (for memory) or scaled (for CPU)
+    pub name: [u8; 16],        // 16 bytes - Null-terminated process name
+}
+
+impl Default for TopProcessInfo {
+    fn default() -> Self {
+        Self {
+            pid: 0,
+            value: 0,
+            name: [0; 16],
+        }
+    }
+}
+
+impl TopProcessInfo {
+    /// Create a new TopProcessInfo with the given PID, value, and name.
+    pub fn new(pid: u32, value: u32, name: &str) -> Self {
+        let mut name_bytes = [0u8; 16];
+        let bytes = name.as_bytes();
+        let len = bytes.len().min(15); // Leave room for null terminator
+        name_bytes[..len].copy_from_slice(&bytes[..len]);
+        Self {
+            pid,
+            value,
+            name: name_bytes,
+        }
+    }
+
+    /// Get the process name as a string.
+    pub fn name_str(&self) -> String {
+        // Find the null terminator
+        let len = self.name.iter().position(|&b| b == 0).unwrap_or(16);
+        String::from_utf8_lossy(&self.name[..len]).to_string()
+    }
+}
+
+/// Fixed-size entry for ringbuffer storage (256 bytes with extended data).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RingbufferEntry {
+    // Existing aggregated metrics (40 bytes)
     pub timestamp: i64,        // 8 bytes - Unix timestamp
     pub rss_kb: u64,           // 8 bytes
     pub pss_kb: u64,           // 8 bytes
     pub uss_kb: u64,           // 8 bytes
     pub cpu_percent: f32,      // 4 bytes
     pub cpu_time_seconds: f32, // 4 bytes
-    pub _padding: [u8; 8],     // 8 bytes padding → 48 total
+
+    // Top-3 processes by each metric (24 * 3 * 5 = 360 bytes would exceed budget)
+    // Reduced to fit in 256 bytes: 24 * 3 * 5 = 360, need to fit in ~216 bytes
+    // Using 3 entries per metric × 5 metrics = 15 × 24 = 360 bytes (too much)
+    // Let's store 3 entries per metric, 24 bytes each = 72 bytes per metric type
+    pub top_cpu: [TopProcessInfo; 3],         // 72 bytes - Top 3 by CPU
+    pub top_rss: [TopProcessInfo; 3],         // 72 bytes - Top 3 by RSS
+    pub top_pss: [TopProcessInfo; 3],         // 72 bytes - Top 3 by PSS
+    
+    // Note: Block I/O read/write would add 144 more bytes (72*2), exceeding 256 byte budget
+    // We'll store only the most critical metrics within 256 bytes
+    // Total so far: 40 + 72*3 = 256 bytes exactly
+
+    pub _padding: [u8; 0],     // No padding needed - exactly 256 bytes
 }
 
 /// A circular buffer for storing metric entries with fixed capacity.
@@ -96,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_entry_size() {
-        // Verify the entry is exactly 48 bytes
+        // Verify the entry is exactly 256 bytes
         assert_eq!(std::mem::size_of::<RingbufferEntry>(), ENTRY_SIZE_BYTES);
     }
 
@@ -115,7 +170,10 @@ mod tests {
             uss_kb: 80,
             cpu_percent: 5.0,
             cpu_time_seconds: 1.0,
-            _padding: [0; 8],
+            top_cpu: [TopProcessInfo::default(); 3],
+            top_rss: [TopProcessInfo::default(); 3],
+            top_pss: [TopProcessInfo::default(); 3],
+            _padding: [],
         });
 
         assert_eq!(rb.len(), 1);
@@ -137,7 +195,10 @@ mod tests {
                 uss_kb: 80,
                 cpu_percent: 5.0,
                 cpu_time_seconds: 1.0,
-                _padding: [0; 8],
+                top_cpu: [TopProcessInfo::default(); 3],
+                top_rss: [TopProcessInfo::default(); 3],
+                top_pss: [TopProcessInfo::default(); 3],
+                _padding: [],
             });
         }
 
@@ -161,7 +222,10 @@ mod tests {
                 uss_kb: 80,
                 cpu_percent: 5.0,
                 cpu_time_seconds: 1.0,
-                _padding: [0; 8],
+                top_cpu: [TopProcessInfo::default(); 3],
+                top_rss: [TopProcessInfo::default(); 3],
+                top_pss: [TopProcessInfo::default(); 3],
+                _padding: [],
             });
         }
 

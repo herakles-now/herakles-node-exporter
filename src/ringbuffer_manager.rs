@@ -4,7 +4,7 @@
 //! of ringbuffers, one per subgroup, with deterministic memory allocation.
 
 use crate::config::RingbufferConfig;
-use crate::ringbuffer::{Ringbuffer, RingbufferEntry, ENTRY_SIZE_BYTES};
+use crate::ringbuffer::{Ringbuffer, RingbufferEntry, TopProcessInfo, ENTRY_SIZE_BYTES};
 use dashmap::DashMap;
 use serde::Serialize;
 
@@ -167,7 +167,10 @@ mod tests {
             uss_kb: 80,
             cpu_percent: 5.0,
             cpu_time_seconds: 1.0,
-            _padding: [0; 8],
+            top_cpu: [TopProcessInfo::default(); 3],
+            top_rss: [TopProcessInfo::default(); 3],
+            top_pss: [TopProcessInfo::default(); 3],
+            _padding: [],
         };
 
         manager.record("test_subgroup", entry);
@@ -194,7 +197,10 @@ mod tests {
                 uss_kb: 80,
                 cpu_percent: 5.0,
                 cpu_time_seconds: 1.0,
-                _padding: [0; 8],
+                top_cpu: [TopProcessInfo::default(); 3],
+                top_rss: [TopProcessInfo::default(); 3],
+                top_pss: [TopProcessInfo::default(); 3],
+                _padding: [],
             };
             manager.record(&format!("subgroup_{}", i), entry);
         }
