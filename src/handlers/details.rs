@@ -25,6 +25,7 @@ use crate::state::SharedState;
 const MEMORY_OUTLIER_THRESHOLD: f64 = 2.5; // Process using > 2.5x per-process average
 const IO_OUTLIER_THRESHOLD: f64 = 3.0;     // Process using > 3x group average I/O
 const IO_DEFAULT_RATIO: f64 = 10.0;        // Default ratio when average is zero but process has I/O
+const MAX_OUTLIERS_DISPLAY: usize = 10;    // Maximum number of outliers to display in output
 
 /// Query parameters for the details endpoint.
 #[derive(Deserialize, Debug)]
@@ -167,6 +168,8 @@ async fn compute_live_snapshots(
 
 /// Calculates baseline metrics from ringbuffer history.
 /// 
+/// Returns `Some(BaselineMetrics)` if history is available, or `None` if history is empty.
+/// 
 /// Note: current_process_count is used to approximate historical per-process averages.
 /// This is a limitation since RingbufferEntry doesn't track process counts. If the current
 /// process count is significantly different from the historical average, the per-process
@@ -252,7 +255,7 @@ fn identify_outliers(
         };
 
         // A process is an outlier if any metric exceeds the threshold
-        if rss_ratio > MEMORY_OUTLIER_THRESHOLD || pss_ratio > MEMORY_OUTLIER_THRESHOLD || uss_ratio > MEMORY_OUTLIER_THRESHOLD {
+        if [rss_ratio, pss_ratio, uss_ratio].iter().any(|&r| r > MEMORY_OUTLIER_THRESHOLD) {
             outliers.push(OutlierProcess {
                 pid: proc.pid,
                 name: proc.name.clone(),
@@ -281,6 +284,17 @@ fn identify_outliers(
     outliers
 }
 
+/// Helper function to calculate I/O ratio with special handling for zero average.
+fn calculate_io_ratio(proc_bytes: u64, avg_bytes: u64) -> f64 {
+    if avg_bytes > 0 {
+        proc_bytes as f64 / avg_bytes as f64
+    } else if proc_bytes > 0 {
+        IO_DEFAULT_RATIO // If average is 0 but process has I/O, it's an outlier
+    } else {
+        0.0
+    }
+}
+
 /// Identifies Block I/O outliers (processes with significantly higher I/O than average).
 fn identify_io_outliers(
     snapshot: &SubgroupSnapshot,
@@ -299,21 +313,8 @@ fn identify_io_outliers(
     let mut outliers = Vec::new();
 
     for proc in &snapshot.all_processes {
-        let read_ratio = if avg_read > 0 {
-            proc.read_bytes as f64 / avg_read as f64
-        } else if proc.read_bytes > 0 {
-            IO_DEFAULT_RATIO // If average is 0 but process has I/O, it's an outlier
-        } else {
-            0.0
-        };
-
-        let write_ratio = if avg_write > 0 {
-            proc.write_bytes as f64 / avg_write as f64
-        } else if proc.write_bytes > 0 {
-            IO_DEFAULT_RATIO
-        } else {
-            0.0
-        };
+        let read_ratio = calculate_io_ratio(proc.read_bytes, avg_read);
+        let write_ratio = calculate_io_ratio(proc.write_bytes, avg_write);
 
         // Consider as outlier if either read or write is significantly above average
         if read_ratio > IO_OUTLIER_THRESHOLD || write_ratio > IO_OUTLIER_THRESHOLD {
@@ -435,7 +436,7 @@ fn render_memory_outliers(out: &mut String, outliers: &[OutlierProcess], baselin
     let avg_pss_per_proc = baseline.avg_pss / baseline.avg_process_count.max(1) as u64;
     let avg_uss_per_proc = baseline.avg_uss / baseline.avg_process_count.max(1) as u64;
 
-    for outlier in outliers.iter().take(10) {  // Show top 10 outliers max
+    for outlier in outliers.iter().take(MAX_OUTLIERS_DISPLAY) {
         writeln!(out, "  PID {}  |  {}  |  uptime: {}", 
                  outlier.pid, 
                  outlier.name,
@@ -479,7 +480,7 @@ fn render_io_outliers(out: &mut String, io_outliers: &[OutlierProcess], snapshot
     let avg_read = total_read / snapshot.process_count.max(1) as u64;
     let avg_write = total_write / snapshot.process_count.max(1) as u64;
 
-    for outlier in io_outliers.iter().take(10) {  // Show top 10 I/O outliers max
+    for outlier in io_outliers.iter().take(MAX_OUTLIERS_DISPLAY) {
         writeln!(out, "  PID {}  |  {}  |  uptime: {}", 
                  outlier.pid, 
                  outlier.name,
