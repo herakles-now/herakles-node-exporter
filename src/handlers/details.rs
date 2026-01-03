@@ -1,7 +1,9 @@
 //! Details endpoint handler.
 //!
-//! This module provides the `/details` endpoint handler that displays
-//! ringbuffer statistics, historical metrics, and live process snapshots for subgroups.
+//! This module provides the `/details` endpoint handler that explains exceptional
+//! behavior by comparing live processes against historical baselines.
+//! High-cardinality data (PIDs, full command lines) is intentionally exposed here
+//! to help identify anomalies that cannot be safely represented as metrics.
 
 use axum::{
     extract::{Query, State},
@@ -19,10 +21,33 @@ use crate::handlers::health::FOOTER_TEXT;
 use crate::process::classifier::classify_process_raw;
 use crate::state::SharedState;
 
+// Outlier detection thresholds
+const MEMORY_OUTLIER_THRESHOLD: f64 = 2.5; // Process using > 2.5x per-process average
+const IO_OUTLIER_THRESHOLD: f64 = 3.0;     // Process using > 3x group average I/O
+const IO_DEFAULT_RATIO: f64 = 10.0;        // Default ratio when average is zero but process has I/O
+const MAX_OUTLIERS_DISPLAY: usize = 10;    // Maximum number of outliers to display in output
+
 /// Query parameters for the details endpoint.
 #[derive(Deserialize, Debug)]
 pub struct DetailsQuery {
     pub subgroup: Option<String>,
+}
+
+/// Baseline metrics calculated from ringbuffer history.
+#[derive(Debug, Clone)]
+struct BaselineMetrics {
+    min_rss: u64,
+    avg_rss: u64,
+    max_rss: u64,
+    min_pss: u64,
+    avg_pss: u64,
+    max_pss: u64,
+    min_uss: u64,
+    avg_uss: u64,
+    max_uss: u64,
+    history_count: usize,
+    time_window_minutes: u64,
+    avg_process_count: usize, // Average number of processes in the baseline period
 }
 
 /// Live snapshot data for a single subgroup.
@@ -33,11 +58,7 @@ struct SubgroupSnapshot {
     total_pss: u64,
     total_uss: u64,
     oldest_uptime_seconds: f64,
-    top_processes_by_rss: Vec<ProcessInfo>,
-    top_processes_by_cpu: Vec<ProcessInfo>,
-    top_processes_by_pss: Vec<ProcessInfo>,
-    top_processes_by_blkio_read: Vec<ProcessInfo>,
-    top_processes_by_blkio_write: Vec<ProcessInfo>,
+    all_processes: Vec<ProcessInfo>,
 }
 
 /// Information about a single process for display.
@@ -47,16 +68,34 @@ struct ProcessInfo {
     name: String,
     rss: u64,
     pss: u64,
+    uss: u64,
     cpu_percent: f32,
     uptime_seconds: f64,
     read_bytes: u64,
     write_bytes: u64,
 }
 
+/// An outlier process that significantly deviates from baseline.
+#[derive(Debug, Clone)]
+struct OutlierProcess {
+    pid: u32,
+    name: String,
+    uptime_seconds: f64,
+    rss: u64,
+    pss: u64,
+    uss: u64,
+    rss_ratio: f64,
+    pss_ratio: f64,
+    uss_ratio: f64,
+    read_bytes: u64,
+    write_bytes: u64,
+    read_ratio: f64,  // For I/O outliers
+    write_ratio: f64, // For I/O outliers
+}
+
 /// Computes live snapshot for all subgroups from the current cache.
 async fn compute_live_snapshots(
     state: &SharedState,
-    top_n: usize,
 ) -> HashMap<String, SubgroupSnapshot> {
     let cache = state.cache.read().await;
     let system_uptime = crate::system::read_uptime().unwrap_or(0.0);
@@ -95,68 +134,20 @@ async fn compute_live_snapshots(
 
         let oldest_uptime_seconds = system_uptime - min_start_time;
 
-        // Helper function to create ProcessInfo from ProcMem
-        let to_process_info = |p: &ProcMem| ProcessInfo {
-            pid: p.pid,
-            name: p.name.clone(),
-            rss: p.rss,
-            pss: p.pss,
-            cpu_percent: p.cpu_percent,
-            uptime_seconds: system_uptime - p.start_time_seconds,
-            read_bytes: p.read_bytes,
-            write_bytes: p.write_bytes,
-        };
-
-        // Create indices and sort them instead of cloning the entire vector
-        let mut indices: Vec<usize> = (0..procs.len()).collect();
-        
-        // Sort by RSS descending
-        let mut indices_rss = indices.clone();
-        indices_rss.sort_by(|&a, &b| procs[b].rss.cmp(&procs[a].rss));
-        let top_processes_by_rss: Vec<ProcessInfo> = indices_rss
+        // Convert all processes to ProcessInfo
+        let all_processes: Vec<ProcessInfo> = procs
             .iter()
-            .take(top_n)
-            .map(|&i| to_process_info(&procs[i]))
-            .collect();
-
-        // Sort by CPU descending
-        let mut indices_cpu = indices.clone();
-        indices_cpu.sort_by(|&a, &b| {
-            procs[b].cpu_percent
-                .partial_cmp(&procs[a].cpu_percent)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        let top_processes_by_cpu: Vec<ProcessInfo> = indices_cpu
-            .iter()
-            .take(top_n)
-            .map(|&i| to_process_info(&procs[i]))
-            .collect();
-
-        // Sort by PSS descending
-        let mut indices_pss = indices.clone();
-        indices_pss.sort_by(|&a, &b| procs[b].pss.cmp(&procs[a].pss));
-        let top_processes_by_pss: Vec<ProcessInfo> = indices_pss
-            .iter()
-            .take(top_n)
-            .map(|&i| to_process_info(&procs[i]))
-            .collect();
-
-        // Sort by Block I/O Read descending
-        let mut indices_read = indices.clone();
-        indices_read.sort_by(|&a, &b| procs[b].read_bytes.cmp(&procs[a].read_bytes));
-        let top_processes_by_blkio_read: Vec<ProcessInfo> = indices_read
-            .iter()
-            .take(top_n)
-            .map(|&i| to_process_info(&procs[i]))
-            .collect();
-
-        // Sort by Block I/O Write descending
-        let mut indices_write = indices;
-        indices_write.sort_by(|&a, &b| procs[b].write_bytes.cmp(&procs[a].write_bytes));
-        let top_processes_by_blkio_write: Vec<ProcessInfo> = indices_write
-            .iter()
-            .take(top_n)
-            .map(|&i| to_process_info(&procs[i]))
+            .map(|p| ProcessInfo {
+                pid: p.pid,
+                name: p.name.clone(),
+                rss: p.rss,
+                pss: p.pss,
+                uss: p.uss,
+                cpu_percent: p.cpu_percent,
+                uptime_seconds: system_uptime - p.start_time_seconds,
+                read_bytes: p.read_bytes,
+                write_bytes: p.write_bytes,
+            })
             .collect();
 
         snapshots.insert(
@@ -167,16 +158,192 @@ async fn compute_live_snapshots(
                 total_pss,
                 total_uss,
                 oldest_uptime_seconds,
-                top_processes_by_rss,
-                top_processes_by_cpu,
-                top_processes_by_pss,
-                top_processes_by_blkio_read,
-                top_processes_by_blkio_write,
+                all_processes,
             },
         );
     }
 
     snapshots
+}
+
+/// Calculates baseline metrics from ringbuffer history.
+/// 
+/// Returns `Some(BaselineMetrics)` if history is available, or `None` if history is empty.
+/// 
+/// Note: current_process_count is used to approximate historical per-process averages.
+/// This is a limitation since RingbufferEntry doesn't track process counts. If the current
+/// process count is significantly different from the historical average, the per-process
+/// baseline calculations may be less accurate.
+fn calculate_baseline(history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64, current_process_count: usize) -> Option<BaselineMetrics> {
+    if history.is_empty() {
+        return None;
+    }
+
+    let count = history.len();
+    let time_window_minutes = (count as u64 * interval_seconds) / 60;
+
+    // Calculate min/avg/max for RSS
+    let rss_values: Vec<u64> = history.iter().map(|e| e.rss_kb * 1024).collect();
+    let min_rss = *rss_values.iter().min().unwrap_or(&0);
+    let max_rss = *rss_values.iter().max().unwrap_or(&0);
+    let avg_rss = rss_values.iter().sum::<u64>() / count as u64;
+
+    // Calculate min/avg/max for PSS
+    let pss_values: Vec<u64> = history.iter().map(|e| e.pss_kb * 1024).collect();
+    let min_pss = *pss_values.iter().min().unwrap_or(&0);
+    let max_pss = *pss_values.iter().max().unwrap_or(&0);
+    let avg_pss = pss_values.iter().sum::<u64>() / count as u64;
+
+    // Calculate min/avg/max for USS
+    let uss_values: Vec<u64> = history.iter().map(|e| e.uss_kb * 1024).collect();
+    let min_uss = *uss_values.iter().min().unwrap_or(&0);
+    let max_uss = *uss_values.iter().max().unwrap_or(&0);
+    let avg_uss = uss_values.iter().sum::<u64>() / count as u64;
+
+    Some(BaselineMetrics {
+        min_rss,
+        avg_rss,
+        max_rss,
+        min_pss,
+        avg_pss,
+        max_pss,
+        min_uss,
+        avg_uss,
+        max_uss,
+        history_count: count,
+        time_window_minutes,
+        avg_process_count: current_process_count, // Best approximation available
+    })
+}
+
+/// Identifies outlier processes that significantly deviate from baseline.
+/// Uses a threshold defined by MEMORY_OUTLIER_THRESHOLD for any metric.
+fn identify_outliers(
+    snapshot: &SubgroupSnapshot,
+    baseline: &BaselineMetrics,
+) -> Vec<OutlierProcess> {
+    if snapshot.process_count == 0 || baseline.avg_process_count == 0 {
+        return Vec::new();
+    }
+
+    // Calculate per-process averages from baseline
+    // Use avg_process_count from baseline for accurate historical per-process calculation
+    let avg_rss_per_proc = baseline.avg_rss / baseline.avg_process_count.max(1) as u64;
+    let avg_pss_per_proc = baseline.avg_pss / baseline.avg_process_count.max(1) as u64;
+    let avg_uss_per_proc = baseline.avg_uss / baseline.avg_process_count.max(1) as u64;
+
+    let mut outliers = Vec::new();
+
+    for proc in &snapshot.all_processes {
+        // Check if any metric exceeds threshold
+        let rss_ratio = if avg_rss_per_proc > 0 {
+            proc.rss as f64 / avg_rss_per_proc as f64
+        } else {
+            0.0
+        };
+        
+        let pss_ratio = if avg_pss_per_proc > 0 {
+            proc.pss as f64 / avg_pss_per_proc as f64
+        } else {
+            0.0
+        };
+        
+        let uss_ratio = if avg_uss_per_proc > 0 {
+            proc.uss as f64 / avg_uss_per_proc as f64
+        } else {
+            0.0
+        };
+
+        // A process is an outlier if any metric exceeds the threshold
+        if [rss_ratio, pss_ratio, uss_ratio].iter().any(|&r| r > MEMORY_OUTLIER_THRESHOLD) {
+            outliers.push(OutlierProcess {
+                pid: proc.pid,
+                name: proc.name.clone(),
+                uptime_seconds: proc.uptime_seconds,
+                rss: proc.rss,
+                pss: proc.pss,
+                uss: proc.uss,
+                rss_ratio,
+                pss_ratio,
+                uss_ratio,
+                read_bytes: proc.read_bytes,
+                write_bytes: proc.write_bytes,
+                read_ratio: 0.0,
+                write_ratio: 0.0,
+            });
+        }
+    }
+
+    // Sort by highest ratio of any metric
+    outliers.sort_by(|a, b| {
+        let max_a = a.rss_ratio.max(a.pss_ratio).max(a.uss_ratio);
+        let max_b = b.rss_ratio.max(b.pss_ratio).max(b.uss_ratio);
+        max_b.partial_cmp(&max_a).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    outliers
+}
+
+/// Helper function to calculate I/O ratio with special handling for zero average.
+fn calculate_io_ratio(proc_bytes: u64, avg_bytes: u64) -> f64 {
+    if avg_bytes > 0 {
+        proc_bytes as f64 / avg_bytes as f64
+    } else if proc_bytes > 0 {
+        IO_DEFAULT_RATIO // If average is 0 but process has I/O, it's an outlier
+    } else {
+        0.0
+    }
+}
+
+/// Identifies Block I/O outliers (processes with significantly higher I/O than average).
+fn identify_io_outliers(
+    snapshot: &SubgroupSnapshot,
+) -> Vec<OutlierProcess> {
+    if snapshot.process_count == 0 {
+        return Vec::new();
+    }
+
+    // Calculate average I/O per process
+    let total_read: u64 = snapshot.all_processes.iter().map(|p| p.read_bytes).sum();
+    let total_write: u64 = snapshot.all_processes.iter().map(|p| p.write_bytes).sum();
+    
+    let avg_read = total_read / snapshot.process_count as u64;
+    let avg_write = total_write / snapshot.process_count as u64;
+
+    let mut outliers = Vec::new();
+
+    for proc in &snapshot.all_processes {
+        let read_ratio = calculate_io_ratio(proc.read_bytes, avg_read);
+        let write_ratio = calculate_io_ratio(proc.write_bytes, avg_write);
+
+        // Consider as outlier if either read or write is significantly above average
+        if read_ratio > IO_OUTLIER_THRESHOLD || write_ratio > IO_OUTLIER_THRESHOLD {
+            outliers.push(OutlierProcess {
+                pid: proc.pid,
+                name: proc.name.clone(),
+                uptime_seconds: proc.uptime_seconds,
+                rss: proc.rss,
+                pss: proc.pss,
+                uss: proc.uss,
+                rss_ratio: 0.0,
+                pss_ratio: 0.0,
+                uss_ratio: 0.0,
+                read_bytes: proc.read_bytes,
+                write_bytes: proc.write_bytes,
+                read_ratio,  // Store calculated ratio
+                write_ratio, // Store calculated ratio
+            });
+        }
+    }
+
+    // Sort by highest I/O
+    outliers.sort_by(|a, b| {
+        let io_a = a.read_bytes.max(a.write_bytes);
+        let io_b = b.read_bytes.max(b.write_bytes);
+        io_b.cmp(&io_a)
+    });
+
+    outliers
 }
 
 /// Formats bytes as human-readable string (KB, MB, GB).
@@ -211,193 +378,134 @@ fn format_uptime(seconds: f64) -> String {
 }
 
 /// Renders historical ringbuffer data for a subgroup.
-fn render_history(out: &mut String, _subgroup_name: &str, history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) {
-    if history.is_empty() {
-        writeln!(out, "No history available").ok();
-        return;
-    }
-
-    let history_length = history.len();
-    let history_minutes = (history_length as u64 * interval_seconds) / 60;
-
-    // Calculate averages
-    let avg_rss_kb: f64 = history.iter().map(|e| e.rss_kb as f64).sum::<f64>() / history_length as f64;
-    let avg_pss_kb: f64 = history.iter().map(|e| e.pss_kb as f64).sum::<f64>() / history_length as f64;
-    let avg_uss_kb: f64 = history.iter().map(|e| e.uss_kb as f64).sum::<f64>() / history_length as f64;
-
-    let latest_entry = history.last().unwrap();
-    let latest_time = chrono::NaiveDateTime::from_timestamp_opt(latest_entry.timestamp, 0)
-        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-        .unwrap_or_else(|| "Unknown".to_string());
-
-    writeln!(out, "AGGREGATED HISTORY (from ringbuffer):").ok();
-    writeln!(out, "  History length:       {} entries ({} minutes)", history_length, history_minutes).ok();
-    writeln!(out, "  Latest entry:         {}", latest_time).ok();
-    writeln!(out, "  Average RSS:          {}", format_bytes((avg_rss_kb * 1024.0) as u64)).ok();
-    writeln!(out, "  Average PSS:          {}", format_bytes((avg_pss_kb * 1024.0) as u64)).ok();
-    writeln!(out, "  Average USS:          {}", format_bytes((avg_uss_kb * 1024.0) as u64)).ok();
+fn render_baseline(out: &mut String, baseline: &BaselineMetrics) {
+    writeln!(out, "BASELINE CONTEXT (historical normal)").ok();
+    writeln!(out, "=====================================").ok();
+    writeln!(out, "  Time window:       {} minutes ({} entries)", baseline.time_window_minutes, baseline.history_count).ok();
+    writeln!(out).ok();
+    writeln!(out, "  RSS:  min={:<12} avg={:<12} max={}", 
+             format_bytes(baseline.min_rss), 
+             format_bytes(baseline.avg_rss), 
+             format_bytes(baseline.max_rss)).ok();
+    writeln!(out, "  PSS:  min={:<12} avg={:<12} max={}", 
+             format_bytes(baseline.min_pss), 
+             format_bytes(baseline.avg_pss), 
+             format_bytes(baseline.max_pss)).ok();
+    writeln!(out, "  USS:  min={:<12} avg={:<12} max={}", 
+             format_bytes(baseline.min_uss), 
+             format_bytes(baseline.avg_uss), 
+             format_bytes(baseline.max_uss)).ok();
 }
 
-/// Renders live snapshot data for a subgroup.
-fn render_snapshot(out: &mut String, snapshot: &SubgroupSnapshot) {
+/// Renders live snapshot data for a subgroup with comparison to baseline.
+fn render_snapshot(out: &mut String, snapshot: &SubgroupSnapshot, baseline: Option<&BaselineMetrics>) {
     writeln!(out).ok();
-    writeln!(out, "LIVE SNAPSHOT (current):").ok();
-    writeln!(out, "  Process count:        {}", snapshot.process_count).ok();
-    writeln!(out, "  Total RSS:            {}", format_bytes(snapshot.total_rss)).ok();
-    writeln!(out, "  Total PSS:            {}", format_bytes(snapshot.total_pss)).ok();
-    writeln!(out, "  Total USS:            {}", format_bytes(snapshot.total_uss)).ok();
-    writeln!(out, "  Oldest uptime:        {}", format_uptime(snapshot.oldest_uptime_seconds)).ok();
-    // Placeholder for future alert_armed logic - currently always NO
-    writeln!(out, "  Alert armed:          NO").ok();
-
-    writeln!(out).ok();
-    writeln!(out, "TOP PROCESS METRICS:").ok();
-    writeln!(out, "====================").ok();
+    writeln!(out, "LIVE SNAPSHOT (current state)").ok();
+    writeln!(out, "=============================").ok();
+    writeln!(out, "  Process count:     {}", snapshot.process_count).ok();
     
-    // Top-3 by CPU Usage
-    writeln!(out).ok();
-    writeln!(out, "TOP PROCESSES (by CPU):").ok();
-    writeln!(
-        out,
-        "  {:<6} {:<8} {:<16} {:<8} {}",
-        "Rank", "PID", "Name", "CPU%", "CPU Time"
-    )
-    .ok();
-    
-    for (rank, proc) in snapshot.top_processes_by_cpu.iter().enumerate() {
-        writeln!(
-            out,
-            "  {:<6} {:<8} {:<16} {:>6.1}% {:.2}s",
-            rank + 1,
-            proc.pid,
-            if proc.name.len() > 16 {
-                &proc.name[..16]
-            } else {
-                &proc.name
-            },
-            proc.cpu_percent,
-            proc.uptime_seconds
-        )
-        .ok();
+    if let Some(base) = baseline {
+        writeln!(out, "  Total RSS:         {} (baseline avg: {})", 
+                 format_bytes(snapshot.total_rss), 
+                 format_bytes(base.avg_rss)).ok();
+        writeln!(out, "  Total PSS:         {} (baseline avg: {})", 
+                 format_bytes(snapshot.total_pss), 
+                 format_bytes(base.avg_pss)).ok();
+        writeln!(out, "  Total USS:         {} (baseline avg: {})", 
+                 format_bytes(snapshot.total_uss), 
+                 format_bytes(base.avg_uss)).ok();
+    } else {
+        writeln!(out, "  Total RSS:         {}", format_bytes(snapshot.total_rss)).ok();
+        writeln!(out, "  Total PSS:         {}", format_bytes(snapshot.total_pss)).ok();
+        writeln!(out, "  Total USS:         {}", format_bytes(snapshot.total_uss)).ok();
     }
     
-    // Top-3 by Memory (RSS)
-    writeln!(out).ok();
-    writeln!(out, "TOP PROCESSES (by RSS):").ok();
-    writeln!(
-        out,
-        "  {:<6} {:<8} {:<16} {:<12} {}",
-        "Rank", "PID", "Name", "RSS", "Uptime"
-    )
-    .ok();
+    writeln!(out, "  Oldest uptime:     {}", format_uptime(snapshot.oldest_uptime_seconds)).ok();
+}
 
-    for (rank, proc) in snapshot.top_processes_by_rss.iter().enumerate() {
-        writeln!(
-            out,
-            "  {:<6} {:<8} {:<16} {:<12} {}",
-            rank + 1,
-            proc.pid,
-            if proc.name.len() > 16 {
-                &proc.name[..16]
-            } else {
-                &proc.name
-            },
-            format_bytes(proc.rss),
-            format_uptime(proc.uptime_seconds)
-        )
-        .ok();
+/// Renders memory outliers section.
+fn render_memory_outliers(out: &mut String, outliers: &[OutlierProcess], baseline: &BaselineMetrics) {
+    writeln!(out).ok();
+    writeln!(out, "⚠ MEMORY OUTLIERS DETECTED").ok();
+    writeln!(out, "===========================").ok();
+    writeln!(out, "Processes with memory usage significantly above baseline:").ok();
+    writeln!(out).ok();
+
+    // Use baseline's avg_process_count for accurate per-process averages
+    let avg_rss_per_proc = baseline.avg_rss / baseline.avg_process_count.max(1) as u64;
+    let avg_pss_per_proc = baseline.avg_pss / baseline.avg_process_count.max(1) as u64;
+    let avg_uss_per_proc = baseline.avg_uss / baseline.avg_process_count.max(1) as u64;
+
+    for outlier in outliers.iter().take(MAX_OUTLIERS_DISPLAY) {
+        writeln!(out, "  PID {}  |  {}  |  uptime: {}", 
+                 outlier.pid, 
+                 outlier.name,
+                 format_uptime(outlier.uptime_seconds)).ok();
+        
+        if outlier.rss_ratio > MEMORY_OUTLIER_THRESHOLD {
+            writeln!(out, "    RSS: {}  (baseline avg/proc: {}, ratio: {:.1}x)", 
+                     format_bytes(outlier.rss),
+                     format_bytes(avg_rss_per_proc),
+                     outlier.rss_ratio).ok();
+        }
+        
+        if outlier.pss_ratio > MEMORY_OUTLIER_THRESHOLD {
+            writeln!(out, "    PSS: {}  (baseline avg/proc: {}, ratio: {:.1}x)", 
+                     format_bytes(outlier.pss),
+                     format_bytes(avg_pss_per_proc),
+                     outlier.pss_ratio).ok();
+        }
+        
+        if outlier.uss_ratio > MEMORY_OUTLIER_THRESHOLD {
+            writeln!(out, "    USS: {}  (baseline avg/proc: {}, ratio: {:.1}x)", 
+                     format_bytes(outlier.uss),
+                     format_bytes(avg_uss_per_proc),
+                     outlier.uss_ratio).ok();
+        }
+        
+        writeln!(out).ok();
+    }
+}
+
+/// Renders Block I/O outliers section.
+fn render_io_outliers(out: &mut String, io_outliers: &[OutlierProcess], snapshot: &SubgroupSnapshot) {
+    writeln!(out).ok();
+    writeln!(out, "⚠ BLOCK I/O OUTLIERS DETECTED").ok();
+    writeln!(out, "==============================").ok();
+    writeln!(out, "Processes with I/O significantly above group average:").ok();
+    writeln!(out).ok();
+
+    let total_read: u64 = snapshot.all_processes.iter().map(|p| p.read_bytes).sum();
+    let total_write: u64 = snapshot.all_processes.iter().map(|p| p.write_bytes).sum();
+    let avg_read = total_read / snapshot.process_count.max(1) as u64;
+    let avg_write = total_write / snapshot.process_count.max(1) as u64;
+
+    for outlier in io_outliers.iter().take(MAX_OUTLIERS_DISPLAY) {
+        writeln!(out, "  PID {}  |  {}  |  uptime: {}", 
+                 outlier.pid, 
+                 outlier.name,
+                 format_uptime(outlier.uptime_seconds)).ok();
+        
+        if outlier.read_bytes > 0 {
+            // Use the pre-calculated ratio from outlier detection
+            writeln!(out, "    Read:  {}  (group avg: {}, ratio: {:.1}x)", 
+                     format_bytes(outlier.read_bytes),
+                     format_bytes(avg_read),
+                     outlier.read_ratio).ok();
+        }
+        
+        if outlier.write_bytes > 0 {
+            // Use the pre-calculated ratio from outlier detection
+            writeln!(out, "    Write: {}  (group avg: {}, ratio: {:.1}x)", 
+                     format_bytes(outlier.write_bytes),
+                     format_bytes(avg_write),
+                     outlier.write_ratio).ok();
+        }
+        
+        writeln!(out).ok();
     }
     
-    // Top-3 by Memory (PSS)
-    writeln!(out).ok();
-    writeln!(out, "TOP PROCESSES (by PSS):").ok();
-    writeln!(
-        out,
-        "  {:<6} {:<8} {:<16} {:<12} {}",
-        "Rank", "PID", "Name", "PSS", "Uptime"
-    )
-    .ok();
-
-    for (rank, proc) in snapshot.top_processes_by_pss.iter().enumerate() {
-        writeln!(
-            out,
-            "  {:<6} {:<8} {:<16} {:<12} {}",
-            rank + 1,
-            proc.pid,
-            if proc.name.len() > 16 {
-                &proc.name[..16]
-            } else {
-                &proc.name
-            },
-            format_bytes(proc.pss),
-            format_uptime(proc.uptime_seconds)
-        )
-        .ok();
-    }
-    
-    // Top-3 by Block I/O Read
-    writeln!(out).ok();
-    writeln!(out, "TOP PROCESSES (by Block I/O Read):").ok();
-    writeln!(
-        out,
-        "  {:<6} {:<8} {:<16} {}",
-        "Rank", "PID", "Name", "Read Bytes"
-    )
-    .ok();
-
-    for (rank, proc) in snapshot.top_processes_by_blkio_read.iter().enumerate() {
-        writeln!(
-            out,
-            "  {:<6} {:<8} {:<16} {}",
-            rank + 1,
-            proc.pid,
-            if proc.name.len() > 16 {
-                &proc.name[..16]
-            } else {
-                &proc.name
-            },
-            if proc.read_bytes > 0 {
-                format_bytes(proc.read_bytes)
-            } else {
-                "N/A".to_string()
-            }
-        )
-        .ok();
-    }
-    
-    // Top-3 by Block I/O Write
-    writeln!(out).ok();
-    writeln!(out, "TOP PROCESSES (by Block I/O Write):").ok();
-    writeln!(
-        out,
-        "  {:<6} {:<8} {:<16} {}",
-        "Rank", "PID", "Name", "Write Bytes"
-    )
-    .ok();
-
-    for (rank, proc) in snapshot.top_processes_by_blkio_write.iter().enumerate() {
-        writeln!(
-            out,
-            "  {:<6} {:<8} {:<16} {}",
-            rank + 1,
-            proc.pid,
-            if proc.name.len() > 16 {
-                &proc.name[..16]
-            } else {
-                &proc.name
-            },
-            if proc.write_bytes > 0 {
-                format_bytes(proc.write_bytes)
-            } else {
-                "N/A".to_string()
-            }
-        )
-        .ok();
-    }
-    
-    writeln!(out).ok();
     writeln!(out, "Note: Block I/O data from /proc/[pid]/io").ok();
-    writeln!(out, "      Network metrics require eBPF support (see /html/docs)").ok();
 }
 
 /// Handler for the /details endpoint.
@@ -412,7 +520,6 @@ pub async fn details_handler(
     state.health_stats.record_http_request();
 
     let stats = state.ringbuffer_manager.get_stats();
-    let top_n = state.config.details_top_n.unwrap_or(5);
 
     let mut out = String::new();
 
@@ -445,37 +552,88 @@ pub async fn details_handler(
     writeln!(out).ok();
 
     // Compute live snapshots for all subgroups
-    let snapshots = compute_live_snapshots(&state, top_n).await;
+    let snapshots = compute_live_snapshots(&state).await;
 
-    // If subgroup specified, show detailed view
+    // If subgroup specified, show detailed anomaly detection view
     if let Some(subgroup_name) = params.subgroup {
         writeln!(out, "SUBGROUP: {}", subgroup_name).ok();
         writeln!(out, "=====================").ok();
         writeln!(out).ok();
 
-        // Show historical data if available
-        if let Some(history) = state
-            .ringbuffer_manager
-            .get_subgroup_history(&subgroup_name)
-        {
-            render_history(&mut out, &subgroup_name, &history, stats.interval_seconds);
-        } else {
-            writeln!(out, "AGGREGATED HISTORY (from ringbuffer):").ok();
-            writeln!(out, "  No history available").ok();
-        }
+        // Get live snapshot
+        let snapshot_opt = snapshots.get(&subgroup_name);
 
-        // Show live snapshot if available
-        if let Some(snapshot) = snapshots.get(&subgroup_name) {
-            render_snapshot(&mut out, snapshot);
+        // Get historical baseline if available
+        let baseline = if let Some(snapshot) = snapshot_opt {
+            state
+                .ringbuffer_manager
+                .get_subgroup_history(&subgroup_name)
+                .and_then(|history| calculate_baseline(&history, stats.interval_seconds, snapshot.process_count))
         } else {
-            writeln!(out).ok();
-            writeln!(out, "LIVE SNAPSHOT (current):").ok();
-            writeln!(out, "  No processes found").ok();
+            None
+        };
+
+        match (baseline.as_ref(), snapshot_opt) {
+            (Some(base), Some(snapshot)) => {
+                // Full anomaly detection: baseline + snapshot + outliers
+                render_baseline(&mut out, base);
+                render_snapshot(&mut out, snapshot, Some(base));
+
+                // Identify memory outliers
+                let outliers = identify_outliers(snapshot, base);
+                
+                // Identify I/O outliers
+                let io_outliers = identify_io_outliers(snapshot);
+
+                // Only show sections if anomalies exist
+                if !outliers.is_empty() {
+                    render_memory_outliers(&mut out, &outliers, base);
+                }
+
+                if !io_outliers.is_empty() {
+                    render_io_outliers(&mut out, &io_outliers, snapshot);
+                }
+
+                // If no anomalies, say so
+                if outliers.is_empty() && io_outliers.is_empty() {
+                    writeln!(out).ok();
+                    writeln!(out, "✓ NOTHING EXCEPTIONAL TO REPORT").ok();
+                    writeln!(out, "=================================").ok();
+                    writeln!(out, "All processes are operating within normal parameters.").ok();
+                    writeln!(out, "No significant deviations from baseline detected.").ok();
+                }
+            }
+            (None, Some(snapshot)) => {
+                // No baseline available yet, just show snapshot
+                writeln!(out, "No baseline available yet (insufficient history).").ok();
+                render_snapshot(&mut out, snapshot, None);
+                
+                // Check for I/O outliers even without baseline
+                let io_outliers = identify_io_outliers(snapshot);
+                if !io_outliers.is_empty() {
+                    render_io_outliers(&mut out, &io_outliers, snapshot);
+                }
+            }
+            (Some(base), None) => {
+                // Have baseline but no live processes
+                render_baseline(&mut out, base);
+                writeln!(out).ok();
+                writeln!(out, "LIVE SNAPSHOT (current state):").ok();
+                writeln!(out, "  No processes currently running in this subgroup.").ok();
+            }
+            (None, None) => {
+                // No data at all
+                writeln!(out, "No history or live processes found for this subgroup.").ok();
+            }
         }
     } else {
-        // List all subgroups with live snapshots
+        // List all subgroups with summary
         writeln!(out, "AVAILABLE SUBGROUPS").ok();
         writeln!(out, "===================").ok();
+        writeln!(out).ok();
+        writeln!(out, "This endpoint explains exceptional behavior by comparing live").ok();
+        writeln!(out, "processes against historical baselines. Use ?subgroup=<name> to").ok();
+        writeln!(out, "view detailed anomaly detection for a specific subgroup.").ok();
         writeln!(out).ok();
 
         let mut subgroup_names: Vec<String> = snapshots.keys().cloned().collect();
@@ -491,12 +649,10 @@ pub async fn details_handler(
                 writeln!(out, "  Total PSS:        {}", format_bytes(snapshot.total_pss)).ok();
                 writeln!(out, "  Total USS:        {}", format_bytes(snapshot.total_uss)).ok();
                 writeln!(out, "  Oldest uptime:    {}", format_uptime(snapshot.oldest_uptime_seconds)).ok();
-                // Placeholder for future alert_armed logic - currently always NO
-                writeln!(out, "  Alert armed:      NO").ok();
             }
 
             writeln!(out).ok();
-            writeln!(out, "  Use ?subgroup={} to view detailed history and top processes", subgroup_name).ok();
+            writeln!(out, "  Use ?subgroup={} to view anomaly detection details", subgroup_name).ok();
             writeln!(out).ok();
         }
     }
