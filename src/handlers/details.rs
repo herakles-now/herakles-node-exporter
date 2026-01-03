@@ -88,6 +88,8 @@ struct OutlierProcess {
     uss_ratio: f64,
     read_bytes: u64,
     write_bytes: u64,
+    read_ratio: f64,  // For I/O outliers
+    write_ratio: f64, // For I/O outliers
 }
 
 /// Computes live snapshot for all subgroups from the current cache.
@@ -164,6 +166,11 @@ async fn compute_live_snapshots(
 }
 
 /// Calculates baseline metrics from ringbuffer history.
+/// 
+/// Note: current_process_count is used to approximate historical per-process averages.
+/// This is a limitation since RingbufferEntry doesn't track process counts. If the current
+/// process count is significantly different from the historical average, the per-process
+/// baseline calculations may be less accurate.
 fn calculate_baseline(history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64, current_process_count: usize) -> Option<BaselineMetrics> {
     if history.is_empty() {
         return None;
@@ -202,7 +209,7 @@ fn calculate_baseline(history: &[crate::ringbuffer::RingbufferEntry], interval_s
         max_uss,
         history_count: count,
         time_window_minutes,
-        avg_process_count: current_process_count, // Use current count as approximation
+        avg_process_count: current_process_count, // Best approximation available
     })
 }
 
@@ -258,6 +265,8 @@ fn identify_outliers(
                 uss_ratio,
                 read_bytes: proc.read_bytes,
                 write_bytes: proc.write_bytes,
+                read_ratio: 0.0,
+                write_ratio: 0.0,
             });
         }
     }
@@ -320,6 +329,8 @@ fn identify_io_outliers(
                 uss_ratio: 0.0,
                 read_bytes: proc.read_bytes,
                 write_bytes: proc.write_bytes,
+                read_ratio,  // Store calculated ratio
+                write_ratio, // Store calculated ratio
             });
         }
     }
@@ -475,27 +486,19 @@ fn render_io_outliers(out: &mut String, io_outliers: &[OutlierProcess], snapshot
                  format_uptime(outlier.uptime_seconds)).ok();
         
         if outlier.read_bytes > 0 {
-            let read_ratio = if avg_read > 0 {
-                outlier.read_bytes as f64 / avg_read as f64
-            } else {
-                0.0
-            };
+            // Use the pre-calculated ratio from outlier detection
             writeln!(out, "    Read:  {}  (group avg: {}, ratio: {:.1}x)", 
                      format_bytes(outlier.read_bytes),
                      format_bytes(avg_read),
-                     read_ratio).ok();
+                     outlier.read_ratio).ok();
         }
         
         if outlier.write_bytes > 0 {
-            let write_ratio = if avg_write > 0 {
-                outlier.write_bytes as f64 / avg_write as f64
-            } else {
-                0.0
-            };
+            // Use the pre-calculated ratio from outlier detection
             writeln!(out, "    Write: {}  (group avg: {}, ratio: {:.1}x)", 
                      format_bytes(outlier.write_bytes),
                      format_bytes(avg_write),
-                     write_ratio).ok();
+                     outlier.write_ratio).ok();
         }
         
         writeln!(out).ok();
