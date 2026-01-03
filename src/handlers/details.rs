@@ -21,6 +21,11 @@ use crate::handlers::health::FOOTER_TEXT;
 use crate::process::classifier::classify_process_raw;
 use crate::state::SharedState;
 
+// Outlier detection thresholds
+const MEMORY_OUTLIER_THRESHOLD: f64 = 2.5; // Process using > 2.5x per-process average
+const IO_OUTLIER_THRESHOLD: f64 = 3.0;     // Process using > 3x group average I/O
+const IO_DEFAULT_RATIO: f64 = 10.0;        // Default ratio when average is zero but process has I/O
+
 /// Query parameters for the details endpoint.
 #[derive(Deserialize, Debug)]
 pub struct DetailsQuery {
@@ -41,6 +46,7 @@ struct BaselineMetrics {
     max_uss: u64,
     history_count: usize,
     time_window_minutes: u64,
+    avg_process_count: usize, // Average number of processes in the baseline period
 }
 
 /// Live snapshot data for a single subgroup.
@@ -158,7 +164,7 @@ async fn compute_live_snapshots(
 }
 
 /// Calculates baseline metrics from ringbuffer history.
-fn calculate_baseline(history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64) -> Option<BaselineMetrics> {
+fn calculate_baseline(history: &[crate::ringbuffer::RingbufferEntry], interval_seconds: u64, current_process_count: usize) -> Option<BaselineMetrics> {
     if history.is_empty() {
         return None;
     }
@@ -196,25 +202,25 @@ fn calculate_baseline(history: &[crate::ringbuffer::RingbufferEntry], interval_s
         max_uss,
         history_count: count,
         time_window_minutes,
+        avg_process_count: current_process_count, // Use current count as approximation
     })
 }
 
 /// Identifies outlier processes that significantly deviate from baseline.
-/// Uses a threshold of 2.5x the per-process average for any metric.
+/// Uses a threshold defined by MEMORY_OUTLIER_THRESHOLD for any metric.
 fn identify_outliers(
     snapshot: &SubgroupSnapshot,
     baseline: &BaselineMetrics,
 ) -> Vec<OutlierProcess> {
-    if snapshot.process_count == 0 {
+    if snapshot.process_count == 0 || baseline.avg_process_count == 0 {
         return Vec::new();
     }
 
     // Calculate per-process averages from baseline
-    let avg_rss_per_proc = baseline.avg_rss / snapshot.process_count.max(1) as u64;
-    let avg_pss_per_proc = baseline.avg_pss / snapshot.process_count.max(1) as u64;
-    let avg_uss_per_proc = baseline.avg_uss / snapshot.process_count.max(1) as u64;
-
-    let outlier_threshold = 2.5;
+    // Use avg_process_count from baseline for accurate historical per-process calculation
+    let avg_rss_per_proc = baseline.avg_rss / baseline.avg_process_count.max(1) as u64;
+    let avg_pss_per_proc = baseline.avg_pss / baseline.avg_process_count.max(1) as u64;
+    let avg_uss_per_proc = baseline.avg_uss / baseline.avg_process_count.max(1) as u64;
 
     let mut outliers = Vec::new();
 
@@ -239,7 +245,7 @@ fn identify_outliers(
         };
 
         // A process is an outlier if any metric exceeds the threshold
-        if rss_ratio > outlier_threshold || pss_ratio > outlier_threshold || uss_ratio > outlier_threshold {
+        if rss_ratio > MEMORY_OUTLIER_THRESHOLD || pss_ratio > MEMORY_OUTLIER_THRESHOLD || uss_ratio > MEMORY_OUTLIER_THRESHOLD {
             outliers.push(OutlierProcess {
                 pid: proc.pid,
                 name: proc.name.clone(),
@@ -281,15 +287,13 @@ fn identify_io_outliers(
     let avg_read = total_read / snapshot.process_count as u64;
     let avg_write = total_write / snapshot.process_count as u64;
 
-    let io_threshold = 3.0; // Higher threshold for I/O
-
     let mut outliers = Vec::new();
 
     for proc in &snapshot.all_processes {
         let read_ratio = if avg_read > 0 {
             proc.read_bytes as f64 / avg_read as f64
         } else if proc.read_bytes > 0 {
-            10.0 // If average is 0 but process has I/O, it's an outlier
+            IO_DEFAULT_RATIO // If average is 0 but process has I/O, it's an outlier
         } else {
             0.0
         };
@@ -297,13 +301,13 @@ fn identify_io_outliers(
         let write_ratio = if avg_write > 0 {
             proc.write_bytes as f64 / avg_write as f64
         } else if proc.write_bytes > 0 {
-            10.0
+            IO_DEFAULT_RATIO
         } else {
             0.0
         };
 
         // Consider as outlier if either read or write is significantly above average
-        if read_ratio > io_threshold || write_ratio > io_threshold {
+        if read_ratio > IO_OUTLIER_THRESHOLD || write_ratio > IO_OUTLIER_THRESHOLD {
             outliers.push(OutlierProcess {
                 pid: proc.pid,
                 name: proc.name.clone(),
@@ -415,9 +419,10 @@ fn render_memory_outliers(out: &mut String, outliers: &[OutlierProcess], baselin
     writeln!(out, "Processes with memory usage significantly above baseline:").ok();
     writeln!(out).ok();
 
-    let avg_rss_per_proc = baseline.avg_rss / outliers.len().max(1) as u64;
-    let avg_pss_per_proc = baseline.avg_pss / outliers.len().max(1) as u64;
-    let avg_uss_per_proc = baseline.avg_uss / outliers.len().max(1) as u64;
+    // Use baseline's avg_process_count for accurate per-process averages
+    let avg_rss_per_proc = baseline.avg_rss / baseline.avg_process_count.max(1) as u64;
+    let avg_pss_per_proc = baseline.avg_pss / baseline.avg_process_count.max(1) as u64;
+    let avg_uss_per_proc = baseline.avg_uss / baseline.avg_process_count.max(1) as u64;
 
     for outlier in outliers.iter().take(10) {  // Show top 10 outliers max
         writeln!(out, "  PID {}  |  {}  |  uptime: {}", 
@@ -425,21 +430,21 @@ fn render_memory_outliers(out: &mut String, outliers: &[OutlierProcess], baselin
                  outlier.name,
                  format_uptime(outlier.uptime_seconds)).ok();
         
-        if outlier.rss_ratio > 2.5 {
+        if outlier.rss_ratio > MEMORY_OUTLIER_THRESHOLD {
             writeln!(out, "    RSS: {}  (baseline avg/proc: {}, ratio: {:.1}x)", 
                      format_bytes(outlier.rss),
                      format_bytes(avg_rss_per_proc),
                      outlier.rss_ratio).ok();
         }
         
-        if outlier.pss_ratio > 2.5 {
+        if outlier.pss_ratio > MEMORY_OUTLIER_THRESHOLD {
             writeln!(out, "    PSS: {}  (baseline avg/proc: {}, ratio: {:.1}x)", 
                      format_bytes(outlier.pss),
                      format_bytes(avg_pss_per_proc),
                      outlier.pss_ratio).ok();
         }
         
-        if outlier.uss_ratio > 2.5 {
+        if outlier.uss_ratio > MEMORY_OUTLIER_THRESHOLD {
             writeln!(out, "    USS: {}  (baseline avg/proc: {}, ratio: {:.1}x)", 
                      format_bytes(outlier.uss),
                      format_bytes(avg_uss_per_proc),
@@ -551,14 +556,18 @@ pub async fn details_handler(
         writeln!(out, "=====================").ok();
         writeln!(out).ok();
 
-        // Get historical baseline if available
-        let baseline = state
-            .ringbuffer_manager
-            .get_subgroup_history(&subgroup_name)
-            .and_then(|history| calculate_baseline(&history, stats.interval_seconds));
-
         // Get live snapshot
         let snapshot_opt = snapshots.get(&subgroup_name);
+
+        // Get historical baseline if available
+        let baseline = if let Some(snapshot) = snapshot_opt {
+            state
+                .ringbuffer_manager
+                .get_subgroup_history(&subgroup_name)
+                .and_then(|history| calculate_baseline(&history, stats.interval_seconds, snapshot.process_count))
+        } else {
+            None
+        };
 
         match (baseline.as_ref(), snapshot_opt) {
             (Some(base), Some(snapshot)) => {
