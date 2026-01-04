@@ -1031,3 +1031,184 @@ pub async fn details_handler(
         out,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ringbuffer::{RingbufferEntry, TopProcessInfo};
+
+    #[test]
+    fn test_calculate_process_uptime() {
+        let system_uptime = 1000.0;
+        let process_start = 900.0;
+        let uptime = calculate_process_uptime(system_uptime, process_start);
+        assert_eq!(uptime, 100.0);
+    }
+
+    #[test]
+    fn test_classify_temporal_phase() {
+        let history_window = 3600; // 1 hour
+
+        // Newborn: uptime < history_window
+        assert_eq!(
+            classify_temporal_phase(1800.0, history_window),
+            TemporalPhase::Newborn
+        );
+        assert_eq!(
+            classify_temporal_phase(3500.0, history_window),
+            TemporalPhase::Newborn
+        );
+
+        // Live: >= history_window and < 5 minutes (300 seconds) 
+        // This case is tricky: if history_window > 300, there's no Live phase
+        // Let's use a smaller history_window for this test
+        let small_history = 60; // 1 minute
+        assert_eq!(
+            classify_temporal_phase(200.0, small_history),
+            TemporalPhase::Live
+        );
+
+        // Stabilization: 5-60 minutes (300 - 3600 seconds)
+        assert_eq!(
+            classify_temporal_phase(1800.0, small_history),
+            TemporalPhase::Stabilization
+        );
+
+        // Historical: >60 minutes (>3600 seconds)
+        assert_eq!(
+            classify_temporal_phase(7200.0, small_history),
+            TemporalPhase::Historical
+        );
+        assert_eq!(
+            classify_temporal_phase(10000.0, small_history),
+            TemporalPhase::Historical
+        );
+    }
+
+    #[test]
+    fn test_detect_anomaly_severity() {
+        assert_eq!(detect_anomaly_severity(1.0), AnomalySeverity::Normal);
+        assert_eq!(detect_anomaly_severity(1.1), AnomalySeverity::Normal);
+        assert_eq!(detect_anomaly_severity(1.2), AnomalySeverity::Minor);
+        assert_eq!(detect_anomaly_severity(1.3), AnomalySeverity::Minor);
+        assert_eq!(detect_anomaly_severity(1.5), AnomalySeverity::Moderate);
+        assert_eq!(detect_anomaly_severity(1.8), AnomalySeverity::Moderate);
+        assert_eq!(detect_anomaly_severity(2.0), AnomalySeverity::Critical);
+        assert_eq!(detect_anomaly_severity(3.0), AnomalySeverity::Critical);
+    }
+
+    #[test]
+    fn test_format_severity() {
+        assert_eq!(format_severity(AnomalySeverity::Normal), "Normal");
+        assert_eq!(format_severity(AnomalySeverity::Minor), "ℹ️  Minor");
+        assert_eq!(format_severity(AnomalySeverity::Moderate), "⚠️  Moderate");
+        assert_eq!(format_severity(AnomalySeverity::Critical), "🔥 Critical");
+    }
+
+    #[test]
+    fn test_format_bytes() {
+        assert_eq!(format_bytes(512), "512 B");
+        assert_eq!(format_bytes(2048), "2.00 KB");
+        assert_eq!(format_bytes(5 * 1024 * 1024), "5.00 MB");
+        assert_eq!(format_bytes(2 * 1024 * 1024 * 1024), "2.00 GB");
+    }
+
+    #[test]
+    fn test_format_uptime() {
+        assert_eq!(format_uptime(45.0), "45s");
+        assert_eq!(format_uptime(300.0), "5m 0s");
+        assert_eq!(format_uptime(3700.0), "1h 1m");
+        assert_eq!(format_uptime(90000.0), "1d 1h");
+    }
+
+    #[test]
+    fn test_get_5min_rolling_avg() {
+        let mut history = Vec::new();
+        
+        // Create 10 entries spanning 5 minutes (30 second intervals)
+        for i in 0..10 {
+            history.push(RingbufferEntry {
+                timestamp: 1000 + i * 30,
+                rss_kb: 100 + i as u64 * 10,  // Growing RSS
+                pss_kb: 90,
+                uss_kb: 80,
+                cpu_percent: 5.0,
+                cpu_time_seconds: 1.0,
+                top_cpu: [TopProcessInfo::default(); 3],
+                top_rss: [TopProcessInfo::default(); 3],
+                top_pss: [TopProcessInfo::default(); 3],
+                _padding: [],
+            });
+        }
+
+        let avg = get_5min_rolling_avg(&history, 30, |e| e.rss_kb * 1024);
+        assert!(avg.is_some());
+        
+        // Average of entries 0-9: 100, 110, 120, ... 190
+        // Average = (100 + 110 + 120 + 130 + 140 + 150 + 160 + 170 + 180 + 190) / 10 = 145
+        let expected_kb = 145u64;
+        let expected_bytes = expected_kb * 1024;
+        assert_eq!(avg.unwrap(), expected_bytes);
+    }
+
+    #[test]
+    fn test_extract_min_max_avg_with_timestamps() {
+        let mut history = Vec::new();
+        
+        // Create entries with varying RSS
+        let values = vec![100, 150, 90, 200, 120];
+        for (i, val) in values.iter().enumerate() {
+            history.push(RingbufferEntry {
+                timestamp: 1000 + i as i64 * 60,
+                rss_kb: *val,
+                pss_kb: 90,
+                uss_kb: 80,
+                cpu_percent: 5.0,
+                cpu_time_seconds: 1.0,
+                top_cpu: [TopProcessInfo::default(); 3],
+                top_rss: [TopProcessInfo::default(); 3],
+                top_pss: [TopProcessInfo::default(); 3],
+                _padding: [],
+            });
+        }
+
+        let triplet = extract_min_max_avg_with_timestamps(&history, |e| e.rss_kb * 1024);
+        assert!(triplet.is_some());
+        
+        let t = triplet.unwrap();
+        assert_eq!(t.min.value, 90 * 1024);  // Entry 2
+        assert_eq!(t.max.value, 200 * 1024); // Entry 3
+        assert_eq!(t.avg, 132 * 1024);       // (100+150+90+200+120)/5 = 132
+    }
+
+    #[test]
+    fn test_calculate_growth_rate() {
+        let mut history = Vec::new();
+        
+        // Create entries spanning 2 hours with steady growth
+        for i in 0..120 {
+            history.push(RingbufferEntry {
+                timestamp: 1000 + i * 60,  // Every minute
+                rss_kb: 1000 + i as u64 * 10,  // Growing by 10KB/min
+                pss_kb: 90,
+                uss_kb: 80,
+                cpu_percent: 5.0,
+                cpu_time_seconds: 1.0,
+                top_cpu: [TopProcessInfo::default(); 3],
+                top_rss: [TopProcessInfo::default(); 3],
+                top_pss: [TopProcessInfo::default(); 3],
+                _padding: [],
+            });
+        }
+
+        // Current value is at entry 119 (last entry would be 120, so 119 is the most recent)
+        let current_value = (1000 + 119 * 10) * 1024; // in bytes
+        let rate = calculate_growth_rate(current_value, &history, 60, |e| e.rss_kb * 1024);
+        assert!(rate.is_some());
+        
+        // Expected: growth from entry 59 (1590KB) to entry 119 (2190KB) = 600KB over 3600 seconds
+        // = 600*1024 / 3600 bytes/sec ≈ 170.67 bytes/sec
+        let r = rate.unwrap();
+        assert!(r > 160.0 && r < 180.0);  // Roughly 170 bytes/sec
+    }
+}
