@@ -71,6 +71,7 @@ fn test_cpu_percent_averaging_high_values() {
         0.0
     };
     
-    // Average of 95, 98, 100 should be 97.666...
-    assert!((avg_cpu_percent - 97.666666).abs() < 0.001);
+    // Average of 95, 98, 100 should be (95 + 98 + 100) / 3 = 97.666...
+    let expected_avg = (95.0 + 98.0 + 100.0) / 3.0;
+    assert!((avg_cpu_percent - expected_avg).abs() < 0.001);
 }
