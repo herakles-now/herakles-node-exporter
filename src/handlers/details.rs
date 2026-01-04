@@ -230,29 +230,18 @@ fn extract_min_max_avg_with_timestamps(
 
 /// Calculate I/O delta over the last 5 minutes.
 /// Returns (read_delta, write_delta) or None if insufficient history.
+/// 
+/// TODO: This function is currently a stub because RingbufferEntry doesn't store I/O data.
+/// To implement this properly, we would need to extend RingbufferEntry to track I/O metrics
+/// or maintain a separate I/O history tracking structure.
 fn calculate_io_delta_5min(
     _current_read: u64,
     _current_write: u64,
-    history: &[RingbufferEntry],
-    interval_seconds: u64,
+    _history: &[RingbufferEntry],
+    _interval_seconds: u64,
 ) -> Option<(u64, u64)> {
-    if history.is_empty() {
-        return None;
-    }
-    
-    // Calculate how many entries cover 5 minutes
-    let entries_in_5min = (300 / interval_seconds).max(1) as usize;
-    
-    if history.len() < entries_in_5min {
-        return None; // Not enough history
-    }
-    
-    // Get entry from 5 minutes ago
-    let _index_5min_ago = history.len() - entries_in_5min;
-    let _entry_5min_ago = &history[_index_5min_ago];
-    
-    // Note: RingbufferEntry doesn't have I/O data, so we'll need to track this differently
-    // For now, return None as we can't calculate delta from current structure
+    // Note: RingbufferEntry doesn't have I/O data, so we can't calculate delta from current structure
+    // This would require adding I/O tracking to the ringbuffer entries
     None
 }
 
@@ -774,20 +763,12 @@ fn render_stabilization_phase(
             writeln!(out).ok();
         }
         
-        // Show CPU pattern if available
-        writeln!(out, "  CPU:").ok();
-        if let Some(cpu_triplet) = extract_min_max_avg_with_timestamps(history, |e| (e.cpu_percent * 100.0) as u64) {
-            writeln!(out, "    Min:   {:.1}%  (@ {})", 
-                     cpu_triplet.min.value as f32 / 100.0,
-                     format_timestamp(cpu_triplet.min.timestamp)).ok();
-            writeln!(out, "    Max:   {:.1}%  (@ {})", 
-                     cpu_triplet.max.value as f32 / 100.0,
-                     format_timestamp(cpu_triplet.max.timestamp)).ok();
-            writeln!(out, "    Avg:   {:.1}%", cpu_triplet.avg as f32 / 100.0).ok();
-        } else {
+        // Show CPU if available (current value only, no historical triplet)
+        if anomaly.current_cpu > 0.0 {
+            writeln!(out, "  CPU:").ok();
             writeln!(out, "    Current: {:.1}%", anomaly.current_cpu).ok();
+            writeln!(out).ok();
         }
-        writeln!(out).ok();
     }
 }
 
