@@ -165,6 +165,7 @@ struct AggregatedData {
     uss_sum: u64,
     cpu_percent_sum: f64,
     cpu_time_sum: f64,
+    process_count: usize,
 }
 
 /// Helper function to extract top-3 processes from a slice.
@@ -403,6 +404,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             uss_sum: 0,
             cpu_percent_sum: 0.0,
             cpu_time_sum: 0.0,
+            process_count: 0,
         });
 
         agg.rss_sum += p.rss;
@@ -410,6 +412,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         agg.uss_sum += p.uss;
         agg.cpu_percent_sum += p.cpu_percent as f64;
         agg.cpu_time_sum += p.cpu_time_seconds as f64;
+        agg.process_count += 1;
 
         // Store process reference for top-N calculation
         processes_by_subgroup.entry(key).or_insert_with(Vec::new).push(p);
@@ -422,6 +425,13 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     for (key, agg_data) in &aggregated_by_subgroup {
         // Get top-3 processes for this subgroup
         let procs = processes_by_subgroup.get(key).map(|v| v.as_slice()).unwrap_or(&[]);
+        
+        // Calculate average CPU percent
+        let avg_cpu_percent = if agg_data.process_count > 0 {
+            (agg_data.cpu_percent_sum / agg_data.process_count as f64) as f32
+        } else {
+            0.0
+        };
         
         // Calculate top-3 by CPU, RSS, and PSS using helper function
         let top_cpu = extract_top_3(
@@ -447,7 +457,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             rss_kb: agg_data.rss_sum / 1024,
             pss_kb: agg_data.pss_sum / 1024,
             uss_kb: agg_data.uss_sum / 1024,
-            cpu_percent: agg_data.cpu_percent_sum as f32,
+            cpu_percent: avg_cpu_percent,
             cpu_time_seconds: agg_data.cpu_time_sum as f32,
             top_cpu,
             top_rss,
@@ -456,6 +466,11 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         };
 
         state.ringbuffer_manager.record(key, entry);
+        
+        debug!(
+            "Recorded ringbuffer entry for {}: {} processes, RSS={} KB, CPU={:.1}%",
+            key, agg_data.process_count, agg_data.rss_sum / 1024, avg_cpu_percent
+        );
     }
 
     let scanned = results.len() as u64;
