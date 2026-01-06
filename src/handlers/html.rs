@@ -92,6 +92,74 @@ fn html_header(title: &str) -> String {
             margin-top: 0;
             background: white;
         }}
+        
+        /* Sortable process table styling */
+        .sortable-process-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }}
+        
+        .sortable-process-table th {{
+            background: #007bff;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            font-weight: 600;
+        }}
+        
+        .sortable-process-table th:hover {{
+            background: #0056b3;
+        }}
+        
+        .sortable-process-table th.sorted-desc::after {{
+            content: ' ▼';
+            position: absolute;
+            right: 8px;
+        }}
+        
+        .sortable-process-table th.sorted-asc::after {{
+            content: ' ▲';
+            position: absolute;
+            right: 8px;
+        }}
+        
+        .sortable-process-table td {{
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }}
+        
+        .sortable-process-table tr:hover {{
+            background: #f8f9fa;
+        }}
+        
+        .rank {{
+            font-size: 1.2em;
+            text-align: center;
+            width: 40px;
+        }}
+        
+        /* CPU heatmap colors */
+        .cpu-critical {{
+            background: #ff4444 !important;
+            color: white !important;
+            font-weight: bold !important;
+        }}
+        
+        .cpu-high {{
+            background: #ffaa44 !important;
+        }}
+        
+        .cpu-medium {{
+            background: #ffff88 !important;
+        }}
+        
+        .cpu-low {{
+            background: transparent;
+        }}
     </style>
 </head>
 <body>
@@ -132,36 +200,6 @@ fn format_bytes(bytes: u64) -> String {
     } else {
         format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
     }
-}
-
-/// Helper function to render top-N processes table in HTML
-fn render_top_processes_table<F>(
-    html: &mut String,
-    title: &str,
-    processes: &[&ProcMem],
-    value_fn: F,
-    value_header: &str,
-) where
-    F: Fn(&ProcMem) -> String,
-{
-    html.push_str(&format!("<h4>{}</h4>\n", title));
-    html.push_str("<table>\n");
-    html.push_str(&format!(
-        "<tr><th>Rank</th><th>PID</th><th>Name</th><th>{}</th></tr>\n",
-        value_header
-    ));
-
-    for (rank, proc) in processes.iter().take(3).enumerate() {
-        html.push_str(&format!(
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-            rank + 1,
-            proc.pid,
-            proc.name,
-            value_fn(proc)
-        ));
-    }
-
-    html.push_str("</table>\n");
 }
 
 /// Render interactive HTML table for a specific subgroup.
@@ -687,68 +725,197 @@ function collapseAll() {
             ));
             html.push_str("</table>\n");
             
-            // Add Top Process Metrics section (Current)
-            html.push_str("<h3>Top-3 Processes (Current)</h3>\n");
+            // Add sortable table showing ALL processes
+            let current_timestamp = chrono::Utc::now().timestamp();
             
-            let indices: Vec<usize> = (0..subgroup_processes.len()).collect();
+            html.push_str(&format!(
+                "<h3>All Processes ({} total) - Click column to sort</h3>\n",
+                subgroup_processes.len()
+            ));
             
-            // Top-3 by CPU Usage
-            html.push_str("<h4>By CPU Usage</h4>\n");
-            html.push_str("<table>\n");
-            html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU %</th></tr>\n");
+            // Create safe table ID from subgroup_name
+            let table_id = subgroup_name.replace(":", "-");
             
-            let mut indices_cpu = indices.clone();
-            indices_cpu.sort_by(|&a, &b| {
-                subgroup_processes[b].cpu_percent
-                    .partial_cmp(&subgroup_processes[a].cpu_percent)
+            html.push_str(&format!(
+                r#"<table id="table-{}" class="sortable-process-table">"#,
+                table_id
+            ));
+            html.push_str("\n");
+            
+            // Table header
+            html.push_str("<thead>\n<tr>\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'rank')">#</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'pid')">PID</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'name')">Name</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'timestamp')">Timestamp</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'cpu')" class="sorted-desc">CPU%</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'rss')">RSS</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'pss')">PSS</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'uss')">USS</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'blkio')">Block IO</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'netio')">Net IO</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str("</tr>\n</thead>\n");
+            
+            // Table body with all processes
+            html.push_str("<tbody>\n");
+            
+            // Sort by CPU descending (default)
+            let mut sorted_procs = subgroup_processes.clone();
+            sorted_procs.sort_by(|a, b| {
+                b.cpu_percent
+                    .partial_cmp(&a.cpu_percent)
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            for (rank, &idx) in indices_cpu.iter().take(3).enumerate() {
-                let proc = subgroup_processes[idx];
-                html.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{:.2}%</td></tr>\n",
-                    rank + 1,
-                    proc.pid,
-                    proc.name,
-                    proc.cpu_percent
-                ));
-            }
-            html.push_str("</table>\n");
             
-            // Top-3 by RSS
-            html.push_str("<h4>By Memory (RSS)</h4>\n");
-            html.push_str("<table>\n");
-            html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>RSS</th></tr>\n");
-            let mut indices_rss = indices.clone();
-            indices_rss.sort_by(|&a, &b| subgroup_processes[b].rss.cmp(&subgroup_processes[a].rss));
-            for (rank, &idx) in indices_rss.iter().take(3).enumerate() {
-                let proc = subgroup_processes[idx];
+            for proc in sorted_procs {
+                // Determine CPU heatmap class
+                let cpu_class = if proc.cpu_percent > 80.0 {
+                    "cpu-critical"
+                } else if proc.cpu_percent > 50.0 {
+                    "cpu-high"
+                } else if proc.cpu_percent > 20.0 {
+                    "cpu-medium"
+                } else {
+                    "cpu-low"
+                };
+                
+                // Format timestamp as HH:MM:SS
+                let timestamp_str = {
+                    use chrono::{Local, TimeZone};
+                    Local
+                        .timestamp_opt(current_timestamp, 0)
+                        .single()
+                        .map(|dt| dt.format("%H:%M:%S").to_string())
+                        .unwrap_or_else(|| format!("{}", current_timestamp))
+                };
+                
+                // Calculate Block I/O rate (stub - set to 0.0 for now)
+                // NOTE: Proper implementation would require delta calculation between
+                // consecutive scrapes (current_io - previous_io) / time_delta
+                let blkio_mb_s = 0.0;
+                
+                // Get Network I/O rate from eBPF if available
+                let netio_mb_s = if let Some(ref ebpf_manager) = state.ebpf {
+                    if let Ok(net_stats) = ebpf_manager.read_process_net_stats() {
+                        net_stats
+                            .iter()
+                            .find(|s| s.pid == proc.pid)
+                            .map(|s| (s.rx_bytes + s.tx_bytes) as f64 / (1024.0 * 1024.0))
+                            .unwrap_or(0.0)
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                };
+                
+                // Convert to KB for data attributes (to avoid precision issues)
+                let rss_kb = proc.rss / 1024;
+                let pss_kb = proc.pss / 1024;
+                let uss_kb = proc.uss / 1024;
+                
+                // Write table row with data attributes for sorting
                 html.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                    rank + 1,
+                    r#"<tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio="{}" data-netio="{}" data-pid="{}" data-timestamp="{}">"#,
+                    proc.cpu_percent,
+                    rss_kb,
+                    pss_kb,
+                    uss_kb,
+                    blkio_mb_s,
+                    netio_mb_s,
                     proc.pid,
-                    proc.name,
-                    format_bytes(proc.rss)
+                    current_timestamp
                 ));
+                html.push_str("\n");
+                
+                // Rank column (will be populated by JavaScript)
+                html.push_str(r#"  <td class="rank"></td>"#);
+                html.push_str("\n");
+                
+                // PID
+                html.push_str(&format!("  <td>{}</td>\n", proc.pid));
+                
+                // Name
+                html.push_str(&format!("  <td>{}</td>\n", proc.name));
+                
+                // Timestamp
+                html.push_str(&format!("  <td>{}</td>\n", timestamp_str));
+                
+                // CPU with heatmap class
+                html.push_str(&format!(
+                    r#"  <td class="{}">{:.2}%</td>"#,
+                    cpu_class, proc.cpu_percent
+                ));
+                html.push_str("\n");
+                
+                // RSS
+                html.push_str(&format!(
+                    "  <td>{:.2} MB</td>\n",
+                    proc.rss as f64 / (1024.0 * 1024.0)
+                ));
+                
+                // PSS
+                html.push_str(&format!(
+                    "  <td>{:.2} MB</td>\n",
+                    proc.pss as f64 / (1024.0 * 1024.0)
+                ));
+                
+                // USS
+                html.push_str(&format!(
+                    "  <td>{:.2} MB</td>\n",
+                    proc.uss as f64 / (1024.0 * 1024.0)
+                ));
+                
+                // Block IO
+                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", blkio_mb_s));
+                
+                // Net IO
+                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", netio_mb_s));
+                
+                html.push_str("</tr>\n");
             }
-            html.push_str("</table>\n");
             
-            // Top-3 by PSS
-            html.push_str("<h4>By Memory (PSS)</h4>\n");
-            html.push_str("<table>\n");
-            html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>PSS</th></tr>\n");
-            let mut indices_pss = indices;
-            indices_pss.sort_by(|&a, &b| subgroup_processes[b].pss.cmp(&subgroup_processes[a].pss));
-            for (rank, &idx) in indices_pss.iter().take(3).enumerate() {
-                let proc = subgroup_processes[idx];
-                html.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                    rank + 1,
-                    proc.pid,
-                    proc.name,
-                    format_bytes(proc.pss)
-                ));
-            }
+            html.push_str("</tbody>\n");
             html.push_str("</table>\n");
         } else {
             html.push_str("<p><em>No processes currently in this subgroup.</em></p>\n");
@@ -846,6 +1013,122 @@ function collapseAll() {
         html.push_str("</div>\n");
         html.push_str("</details>\n");
     }
+
+    // Add JavaScript for table sorting
+    html.push_str(r#"
+<script>
+// Track sort state per table
+let sortStates = {};
+
+function sortSubgroupTable(subgroupId, column) {
+  const tableId = 'table-' + subgroupId;
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  
+  // Initialize sort state
+  if (!sortStates[subgroupId]) {
+    sortStates[subgroupId] = { column: column, direction: 'desc' };
+  }
+  
+  // Toggle direction if same column
+  if (sortStates[subgroupId].column === column) {
+    sortStates[subgroupId].direction = 
+      sortStates[subgroupId].direction === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortStates[subgroupId].column = column;
+    sortStates[subgroupId].direction = 'desc';
+  }
+  
+  const state = sortStates[subgroupId];
+  
+  // Don't sort rank column
+  if (column === 'rank') {
+    return;
+  }
+  
+  // Sort rows
+  rows.sort((a, b) => {
+    let aVal, bVal;
+    
+    if (column === 'pid') {
+      aVal = parseInt(a.dataset.pid);
+      bVal = parseInt(b.dataset.pid);
+    } else if (column === 'name') {
+      aVal = a.cells[2].textContent;
+      bVal = b.cells[2].textContent;
+    } else if (column === 'timestamp') {
+      aVal = parseInt(a.dataset.timestamp);
+      bVal = parseInt(b.dataset.timestamp);
+    } else {
+      aVal = parseFloat(a.dataset[column] || 0);
+      bVal = parseFloat(b.dataset[column] || 0);
+    }
+    
+    if (typeof aVal === 'string') {
+      return state.direction === 'desc' 
+        ? bVal.localeCompare(aVal) 
+        : aVal.localeCompare(bVal);
+    }
+    
+    return state.direction === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+  
+  // Update DOM
+  rows.forEach(row => tbody.appendChild(row));
+  
+  // Update rank badges
+  updateRankBadges(tableId);
+  
+  // Update header indicators
+  const headers = table.querySelectorAll('th');
+  headers.forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+  });
+  
+  const columnIndex = getColumnIndex(column);
+  if (columnIndex >= 0) {
+    headers[columnIndex].classList.add('sorted-' + state.direction);
+  }
+}
+
+function updateRankBadges(tableId) {
+  const table = document.getElementById(tableId);
+  const rows = table.querySelectorAll('tbody tr');
+  const badges = ['🥇', '🥈', '🥉'];
+  
+  // Clear all badges
+  rows.forEach(row => {
+    row.querySelector('.rank').textContent = '';
+  });
+  
+  // Add badges to top 3
+  for (let i = 0; i < 3 && i < rows.length; i++) {
+    rows[i].querySelector('.rank').textContent = badges[i];
+  }
+}
+
+function getColumnIndex(column) {
+  const map = {
+    'rank': 0, 'pid': 1, 'name': 2, 'timestamp': 3,
+    'cpu': 4, 'rss': 5, 'pss': 6, 'uss': 7,
+    'blkio': 8, 'netio': 9
+  };
+  return map[column] || -1;
+}
+
+// Initialize: sort all tables by CPU on page load and add badges
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.sortable-process-table').forEach(table => {
+    const subgroupId = table.id.replace('table-', '');
+    // Initialize rank badges for default CPU sort
+    updateRankBadges(table.id);
+  });
+});
+</script>
+"#);
 
     html.push_str(&html_footer());
     Html(html)
