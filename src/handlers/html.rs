@@ -171,13 +171,22 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
     let cache = state.cache.read().await;
     let current_timestamp = chrono::Utc::now().timestamp();
     
+    // Parse subgroup_name once (format: "group:subgroup")
+    let subgroup_parts: Vec<&str> = subgroup_name.split(':').collect();
+    if subgroup_parts.len() != 2 {
+        return Html(format!(
+            r#"<!DOCTYPE html><html><body><h1>Error</h1><p>Invalid subgroup format. Expected "group:subgroup"</p></body></html>"#
+        ));
+    }
+    let expected_group = subgroup_parts[0];
+    let expected_subgroup = subgroup_parts[1];
+    
     // Collect all processes for the subgroup
     let mut processes: Vec<&ProcMem> = Vec::new();
     for proc in cache.processes.values() {
         let (group, subgroup) = classify_process_raw(&proc.name);
-        let key = format!("{}:{}", group, subgroup);
         
-        if key == subgroup_name {
+        if group.as_ref() == expected_group && subgroup.as_ref() == expected_subgroup {
             processes.push(proc);
         }
     }
@@ -337,16 +346,20 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
         let timestamp_str = Local.timestamp_opt(current_timestamp, 0)
             .single()
             .map(|dt| dt.format("%H:%M:%S").to_string())
-            .unwrap_or_else(|| format!("@{}", current_timestamp));
+            .unwrap_or_else(|| {
+                // Timestamp conversion failed - use Unix timestamp as fallback
+                format!("{}", current_timestamp)
+            });
         
         let rss_mb = proc.rss as f64 / (1024.0 * 1024.0);
         let pss_mb = proc.pss as f64 / (1024.0 * 1024.0);
         let uss_mb = proc.uss as f64 / (1024.0 * 1024.0);
         
         // Calculate Block I/O rate (bytes per second)
-        // For now, we'll use a simple approximation based on total read/write bytes
-        // In a real implementation, we would calculate delta from previous scrape
-        let blkio_mb_s = 0.0; // Placeholder - would need historical data
+        // NOTE: Set to 0.0 as proper implementation requires delta calculation between
+        // consecutive scrapes (current_io - previous_io) / time_delta. This would need
+        // historical tracking in the cache or ringbuffer to calculate the rate accurately.
+        let blkio_mb_s = 0.0;
         
         // Get Network I/O rate from eBPF if available
         let netio_mb_s = if let Some(ref ebpf_manager) = state.ebpf {
