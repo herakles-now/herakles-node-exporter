@@ -19,6 +19,11 @@ use crate::state::SharedState;
 /// CPU percentage scaling factor (must match the constant in main.rs).
 const CPU_SCALE_FACTOR: f32 = 1000.0;
 
+/// CPU heatmap thresholds
+const CPU_CRITICAL_THRESHOLD: f32 = 80.0;
+const CPU_HIGH_THRESHOLD: f32 = 50.0;
+const CPU_MEDIUM_THRESHOLD: f32 = 20.0;
+
 /// Query parameters for HTML details endpoint.
 #[derive(Deserialize, Debug)]
 pub struct HtmlDetailsQuery {
@@ -807,13 +812,27 @@ function collapseAll() {
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
             
+            // Fetch network stats once for all processes (if eBPF is available)
+            let net_stats_map: std::collections::HashMap<u32, f64> = if let Some(ref ebpf_manager) = state.ebpf {
+                if let Ok(net_stats) = ebpf_manager.read_process_net_stats() {
+                    net_stats
+                        .iter()
+                        .map(|s| (s.pid, (s.rx_bytes + s.tx_bytes) as f64 / (1024.0 * 1024.0)))
+                        .collect()
+                } else {
+                    std::collections::HashMap::new()
+                }
+            } else {
+                std::collections::HashMap::new()
+            };
+            
             for proc in sorted_procs {
                 // Determine CPU heatmap class
-                let cpu_class = if proc.cpu_percent > 80.0 {
+                let cpu_class = if proc.cpu_percent > CPU_CRITICAL_THRESHOLD {
                     "cpu-critical"
-                } else if proc.cpu_percent > 50.0 {
+                } else if proc.cpu_percent > CPU_HIGH_THRESHOLD {
                     "cpu-high"
-                } else if proc.cpu_percent > 20.0 {
+                } else if proc.cpu_percent > CPU_MEDIUM_THRESHOLD {
                     "cpu-medium"
                 } else {
                     "cpu-low"
@@ -834,20 +853,8 @@ function collapseAll() {
                 // consecutive scrapes (current_io - previous_io) / time_delta
                 let blkio_mb_s = 0.0;
                 
-                // Get Network I/O rate from eBPF if available
-                let netio_mb_s = if let Some(ref ebpf_manager) = state.ebpf {
-                    if let Ok(net_stats) = ebpf_manager.read_process_net_stats() {
-                        net_stats
-                            .iter()
-                            .find(|s| s.pid == proc.pid)
-                            .map(|s| (s.rx_bytes + s.tx_bytes) as f64 / (1024.0 * 1024.0))
-                            .unwrap_or(0.0)
-                    } else {
-                        0.0
-                    }
-                } else {
-                    0.0
-                };
+                // Get Network I/O rate from pre-fetched map
+                let netio_mb_s = net_stats_map.get(&proc.pid).copied().unwrap_or(0.0);
                 
                 // Convert to KB for data attributes (to avoid precision issues)
                 let rss_kb = proc.rss / 1024;
@@ -856,7 +863,7 @@ function collapseAll() {
                 
                 // Write table row with data attributes for sorting
                 html.push_str(&format!(
-                    r#"<tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio="{}" data-netio="{}" data-pid="{}" data-timestamp="{}">"#,
+                    r#"<tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio="{}" data-netio="{}" data-pid="{}" data-timestamp="{}" data-name="{}">"#,
                     proc.cpu_percent,
                     rss_kb,
                     pss_kb,
@@ -864,7 +871,8 @@ function collapseAll() {
                     blkio_mb_s,
                     netio_mb_s,
                     proc.pid,
-                    current_timestamp
+                    current_timestamp,
+                    proc.name
                 ));
                 html.push_str("\n");
                 
@@ -1057,8 +1065,8 @@ function sortSubgroupTable(subgroupId, column) {
       aVal = parseInt(a.dataset.pid);
       bVal = parseInt(b.dataset.pid);
     } else if (column === 'name') {
-      aVal = a.cells[2].textContent;
-      bVal = b.cells[2].textContent;
+      aVal = a.dataset.name;
+      bVal = b.dataset.name;
     } else if (column === 'timestamp') {
       aVal = parseInt(a.dataset.timestamp);
       bVal = parseInt(b.dataset.timestamp);
