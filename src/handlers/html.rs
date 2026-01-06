@@ -54,10 +54,10 @@ fn calculate_io_rates(proc: &ProcMem, current_time: f64) -> IoRates {
     let tx_delta = proc.tx_bytes.saturating_sub(proc.last_tx_bytes);
     
     // Calculate rates (bytes per second)
-    let read_rate = (read_delta as f64 / time_delta).max(0.0);
-    let write_rate = (write_delta as f64 / time_delta).max(0.0);
-    let rx_rate = (rx_delta as f64 / time_delta).max(0.0);
-    let tx_rate = (tx_delta as f64 / time_delta).max(0.0);
+    let read_rate = read_delta as f64 / time_delta;
+    let write_rate = write_delta as f64 / time_delta;
+    let rx_rate = rx_delta as f64 / time_delta;
+    let tx_rate = tx_delta as f64 / time_delta;
     
     IoRates {
         read_bytes_per_sec: read_rate,

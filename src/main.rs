@@ -330,9 +330,11 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                         // Get previous I/O values from cache (if exists)
                         let (last_read_bytes, last_write_bytes, last_rx_bytes, last_tx_bytes, last_update_time) = 
                             if let Some(prev) = previous_cache.get(&entry.pid) {
+                                // Use previous values as baseline for rate calculation
                                 (prev.read_bytes, prev.write_bytes, prev.rx_bytes, prev.tx_bytes, prev.last_update_time)
                             } else {
                                 // First time seeing this process - use current values as baseline
+                                // This means the first rate calculation will show 0 (expected)
                                 (read_bytes, write_bytes, 0, 0, current_time)
                             };
 
