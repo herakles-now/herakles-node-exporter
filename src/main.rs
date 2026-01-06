@@ -201,6 +201,9 @@ where
 async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     info!("Starting cache update");
+    
+    // Get current timestamp for rate calculations
+    let current_time = chrono::Utc::now().timestamp() as f64;
 
     // Mark cache as updating
     {
@@ -216,6 +219,12 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     use std::sync::atomic::AtomicUsize;
     let included_count = AtomicUsize::new(0);
     let skipped_count = AtomicUsize::new(0);
+    
+    // Clone previous cache for delta calculation (before collecting new processes)
+    let previous_cache = {
+        let cache = state.cache.read().await;
+        cache.processes.clone()
+    };
 
     let results: Vec<ProcMem> = if let Some(test_file) = &state.config.test_data_file {
         info!("Using test data from file: {}", test_file.display());
@@ -317,6 +326,15 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
 
                         // Read Block I/O from /proc/[pid]/io
                         let (read_bytes, write_bytes) = read_block_io(&entry.proc_path).unwrap_or((0, 0));
+                        
+                        // Get previous I/O values from cache (if exists)
+                        let (last_read_bytes, last_write_bytes, last_rx_bytes, last_tx_bytes, last_update_time) = 
+                            if let Some(prev) = previous_cache.get(&entry.pid) {
+                                (prev.read_bytes, prev.write_bytes, prev.rx_bytes, prev.tx_bytes, prev.last_update_time)
+                            } else {
+                                // First time seeing this process - use current values as baseline
+                                (read_bytes, write_bytes, 0, 0, current_time)
+                            };
 
                         debug!(
                             "Including process {}: {} (RSS: {} MB, PSS: {} MB, USS: {} MB, CPU: {:.6}%)",
@@ -341,6 +359,13 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                             start_time_seconds,
                             read_bytes,
                             write_bytes,
+                            rx_bytes: 0,  // Will be filled by eBPF if available
+                            tx_bytes: 0,  // Will be filled by eBPF if available
+                            last_read_bytes,
+                            last_write_bytes,
+                            last_rx_bytes,
+                            last_tx_bytes,
+                            last_update_time,
                         })
                     }
                     Err(e) => {
@@ -369,6 +394,46 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
 
     if results.is_empty() {
         warn!("No processes matched filters after sorting");
+    }
+    
+    // Convert results to mutable vector for eBPF network stats update
+    let mut results = results;
+    
+    // Update network I/O from eBPF if available
+    if let Some(ref ebpf_manager) = state.ebpf {
+        match ebpf_manager.read_process_net_stats() {
+            Ok(net_stats) => {
+                debug!("Read {} network stats from eBPF", net_stats.len());
+                for stat in net_stats {
+                    if let Some(proc) = results.iter_mut().find(|p| p.pid == stat.pid) {
+                        // Get previous network I/O from cache
+                        let (last_rx, last_tx, last_time) = if let Some(prev) = previous_cache.get(&stat.pid) {
+                            (prev.rx_bytes, prev.tx_bytes, prev.last_update_time)
+                        } else {
+                            // First time seeing network stats for this process
+                            (stat.rx_bytes, stat.tx_bytes, current_time)
+                        };
+                        
+                        proc.rx_bytes = stat.rx_bytes;
+                        proc.tx_bytes = stat.tx_bytes;
+                        proc.last_rx_bytes = last_rx;
+                        proc.last_tx_bytes = last_tx;
+                        // Update last_update_time to current time for rate calculation
+                        proc.last_update_time = current_time;
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to read eBPF network stats: {}", e);
+            }
+        }
+    } else {
+        // No eBPF available - update timestamps for processes that had previous data
+        for proc in results.iter_mut() {
+            if previous_cache.contains_key(&proc.pid) {
+                proc.last_update_time = current_time;
+            }
+        }
     }
 
     // Update cache with new data
