@@ -51,6 +51,13 @@ impl From<TestProcess> for ProcMem {
             start_time_seconds: 0.0, // Test data doesn't have start_time, default to 0
             read_bytes: 0,           // Test data doesn't have block I/O, default to 0
             write_bytes: 0,          // Test data doesn't have block I/O, default to 0
+            rx_bytes: 0,             // Test data doesn't have network I/O, default to 0
+            tx_bytes: 0,             // Test data doesn't have network I/O, default to 0
+            last_read_bytes: 0,      // No previous data for test
+            last_write_bytes: 0,     // No previous data for test
+            last_rx_bytes: 0,        // No previous data for test
+            last_tx_bytes: 0,        // No previous data for test
+            last_update_time: 0.0,   // No previous timestamp for test
         }
     }
 }

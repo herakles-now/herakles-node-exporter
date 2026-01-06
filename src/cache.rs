@@ -21,6 +21,16 @@ pub struct ProcMem {
     // Block I/O metrics from /proc/[pid]/io
     pub read_bytes: u64,  // Total bytes read from storage
     pub write_bytes: u64, // Total bytes written to storage
+    // Network I/O metrics from eBPF (if available)
+    pub rx_bytes: u64,    // Total bytes received from network
+    pub tx_bytes: u64,    // Total bytes transmitted to network
+    // Previous I/O values for delta calculation
+    pub last_read_bytes: u64,
+    pub last_write_bytes: u64,
+    pub last_rx_bytes: u64,
+    pub last_tx_bytes: u64,
+    // Timestamp of last update for rate calculation
+    pub last_update_time: f64, // Unix timestamp (seconds)
 }
 
 /// Cache state for storing process metrics with update timing information.

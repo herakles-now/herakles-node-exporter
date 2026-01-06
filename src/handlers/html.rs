@@ -24,6 +24,49 @@ const CPU_CRITICAL_THRESHOLD: f32 = 80.0;
 const CPU_HIGH_THRESHOLD: f32 = 50.0;
 const CPU_MEDIUM_THRESHOLD: f32 = 20.0;
 
+/// I/O rates calculated from process deltas.
+#[derive(Debug, Clone, Copy)]
+struct IoRates {
+    read_bytes_per_sec: f64,
+    write_bytes_per_sec: f64,
+    rx_bytes_per_sec: f64,
+    tx_bytes_per_sec: f64,
+}
+
+/// Calculate I/O rates from process metrics.
+fn calculate_io_rates(proc: &ProcMem, current_time: f64) -> IoRates {
+    let time_delta = current_time - proc.last_update_time;
+    
+    // Handle edge cases: no previous data or invalid time delta
+    if time_delta <= 0.0 || proc.last_update_time == 0.0 {
+        return IoRates {
+            read_bytes_per_sec: 0.0,
+            write_bytes_per_sec: 0.0,
+            rx_bytes_per_sec: 0.0,
+            tx_bytes_per_sec: 0.0,
+        };
+    }
+    
+    // Calculate deltas (handle counter wraps with saturating_sub)
+    let read_delta = proc.read_bytes.saturating_sub(proc.last_read_bytes);
+    let write_delta = proc.write_bytes.saturating_sub(proc.last_write_bytes);
+    let rx_delta = proc.rx_bytes.saturating_sub(proc.last_rx_bytes);
+    let tx_delta = proc.tx_bytes.saturating_sub(proc.last_tx_bytes);
+    
+    // Calculate rates (bytes per second)
+    let read_rate = read_delta as f64 / time_delta;
+    let write_rate = write_delta as f64 / time_delta;
+    let rx_rate = rx_delta as f64 / time_delta;
+    let tx_rate = tx_delta as f64 / time_delta;
+    
+    IoRates {
+        read_bytes_per_sec: read_rate,
+        write_bytes_per_sec: write_rate,
+        rx_bytes_per_sec: rx_rate,
+        tx_bytes_per_sec: tx_rate,
+    }
+}
+
 /// Query parameters for HTML details endpoint.
 #[derive(Deserialize, Debug)]
 pub struct HtmlDetailsQuery {
@@ -790,12 +833,22 @@ function collapseAll() {
             ));
             html.push_str("\n");
             html.push_str(&format!(
-                r#"  <th onclick="sortSubgroupTable('{}', 'blkio')">Block IO</th>"#,
+                r#"  <th onclick="sortSubgroupTable('{}', 'blkio-read')">Blk Read</th>"#,
                 table_id
             ));
             html.push_str("\n");
             html.push_str(&format!(
-                r#"  <th onclick="sortSubgroupTable('{}', 'netio')">Net IO</th>"#,
+                r#"  <th onclick="sortSubgroupTable('{}', 'blkio-write')">Blk Write</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'net-rx')">Net RX</th>"#,
+                table_id
+            ));
+            html.push_str("\n");
+            html.push_str(&format!(
+                r#"  <th onclick="sortSubgroupTable('{}', 'net-tx')">Net TX</th>"#,
                 table_id
             ));
             html.push_str("\n");
@@ -812,19 +865,8 @@ function collapseAll() {
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
             
-            // Fetch network stats once for all processes (if eBPF is available)
-            let net_stats_map: std::collections::HashMap<u32, f64> = if let Some(ref ebpf_manager) = state.ebpf {
-                if let Ok(net_stats) = ebpf_manager.read_process_net_stats() {
-                    net_stats
-                        .iter()
-                        .map(|s| (s.pid, (s.rx_bytes + s.tx_bytes) as f64 / (1024.0 * 1024.0)))
-                        .collect()
-                } else {
-                    std::collections::HashMap::new()
-                }
-            } else {
-                std::collections::HashMap::new()
-            };
+            // Get current time for rate calculations
+            let current_time = chrono::Utc::now().timestamp() as f64;
             
             for proc in sorted_procs {
                 // Determine CPU heatmap class
@@ -848,28 +890,31 @@ function collapseAll() {
                         .unwrap_or_else(|| format!("{}", current_timestamp))
                 };
                 
-                // Calculate Block I/O rate (stub - set to 0.0 for now)
-                // NOTE: Proper implementation would require delta calculation between
-                // consecutive scrapes (current_io - previous_io) / time_delta
-                let blkio_mb_s = 0.0;
-                
-                // Get Network I/O rate from pre-fetched map
-                let netio_mb_s = net_stats_map.get(&proc.pid).copied().unwrap_or(0.0);
+                // Calculate I/O rates using the helper function
+                let rates = calculate_io_rates(proc, current_time);
                 
                 // Convert to KB for data attributes (to avoid precision issues)
                 let rss_kb = proc.rss / 1024;
                 let pss_kb = proc.pss / 1024;
                 let uss_kb = proc.uss / 1024;
                 
+                // Convert rates to KB/s for data attributes
+                let blkio_read_kb_s = (rates.read_bytes_per_sec / 1024.0) as u64;
+                let blkio_write_kb_s = (rates.write_bytes_per_sec / 1024.0) as u64;
+                let net_rx_kb_s = (rates.rx_bytes_per_sec / 1024.0) as u64;
+                let net_tx_kb_s = (rates.tx_bytes_per_sec / 1024.0) as u64;
+                
                 // Write table row with data attributes for sorting
                 html.push_str(&format!(
-                    r#"<tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio="{}" data-netio="{}" data-pid="{}" data-timestamp="{}" data-name="{}">"#,
+                    r#"<tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio-read="{}" data-blkio-write="{}" data-net-rx="{}" data-net-tx="{}" data-pid="{}" data-timestamp="{}" data-name="{}">"#,
                     proc.cpu_percent,
                     rss_kb,
                     pss_kb,
                     uss_kb,
-                    blkio_mb_s,
-                    netio_mb_s,
+                    blkio_read_kb_s,
+                    blkio_write_kb_s,
+                    net_rx_kb_s,
+                    net_tx_kb_s,
                     proc.pid,
                     current_timestamp,
                     proc.name
@@ -914,11 +959,17 @@ function collapseAll() {
                     proc.uss as f64 / (1024.0 * 1024.0)
                 ));
                 
-                // Block IO
-                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", blkio_mb_s));
+                // Block Read
+                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.read_bytes_per_sec / (1024.0 * 1024.0)));
                 
-                // Net IO
-                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", netio_mb_s));
+                // Block Write
+                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.write_bytes_per_sec / (1024.0 * 1024.0)));
+                
+                // Net RX
+                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.rx_bytes_per_sec / (1024.0 * 1024.0)));
+                
+                // Net TX
+                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.tx_bytes_per_sec / (1024.0 * 1024.0)));
                 
                 html.push_str("</tr>\n");
             }
@@ -1071,8 +1122,11 @@ function sortSubgroupTable(subgroupId, column) {
       aVal = parseInt(a.dataset.timestamp);
       bVal = parseInt(b.dataset.timestamp);
     } else {
-      aVal = parseFloat(a.dataset[column] || 0);
-      bVal = parseFloat(b.dataset[column] || 0);
+      // Convert hyphenated column names to camelCase for dataset access
+      // e.g., 'blkio-read' -> 'blkioRead'
+      const datasetKey = column.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      aVal = parseFloat(a.dataset[datasetKey] || 0);
+      bVal = parseFloat(b.dataset[datasetKey] || 0);
     }
     
     if (typeof aVal === 'string') {
@@ -1122,7 +1176,7 @@ function getColumnIndex(column) {
   const map = {
     'rank': 0, 'pid': 1, 'name': 2, 'timestamp': 3,
     'cpu': 4, 'rss': 5, 'pss': 6, 'uss': 7,
-    'blkio': 8, 'netio': 9
+    'blkio-read': 8, 'blkio-write': 9, 'net-rx': 10, 'net-tx': 11
   };
   return map[column] || -1;
 }
