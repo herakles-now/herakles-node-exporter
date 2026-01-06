@@ -5,8 +5,7 @@
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse},
 };
 use serde::Deserialize;
 use std::sync::atomic::Ordering;
@@ -165,6 +164,317 @@ fn render_top_processes_table<F>(
     html.push_str("</table>\n");
 }
 
+/// Render interactive HTML table for a specific subgroup.
+async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Html<String> {
+    use chrono::{Local, TimeZone};
+    
+    let cache = state.cache.read().await;
+    let current_timestamp = chrono::Utc::now().timestamp();
+    
+    // Collect all processes for the subgroup
+    let mut processes: Vec<&ProcMem> = Vec::new();
+    for proc in cache.processes.values() {
+        let (group, subgroup) = classify_process_raw(&proc.name);
+        let key = format!("{}:{}", group, subgroup);
+        
+        if key == subgroup_name {
+            processes.push(proc);
+        }
+    }
+    
+    // Sort by CPU descending (default)
+    processes.sort_by(|a, b| {
+        b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    
+    // Generate HTML
+    let mut html = String::new();
+    
+    html.push_str(&format!(r#"<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Details: {}</title>
+  <style>
+    body {{
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 0;
+    }}
+    .container {{
+      max-width: 1600px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }}
+    h1 {{
+      color: #333;
+      border-bottom: 3px solid #007bff;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }}
+    .auto-refresh {{
+      float: right;
+      font-size: 0.9em;
+      color: #666;
+      font-weight: normal;
+    }}
+    #searchBox {{
+      width: 300px;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }}
+    #processTable {{
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }}
+    #processTable th {{
+      background: #007bff;
+      color: white;
+      padding: 12px;
+      text-align: left;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      font-weight: 600;
+    }}
+    #processTable th:hover {{
+      background: #0056b3;
+    }}
+    #processTable th.sorted-desc::after {{
+      content: ' ▼';
+      position: absolute;
+      right: 8px;
+    }}
+    #processTable th.sorted-asc::after {{
+      content: ' ▲';
+      position: absolute;
+      right: 8px;
+    }}
+    #processTable td {{
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }}
+    #processTable tr:hover {{
+      background: #f8f9fa;
+    }}
+    .cpu-critical {{
+      background: #ff4444 !important;
+      color: white !important;
+      font-weight: bold !important;
+    }}
+    .cpu-high {{
+      background: #ffaa44 !important;
+    }}
+    .cpu-medium {{
+      background: #ffff88 !important;
+    }}
+    .rank {{
+      font-size: 1.2em;
+      text-align: center;
+      width: 50px;
+    }}
+    .back-link {{
+      display: inline-block;
+      margin-bottom: 15px;
+      color: #007bff;
+      text-decoration: none;
+    }}
+    .back-link:hover {{
+      text-decoration: underline;
+    }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/html/details" class="back-link">← Back to All Subgroups</a>
+    
+    <h1>
+      SUBGROUP: {}
+      <span class="auto-refresh">Auto-refresh: 30s</span>
+    </h1>
+    
+    <input type="text" id="searchBox" placeholder="Filter by name or PID...">
+    
+    <table id="processTable">
+      <thead>
+        <tr>
+          <th data-column="rank">#</th>
+          <th data-column="pid" onclick="sortTable('pid')">PID</th>
+          <th data-column="name" onclick="sortTable('name')">Name</th>
+          <th data-column="timestamp" onclick="sortTable('timestamp')">Timestamp</th>
+          <th data-column="cpu" onclick="sortTable('cpu')" class="sorted-desc">CPU%</th>
+          <th data-column="rss" onclick="sortTable('rss')">RSS</th>
+          <th data-column="pss" onclick="sortTable('pss')">PSS</th>
+          <th data-column="uss" onclick="sortTable('uss')">USS</th>
+          <th data-column="blkio" onclick="sortTable('blkio')">Block IO</th>
+          <th data-column="netio" onclick="sortTable('netio')">Net IO</th>
+        </tr>
+      </thead>
+      <tbody>
+"#, subgroup_name, subgroup_name));
+    
+    // Add process rows
+    for proc in processes {
+        let cpu_class = if proc.cpu_percent > 80.0 {
+            "cpu-critical"
+        } else if proc.cpu_percent > 50.0 {
+            "cpu-high"
+        } else if proc.cpu_percent > 20.0 {
+            "cpu-medium"
+        } else {
+            ""
+        };
+        
+        let timestamp_str = Local.timestamp_opt(current_timestamp, 0)
+            .single()
+            .map(|dt| dt.format("%H:%M:%S").to_string())
+            .unwrap_or_else(|| format!("@{}", current_timestamp));
+        
+        let rss_mb = proc.rss as f64 / (1024.0 * 1024.0);
+        let pss_mb = proc.pss as f64 / (1024.0 * 1024.0);
+        let uss_mb = proc.uss as f64 / (1024.0 * 1024.0);
+        
+        // Calculate Block I/O rate (bytes per second)
+        // For now, we'll use a simple approximation based on total read/write bytes
+        // In a real implementation, we would calculate delta from previous scrape
+        let blkio_mb_s = 0.0; // Placeholder - would need historical data
+        
+        // Get Network I/O rate from eBPF if available
+        let netio_mb_s = if let Some(ref ebpf_manager) = state.ebpf {
+            if let Ok(net_stats) = ebpf_manager.read_process_net_stats() {
+                net_stats.iter()
+                    .find(|s| s.pid == proc.pid)
+                    .map(|s| (s.rx_bytes + s.tx_bytes) as f64 / (1024.0 * 1024.0))
+                    .unwrap_or(0.0)
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+        
+        html.push_str(&format!(r#"
+        <tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio="{}" data-netio="{}" data-pid="{}" data-timestamp="{}">
+          <td class="rank"></td>
+          <td>{}</td>
+          <td>{}</td>
+          <td>{}</td>
+          <td class="{}">{:.1}%</td>
+          <td>{:.1} MB</td>
+          <td>{:.1} MB</td>
+          <td>{:.1} MB</td>
+          <td>{:.2} MB/s</td>
+          <td>{:.2} MB/s</td>
+        </tr>
+"#, 
+            proc.cpu_percent, rss_mb, pss_mb, uss_mb, blkio_mb_s, netio_mb_s, proc.pid, current_timestamp,
+            proc.pid, proc.name, timestamp_str, cpu_class, proc.cpu_percent,
+            rss_mb, pss_mb, uss_mb, blkio_mb_s, netio_mb_s
+        ));
+    }
+    
+    html.push_str(r#"
+      </tbody>
+    </table>
+  </div>
+  
+  <script>
+    let sortConfig = { column: 'cpu', direction: 'desc' };
+    
+    function sortTable(column) {
+      const table = document.getElementById('processTable');
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      
+      if (sortConfig.column === column) {
+        sortConfig.direction = sortConfig.direction === 'desc' ? 'asc' : 'desc';
+      } else {
+        sortConfig.column = column;
+        sortConfig.direction = 'desc';
+      }
+      
+      rows.sort((a, b) => {
+        let aVal, bVal;
+        
+        if (column === 'rank') {
+          return 0; // Don't sort rank column
+        } else if (column === 'pid') {
+          aVal = parseInt(a.dataset.pid);
+          bVal = parseInt(b.dataset.pid);
+        } else if (column === 'name') {
+          aVal = a.cells[2].textContent;
+          bVal = b.cells[2].textContent;
+        } else if (column === 'timestamp') {
+          aVal = parseInt(a.dataset.timestamp);
+          bVal = parseInt(b.dataset.timestamp);
+        } else {
+          aVal = parseFloat(a.dataset[column] || 0);
+          bVal = parseFloat(b.dataset[column] || 0);
+        }
+        
+        if (typeof aVal === 'string') {
+          return sortConfig.direction === 'desc' ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+        }
+        
+        return sortConfig.direction === 'desc' ? bVal - aVal : aVal - bVal;
+      });
+      
+      rows.forEach(row => tbody.appendChild(row));
+      updateRankBadges();
+      
+      document.querySelectorAll('th').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+      });
+      const clickedTh = document.querySelector(`th[data-column="${column}"]`);
+      if (clickedTh) {
+        clickedTh.classList.add(`sorted-${sortConfig.direction}`);
+      }
+    }
+    
+    function updateRankBadges() {
+      document.querySelectorAll('td.rank').forEach(td => td.textContent = '');
+      const rows = Array.from(document.querySelectorAll('#processTable tbody tr')).filter(row => row.style.display !== 'none');
+      const badges = ['🥇', '🥈', '🥉'];
+      for (let i = 0; i < 3 && i < rows.length; i++) {
+        rows[i].querySelector('td.rank').textContent = badges[i];
+      }
+    }
+    
+    document.getElementById('searchBox').addEventListener('input', function(e) {
+      const query = e.target.value.toLowerCase();
+      const rows = document.querySelectorAll('#processTable tbody tr');
+      
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(query) ? '' : 'none';
+      });
+      
+      updateRankBadges();
+    });
+    
+    setInterval(() => {
+      location.reload();
+    }, 30000);
+    
+    // Initialize on page load
+    updateRankBadges();
+  </script>
+</body>
+</html>
+"#);
+    
+    Html(html)
+}
+
 /// Handler for /html/ (landing page).
 #[instrument(skip(state))]
 pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoResponse {
@@ -226,10 +536,15 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
 #[instrument(skip(state))]
 pub async fn html_details_handler(
     State(state): State<SharedState>,
-    Query(_params): Query<HtmlDetailsQuery>,
+    Query(params): Query<HtmlDetailsQuery>,
 ) -> impl IntoResponse {
     debug!("Processing /html/details request");
     state.health_stats.record_http_request();
+
+    // Check if subgroup parameter is provided for interactive table view
+    if let Some(ref subgroup_name) = params.subgroup {
+        return render_interactive_table(state, subgroup_name).await;
+    }
 
     let cache = state.cache.read().await;
     let stats = state.ringbuffer_manager.get_stats();
