@@ -24,10 +24,12 @@ struct blkio_stats {
     u64 write_ops;
 };
 
-// Key structure for BPF maps (PID + device for blkio)
-struct io_key {
-    u32 pid;
-    u32 dev; // For block I/O: major:minor device number
+// Syscall pending info for tracking in-flight I/O syscalls
+struct io_syscall_info {
+    u64 ts;      // Timestamp
+    u32 fd;      // File descriptor
+    u64 count;   // Requested byte count
+    u8 is_write; // 0 = read, 1 = write
 };
 
 // BPF maps
@@ -41,9 +43,17 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, MAX_ENTRIES);
-    __type(key, struct io_key);
+    __type(key, u32); // PID
     __type(value, struct blkio_stats);
 } blkio_stats_map SEC(".maps");
+
+// Pending syscalls map to correlate entry/exit
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, MAX_ENTRIES);
+    __type(key, u64); // pid_tgid
+    __type(value, struct io_syscall_info);
+} syscall_pending SEC(".maps");
 
 // TCP connection state tracking
 struct {
@@ -126,48 +136,35 @@ int trace_net_dev_queue(struct trace_event_raw_net_dev_template *ctx) {
     return 0;
 }
 
-// Block I/O request raw tracepoint (kernel-agnostic)
-SEC("raw_tracepoint/block_rq_issue")
-int raw_trace_block_rq_issue(struct bpf_raw_tracepoint_args *ctx) {
-    u32 pid = get_current_pid();
-    
-    // Raw tracepoint args: (struct request *rq)
-    struct request *rq = (struct request *)ctx->args[0];
-    
-    // NOTE: Device number extraction is challenging with raw tracepoints due to
-    // kernel structure changes between versions. For now, we use dev=0 as a
-    // placeholder. All I/O is tracked but not separated by device.
-    // Future improvement: Use BTF-based field lookup or alternative approach.
-    dev_t dev = 0;
-    
-    // Read operation size (in bytes) - __data_len field
-    unsigned int data_len = 0;
-    bpf_probe_read_kernel(&data_len, sizeof(data_len), &rq->__data_len);
-    
-    // Determine if read or write operation from cmd_flags
-    unsigned int cmd_flags = 0;
-    bpf_probe_read_kernel(&cmd_flags, sizeof(cmd_flags), &rq->cmd_flags);
-    bool is_write = (cmd_flags & 1);  // REQ_OP_WRITE = 1
-    
-    struct io_key key = {
-        .pid = pid,
-        .dev = dev,
-    };
-    
-    struct blkio_stats *stats = bpf_map_lookup_elem(&blkio_stats_map, &key);
+// ========== SYSCALL TRACEPOINT HOOKS FOR BLOCK I/O ==========
+// Note: struct trace_event_raw_sys_enter and trace_event_raw_sys_exit are defined
+// in vmlinux.h and represent the kernel tracepoint contexts for syscall entry/exit.
+// They provide access to syscall arguments via ctx->args[] and return value via ctx->ret.
+
+// Helper to update blkio stats for a PID
+// Updates the blkio_stats_map with read or write I/O statistics for a given process.
+// If the PID doesn't exist in the map, creates a new entry. Otherwise, atomically
+// increments the existing counters.
+//
+// Parameters:
+//   pid: Process ID
+//   bytes: Number of bytes read or written
+//   is_write: true for write operations, false for read operations
+static __always_inline void update_blkio_stats(u32 pid, u64 bytes, bool is_write) {
+    struct blkio_stats *stats = bpf_map_lookup_elem(&blkio_stats_map, &pid);
     if (!stats) {
         struct blkio_stats new_stats = {0};
         if (is_write) {
-            new_stats.write_bytes = data_len;
+            new_stats.write_bytes = bytes;
             new_stats.write_ops = 1;
         } else {
-            new_stats.read_bytes = data_len;
+            new_stats.read_bytes = bytes;
             new_stats.read_ops = 1;
         }
-        bpf_map_update_elem(&blkio_stats_map, &key, &new_stats, BPF_ANY);
+        bpf_map_update_elem(&blkio_stats_map, &pid, &new_stats, BPF_ANY);
     } else {
         if (is_write) {
-            __sync_fetch_and_add(&stats->write_bytes, data_len);
+            __sync_fetch_and_add(&stats->write_bytes, bytes);
             __sync_fetch_and_add(&stats->write_ops, 1);
             
             u32 idx = EVENT_BLKIO_WRITE;
@@ -176,7 +173,7 @@ int raw_trace_block_rq_issue(struct bpf_raw_tracepoint_args *ctx) {
                 __sync_fetch_and_add(counter, 1);
             }
         } else {
-            __sync_fetch_and_add(&stats->read_bytes, data_len);
+            __sync_fetch_and_add(&stats->read_bytes, bytes);
             __sync_fetch_and_add(&stats->read_ops, 1);
             
             u32 idx = EVENT_BLKIO_READ;
@@ -186,7 +183,223 @@ int raw_trace_block_rq_issue(struct bpf_raw_tracepoint_args *ctx) {
             }
         }
     }
+}
+
+// Read syscall entry
+SEC("tracepoint/syscalls/sys_enter_read")
+int trace_read_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
     
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // fd
+    info.count = ctx->args[2];   // count
+    info.is_write = 0;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// Read syscall exit
+SEC("tracepoint/syscalls/sys_exit_read")
+int trace_read_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    // Ignore errors and zero-byte operations
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    struct io_syscall_info *info = bpf_map_lookup_elem(&syscall_pending, &pid_tgid);
+    if (info && !info->is_write) {
+        update_blkio_stats(pid, (u64)ret, false);
+    }
+    
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// Write syscall entry
+SEC("tracepoint/syscalls/sys_enter_write")
+int trace_write_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // fd
+    info.count = ctx->args[2];   // count
+    info.is_write = 1;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// Write syscall exit
+SEC("tracepoint/syscalls/sys_exit_write")
+int trace_write_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    // Ignore errors and zero-byte operations
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    struct io_syscall_info *info = bpf_map_lookup_elem(&syscall_pending, &pid_tgid);
+    if (info && info->is_write) {
+        update_blkio_stats(pid, (u64)ret, true);
+    }
+    
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// pread64 syscall entry
+SEC("tracepoint/syscalls/sys_enter_pread64")
+int trace_pread64_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // fd
+    info.count = ctx->args[2];   // count
+    info.is_write = 0;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// pread64 syscall exit
+SEC("tracepoint/syscalls/sys_exit_pread64")
+int trace_pread64_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    struct io_syscall_info *info = bpf_map_lookup_elem(&syscall_pending, &pid_tgid);
+    if (info && !info->is_write) {
+        update_blkio_stats(pid, (u64)ret, false);
+    }
+    
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// pwrite64 syscall entry
+SEC("tracepoint/syscalls/sys_enter_pwrite64")
+int trace_pwrite64_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // fd
+    info.count = ctx->args[2];   // count
+    info.is_write = 1;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// pwrite64 syscall exit
+SEC("tracepoint/syscalls/sys_exit_pwrite64")
+int trace_pwrite64_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    struct io_syscall_info *info = bpf_map_lookup_elem(&syscall_pending, &pid_tgid);
+    if (info && info->is_write) {
+        update_blkio_stats(pid, (u64)ret, true);
+    }
+    
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// readv syscall entry
+SEC("tracepoint/syscalls/sys_enter_readv")
+int trace_readv_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // fd
+    // Note: count not set for readv as total size is unknown until syscall returns
+    info.is_write = 0;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// readv syscall exit
+SEC("tracepoint/syscalls/sys_exit_readv")
+int trace_readv_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    struct io_syscall_info *info = bpf_map_lookup_elem(&syscall_pending, &pid_tgid);
+    if (info && !info->is_write) {
+        update_blkio_stats(pid, (u64)ret, false);
+    }
+    
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// writev syscall entry
+SEC("tracepoint/syscalls/sys_enter_writev")
+int trace_writev_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // fd
+    // Note: count not set for writev as total size is unknown until syscall returns
+    info.is_write = 1;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// writev syscall exit
+SEC("tracepoint/syscalls/sys_exit_writev")
+int trace_writev_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    struct io_syscall_info *info = bpf_map_lookup_elem(&syscall_pending, &pid_tgid);
+    if (info && info->is_write) {
+        update_blkio_stats(pid, (u64)ret, true);
+    }
+    
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
     return 0;
 }
 

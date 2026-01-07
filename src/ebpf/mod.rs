@@ -270,14 +270,9 @@ impl EbpfManager {
 
                 for key in map.keys() {
                     if let Some(value) = map.lookup(&key, MapFlags::ANY)? {
-                        // Parse io_key struct: pid (u32) + dev (u32) = 8 bytes
-                        if key.len() >= 8 {
-                            let mut key_data = [0u32; 2];
-                            for (i, chunk) in key.chunks_exact(4).take(2).enumerate() {
-                                key_data[i] = u32::from_ne_bytes(chunk.try_into().unwrap());
-                            }
-                            let pid = key_data[0];
-                            let dev = key_data[1];
+                        // Parse key: u32 (pid) = 4 bytes
+                        if key.len() >= 4 {
+                            let pid = u32::from_ne_bytes([key[0], key[1], key[2], key[3]]);
 
                             // Parse blkio_stats struct: 4 u64 fields (32 bytes)
                             if value.len() >= 32 {
@@ -288,12 +283,11 @@ impl EbpfManager {
 
                                 let comm = Self::read_process_name(pid)
                                     .unwrap_or_else(|| format!("pid_{}", pid));
-                                let device = Self::resolve_device_name(dev >> 20, dev & 0xfffff);
 
                                 stats.push(ProcessBlkioStats {
                                     pid,
                                     comm,
-                                    device,
+                                    device: String::from("all"), // No per-device tracking with syscalls
                                     read_bytes: data[0],
                                     write_bytes: data[1],
                                     read_ops: data[2],
