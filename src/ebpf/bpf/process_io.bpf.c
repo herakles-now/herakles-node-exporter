@@ -139,6 +139,14 @@ int trace_net_dev_queue(struct trace_event_raw_net_dev_template *ctx) {
 // ========== SYSCALL TRACEPOINT HOOKS FOR BLOCK I/O ==========
 
 // Helper to update blkio stats for a PID
+// Updates the blkio_stats_map with read or write I/O statistics for a given process.
+// If the PID doesn't exist in the map, creates a new entry. Otherwise, atomically
+// increments the existing counters.
+//
+// Parameters:
+//   pid: Process ID
+//   bytes: Number of bytes read or written
+//   is_write: true for write operations, false for read operations
 static __always_inline void update_blkio_stats(u32 pid, u64 bytes, bool is_write) {
     struct blkio_stats *stats = bpf_map_lookup_elem(&blkio_stats_map, &pid);
     if (!stats) {
@@ -328,7 +336,7 @@ int trace_readv_enter(struct trace_event_raw_sys_enter *ctx) {
     struct io_syscall_info info = {0};
     info.ts = bpf_ktime_get_ns();
     info.fd = ctx->args[0];      // fd
-    info.count = 0;              // Don't know total size yet
+    // Note: count not set for readv as total size is unknown until syscall returns
     info.is_write = 0;
     
     bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
@@ -364,7 +372,7 @@ int trace_writev_enter(struct trace_event_raw_sys_enter *ctx) {
     struct io_syscall_info info = {0};
     info.ts = bpf_ktime_get_ns();
     info.fd = ctx->args[0];      // fd
-    info.count = 0;              // Don't know total size yet
+    // Note: count not set for writev as total size is unknown until syscall returns
     info.is_write = 1;
     
     bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);

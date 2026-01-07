@@ -173,6 +173,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 match ebpf.read_process_blkio_stats() {
                     Ok(blkio_stats) => {
                         // Aggregate per (group, subgroup)
+                        // Tuple format: (read_bytes, write_bytes, read_ops, write_ops)
                         let mut blkio_groups: HashMap<(String, String), (u64, u64, u64, u64)> =
                             HashMap::new();
 
