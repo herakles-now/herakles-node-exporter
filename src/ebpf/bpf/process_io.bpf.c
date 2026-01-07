@@ -137,6 +137,9 @@ int trace_net_dev_queue(struct trace_event_raw_net_dev_template *ctx) {
 }
 
 // ========== SYSCALL TRACEPOINT HOOKS FOR BLOCK I/O ==========
+// Note: struct trace_event_raw_sys_enter and trace_event_raw_sys_exit are defined
+// in vmlinux.h and represent the kernel tracepoint contexts for syscall entry/exit.
+// They provide access to syscall arguments via ctx->args[] and return value via ctx->ret.
 
 // Helper to update blkio stats for a PID
 // Updates the blkio_stats_map with read or write I/O statistics for a given process.
