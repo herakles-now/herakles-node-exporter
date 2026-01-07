@@ -165,33 +165,57 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .with_label_values(&[group.as_str(), subgroup.as_str(), "system"])
                         .set(metrics.cpu_time_system_sum);
                 }
+            }
 
-                // Block I/O Group Metrics
-                // NOTE: These are placeholders set to 0 pending implementation.
-                // Per the German spec, these should aggregate per-process I/O from:
-                // - /proc/[pid]/io (read_bytes, write_bytes, syscr, syscw)
-                // - OR eBPF-based I/O tracking
-                // This is a future enhancement.
-                state
-                    .metrics
-                    .group_blkio_read_bytes_total
-                    .with_label_values(&[&group, &subgroup])
-                    .set(0.0);
-                state
-                    .metrics
-                    .group_blkio_write_bytes_total
-                    .with_label_values(&[&group, &subgroup])
-                    .set(0.0);
-                state
-                    .metrics
-                    .group_blkio_read_syscalls_total
-                    .with_label_values(&[&group, &subgroup])
-                    .set(0.0);
-                state
-                    .metrics
-                    .group_blkio_write_syscalls_total
-                    .with_label_values(&[&group, &subgroup])
-                    .set(0.0);
+            // ========== PHASE 2.5: Block I/O Group Metrics (from eBPF) ==========
+            #[cfg(feature = "ebpf")]
+            if let Some(ebpf) = &state.ebpf {
+                match ebpf.read_process_blkio_stats() {
+                    Ok(blkio_stats) => {
+                        // Aggregate per (group, subgroup)
+                        let mut blkio_groups: HashMap<(String, String), (u64, u64, u64, u64)> =
+                            HashMap::new();
+
+                        for stat in blkio_stats {
+                            let (group, subgroup) =
+                                crate::process::classify_process_raw(&stat.comm);
+                            let entry = blkio_groups
+                                .entry((group.to_string(), subgroup.to_string()))
+                                .or_insert((0, 0, 0, 0));
+
+                            entry.0 += stat.read_bytes;
+                            entry.1 += stat.write_bytes;
+                            entry.2 += stat.read_ops;
+                            entry.3 += stat.write_ops;
+                        }
+
+                        for ((group, subgroup), (read_bytes, write_bytes, read_ops, write_ops)) in blkio_groups {
+                            state
+                                .metrics
+                                .group_blkio_read_bytes_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(read_bytes as f64);
+                            state
+                                .metrics
+                                .group_blkio_write_bytes_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(write_bytes as f64);
+                            state
+                                .metrics
+                                .group_blkio_read_syscalls_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(read_ops as f64);
+                            state
+                                .metrics
+                                .group_blkio_write_syscalls_total
+                                .with_label_values(&[&group, &subgroup])
+                                .set(write_ops as f64);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to read eBPF block I/O statistics: {}", e);
+                    }
+                }
             }
 
             // ========== PHASE 3: System-Level CPU Metrics ==========
