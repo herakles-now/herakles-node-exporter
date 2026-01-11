@@ -516,6 +516,10 @@ subgroups = [
   ] },
   { group = "system", subgroup = "ssh", matches = [
     "sshd",
+    "sshd-session",    # Modern OpenSSH session process (post-privilege separation)
+    "sftp-server",     # SFTP subsystem process
+    "ssh-agent",       # SSH agent
+    "ssh-keysign",     # SSH key signing
   ] },
   { group = "system", subgroup = "systemd", matches = [
     "systemd",

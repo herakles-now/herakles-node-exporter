@@ -169,4 +169,32 @@ mod tests {
         assert_eq!(group.as_ref(), "other");
         assert_eq!(subgroup.as_ref(), "unknown");
     }
+
+    #[test]
+    fn test_classify_ssh_processes() {
+        // Test original sshd process
+        let (group, subgroup) = classify_process_raw("sshd");
+        assert_eq!(group.as_ref(), "system");
+        assert_eq!(subgroup.as_ref(), "ssh");
+
+        // Test modern OpenSSH session process
+        let (group, subgroup) = classify_process_raw("sshd-session");
+        assert_eq!(group.as_ref(), "system");
+        assert_eq!(subgroup.as_ref(), "ssh");
+
+        // Test SFTP subsystem process
+        let (group, subgroup) = classify_process_raw("sftp-server");
+        assert_eq!(group.as_ref(), "system");
+        assert_eq!(subgroup.as_ref(), "ssh");
+
+        // Test SSH agent
+        let (group, subgroup) = classify_process_raw("ssh-agent");
+        assert_eq!(group.as_ref(), "system");
+        assert_eq!(subgroup.as_ref(), "ssh");
+
+        // Test SSH key signing
+        let (group, subgroup) = classify_process_raw("ssh-keysign");
+        assert_eq!(group.as_ref(), "system");
+        assert_eq!(subgroup.as_ref(), "ssh");
+    }
 }
