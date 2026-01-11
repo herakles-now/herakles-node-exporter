@@ -103,6 +103,13 @@ static __always_inline void update_net_stats(u32 pid, u64 bytes, bool is_tx) {
             new_stats.rx_packets = 1;
         }
         bpf_map_update_elem(&net_stats_map, &pid, &new_stats, BPF_ANY);
+        
+        // Update event counter for new entry
+        u32 idx = is_tx ? EVENT_NET_TX : EVENT_NET_RX;
+        u64 *counter = bpf_map_lookup_elem(&event_counters, &idx);
+        if (counter) {
+            __sync_fetch_and_add(counter, 1);
+        }
     } else {
         if (is_tx) {
             __sync_fetch_and_add(&stats->tx_bytes, bytes);
