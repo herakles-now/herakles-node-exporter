@@ -82,57 +82,250 @@ static __always_inline u32 get_current_pid() {
     return bpf_get_current_pid_tgid() >> 32;
 }
 
-// Network receive tracepoint
-SEC("tracepoint/net/netif_receive_skb")
-int trace_netif_receive_skb(struct trace_event_raw_net_dev_template *ctx) {
-    u32 pid = get_current_pid();
-    u32 len = ctx->len;
-    
+// Helper to update network stats for a PID
+// Updates the net_stats_map with receive or transmit I/O statistics for a given process.
+// If the PID doesn't exist in the map, creates a new entry. Otherwise, atomically
+// increments the existing counters.
+//
+// Parameters:
+//   pid: Process ID
+//   bytes: Number of bytes received or transmitted
+//   is_tx: true for transmit operations, false for receive operations
+static __always_inline void update_net_stats(u32 pid, u64 bytes, bool is_tx) {
     struct net_stats *stats = bpf_map_lookup_elem(&net_stats_map, &pid);
     if (!stats) {
         struct net_stats new_stats = {0};
-        new_stats.rx_bytes = len;
-        new_stats.rx_packets = 1;
+        if (is_tx) {
+            new_stats.tx_bytes = bytes;
+            new_stats.tx_packets = 1;
+        } else {
+            new_stats.rx_bytes = bytes;
+            new_stats.rx_packets = 1;
+        }
         bpf_map_update_elem(&net_stats_map, &pid, &new_stats, BPF_ANY);
+        
+        // Update event counter for new entry
+        u32 idx = is_tx ? EVENT_NET_TX : EVENT_NET_RX;
+        u64 *counter = bpf_map_lookup_elem(&event_counters, &idx);
+        if (counter) {
+            __sync_fetch_and_add(counter, 1);
+        }
     } else {
-        __sync_fetch_and_add(&stats->rx_bytes, len);
-        __sync_fetch_and_add(&stats->rx_packets, 1);
+        if (is_tx) {
+            __sync_fetch_and_add(&stats->tx_bytes, bytes);
+            __sync_fetch_and_add(&stats->tx_packets, 1);
+            
+            u32 idx = EVENT_NET_TX;
+            u64 *counter = bpf_map_lookup_elem(&event_counters, &idx);
+            if (counter) {
+                __sync_fetch_and_add(counter, 1);
+            }
+        } else {
+            __sync_fetch_and_add(&stats->rx_bytes, bytes);
+            __sync_fetch_and_add(&stats->rx_packets, 1);
+            
+            u32 idx = EVENT_NET_RX;
+            u64 *counter = bpf_map_lookup_elem(&event_counters, &idx);
+            if (counter) {
+                __sync_fetch_and_add(counter, 1);
+            }
+        }
     }
+}
+
+// ========== SYSCALL TRACEPOINT HOOKS FOR NETWORK I/O ==========
+// These syscall tracepoints track actual network I/O at the syscall level,
+// providing accurate per-process accounting in the correct process context.
+
+// recvfrom syscall entry
+SEC("tracepoint/syscalls/sys_enter_recvfrom")
+int trace_recvfrom_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
     
-    // Increment event counter
-    u32 idx = EVENT_NET_RX;
-    u64 *counter = bpf_map_lookup_elem(&event_counters, &idx);
-    if (counter) {
-        __sync_fetch_and_add(counter, 1);
-    }
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // sockfd
+    info.count = ctx->args[2];   // len
+    info.is_write = 0;           // receive operation
     
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
     return 0;
 }
 
-// Network transmit tracepoint (more stable than kprobe)
-SEC("tracepoint/net/net_dev_queue")
-int trace_net_dev_queue(struct trace_event_raw_net_dev_template *ctx) {
-    u32 pid = get_current_pid();
-    u32 len = ctx->len;
+// recvfrom syscall exit
+SEC("tracepoint/syscalls/sys_exit_recvfrom")
+int trace_recvfrom_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
     
-    struct net_stats *stats = bpf_map_lookup_elem(&net_stats_map, &pid);
-    if (!stats) {
-        struct net_stats new_stats = {0};
-        new_stats.tx_bytes = len;
-        new_stats.tx_packets = 1;
-        bpf_map_update_elem(&net_stats_map, &pid, &new_stats, BPF_ANY);
-    } else {
-        __sync_fetch_and_add(&stats->tx_bytes, len);
-        __sync_fetch_and_add(&stats->tx_packets, 1);
+    // Ignore errors and zero-byte operations
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
     }
     
-    // Increment event counter
-    u32 idx = EVENT_NET_TX;
-    u64 *counter = bpf_map_lookup_elem(&event_counters, &idx);
-    if (counter) {
-        __sync_fetch_and_add(counter, 1);
+    update_net_stats(pid, (u64)ret, false);
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// sendto syscall entry
+SEC("tracepoint/syscalls/sys_enter_sendto")
+int trace_sendto_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // sockfd
+    info.count = ctx->args[2];   // len
+    info.is_write = 1;           // send operation
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// sendto syscall exit
+SEC("tracepoint/syscalls/sys_exit_sendto")
+int trace_sendto_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    // Ignore errors and zero-byte operations
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
     }
     
+    update_net_stats(pid, (u64)ret, true);
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// recvmsg syscall entry
+SEC("tracepoint/syscalls/sys_enter_recvmsg")
+int trace_recvmsg_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // sockfd
+    info.is_write = 0;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// recvmsg syscall exit
+SEC("tracepoint/syscalls/sys_exit_recvmsg")
+int trace_recvmsg_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    update_net_stats(pid, (u64)ret, false);
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// sendmsg syscall entry
+SEC("tracepoint/syscalls/sys_enter_sendmsg")
+int trace_sendmsg_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // sockfd
+    info.is_write = 1;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// sendmsg syscall exit
+SEC("tracepoint/syscalls/sys_exit_sendmsg")
+int trace_sendmsg_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    update_net_stats(pid, (u64)ret, true);
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// recv syscall entry
+SEC("tracepoint/syscalls/sys_enter_recv")
+int trace_recv_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // sockfd
+    info.count = ctx->args[2];   // len
+    info.is_write = 0;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// recv syscall exit
+SEC("tracepoint/syscalls/sys_exit_recv")
+int trace_recv_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    update_net_stats(pid, (u64)ret, false);
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+    return 0;
+}
+
+// send syscall entry
+SEC("tracepoint/syscalls/sys_enter_send")
+int trace_send_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    
+    struct io_syscall_info info = {0};
+    info.ts = bpf_ktime_get_ns();
+    info.fd = ctx->args[0];      // sockfd
+    info.count = ctx->args[2];   // len
+    info.is_write = 1;
+    
+    bpf_map_update_elem(&syscall_pending, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+// send syscall exit
+SEC("tracepoint/syscalls/sys_exit_send")
+int trace_send_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    long ret = ctx->ret;
+    
+    if (ret <= 0) {
+        bpf_map_delete_elem(&syscall_pending, &pid_tgid);
+        return 0;
+    }
+    
+    update_net_stats(pid, (u64)ret, true);
+    bpf_map_delete_elem(&syscall_pending, &pid_tgid);
     return 0;
 }
 
