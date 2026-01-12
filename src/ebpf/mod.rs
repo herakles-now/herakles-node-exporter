@@ -14,7 +14,7 @@ use tracing::debug;
 use std::time::Instant;
 
 #[cfg(feature = "ebpf")]
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 #[cfg(feature = "ebpf")]
 use libbpf_rs::{MapCore, MapFlags, Object, ObjectBuilder};
@@ -156,25 +156,105 @@ impl EbpfManager {
         let open_obj = builder.open_memory(EBPF_OBJECT)?;
         let obj = open_obj.load()?;
 
-        // Attach all programs and store links to keep them alive
+        // Attach all programs and categorize by functionality
         let mut links = Vec::new();
+        let mut rx_syscalls = Vec::new();
+        let mut tx_syscalls = Vec::new();
+        let mut read_syscalls = Vec::new();
+        let mut write_syscalls = Vec::new();
+        let mut other_programs = Vec::new();
+        let mut failed_programs = Vec::new();
+
         for prog in obj.progs_mut() {
+            let name = prog.name().to_string_lossy().to_string();
+            
             match prog.attach() {
                 Ok(link) => {
-                    info!(
-                        "✅ Attached eBPF program: {}",
-                        prog.name().to_string_lossy()
-                    );
+                    // Categorize by functionality
+                    // Extract syscall name (remove trace_, _enter, _exit)
+                    let syscall_name = name
+                        .replace("trace_", "")
+                        .replace("_enter", "")
+                        .replace("_exit", "");
+                    
+                    if name.contains("recv") {
+                        if !rx_syscalls.contains(&syscall_name) {
+                            rx_syscalls.push(syscall_name);
+                        }
+                    } else if name.contains("send") {
+                        if !tx_syscalls.contains(&syscall_name) {
+                            tx_syscalls.push(syscall_name);
+                        }
+                    } else if name.contains("read") {
+                        if !read_syscalls.contains(&syscall_name) {
+                            read_syscalls.push(syscall_name);
+                        }
+                    } else if name.contains("write") {
+                        if !write_syscalls.contains(&syscall_name) {
+                            write_syscalls.push(syscall_name);
+                        }
+                    } else {
+                        if !other_programs.contains(&syscall_name) {
+                            other_programs.push(syscall_name);
+                        }
+                    }
+                    
                     links.push(link);
                 }
-                Err(e) => {
-                    warn!(
-                        "⚠️  Failed to attach eBPF program {}: {}",
-                        prog.name().to_string_lossy(),
-                        e
-                    );
-                    // Continue with other programs
+                Err(_e) => {
+                    failed_programs.push(name);
                 }
+            }
+        }
+
+        // Sort for consistent output
+        rx_syscalls.sort();
+        tx_syscalls.sort();
+        read_syscalls.sort();
+        write_syscalls.sort();
+        other_programs.sort();
+
+        // Log grouped results
+        if !rx_syscalls.is_empty() {
+            info!("✅ Network RX tracking: {} ({} syscalls)", 
+                  rx_syscalls.join(", "), rx_syscalls.len());
+        }
+        if !tx_syscalls.is_empty() {
+            info!("✅ Network TX tracking: {} ({} syscalls)", 
+                  tx_syscalls.join(", "), tx_syscalls.len());
+        }
+        if !read_syscalls.is_empty() {
+            info!("✅ Block I/O read tracking: {} ({} syscalls)", 
+                  read_syscalls.join(", "), read_syscalls.len());
+        }
+        if !write_syscalls.is_empty() {
+            info!("✅ Block I/O write tracking: {} ({} syscalls)", 
+                  write_syscalls.join(", "), write_syscalls.len());
+        }
+        if !other_programs.is_empty() {
+            info!("✅ TCP connection tracking: {}", other_programs.join(", "));
+        }
+
+        // Handle failed programs with explanations
+        if !failed_programs.is_empty() {
+            // Check if recv/send failed (this is normal and expected)
+            let recv_send_failed = failed_programs.iter()
+                .any(|p| p.contains("recv_enter") || p.contains("recv_exit") || 
+                         p.contains("send_enter") || p.contains("send_exit"));
+            
+            if recv_send_failed {
+                debug!("ℹ️  recv/send syscalls not available (covered by recvfrom/sendto - this is normal)");
+            }
+            
+            // Log other failures as warnings
+            let other_failed: Vec<_> = failed_programs.iter()
+                .filter(|p| !p.contains("recv_enter") && !p.contains("recv_exit") &&
+                            !p.contains("send_enter") && !p.contains("send_exit"))
+                .map(|s| s.as_str())
+                .collect();
+            
+            if !other_failed.is_empty() {
+                warn!("⚠️  Some eBPF programs failed to attach: {}", other_failed.join(", "));
             }
         }
 
