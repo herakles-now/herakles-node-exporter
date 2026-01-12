@@ -14,6 +14,17 @@ use crate::cache::ProcMem;
 use crate::config::Config;
 use crate::process::{classify_process_with_config, SUBGROUPS};
 
+// Constants for byte conversions
+const GB: u64 = 1024 * 1024 * 1024;
+
+// Constants for test data generation ranges
+const MAX_NETWORK_BYTES: u64 = 10 * GB; // 10 GB
+const MAX_NETWORK_PACKETS: u64 = 1_000_000; // 1M packets
+const MAX_DROPPED_PACKETS: u64 = 10_000; // 10K dropped packets (typically much smaller than total)
+const MAX_BLOCK_IO_BYTES: u64 = 50 * GB; // 50 GB
+const MAX_BLOCK_IO_OPS: u64 = 100_000; // 100K operations
+
+
 /// Test process entry for JSON serialization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestProcess {
@@ -26,6 +37,17 @@ pub struct TestProcess {
     pub uss: u64,
     pub cpu_percent: f64,
     pub cpu_time_seconds: f64,
+    // Network I/O metrics (based on ProcessNetStats)
+    pub rx_bytes: u64,
+    pub tx_bytes: u64,
+    pub rx_packets: u64,
+    pub tx_packets: u64,
+    pub dropped: u64, // Network packets dropped
+    // Block I/O metrics (based on ProcessBlkioStats)
+    pub read_bytes: u64,
+    pub write_bytes: u64,
+    pub read_ops: u64,
+    pub write_ops: u64,
 }
 
 /// Root structure for test data JSON file.
@@ -37,6 +59,10 @@ pub struct TestData {
 }
 
 /// Converts a TestProcess from JSON test data into ProcMem for metrics.
+/// 
+/// Note: packet/operation count fields (rx_packets, tx_packets, read_ops, write_ops)
+/// are stored in TestProcess for completeness but not mapped to ProcMem, as ProcMem
+/// only tracks byte counts for memory efficiency.
 impl From<TestProcess> for ProcMem {
     fn from(tp: TestProcess) -> Self {
         ProcMem {
@@ -49,10 +75,10 @@ impl From<TestProcess> for ProcMem {
             cpu_time_seconds: tp.cpu_time_seconds as f32,
             vmswap: 0,               // Test data doesn't have swap, default to 0
             start_time_seconds: 0.0, // Test data doesn't have start_time, default to 0
-            read_bytes: 0,           // Test data doesn't have block I/O, default to 0
-            write_bytes: 0,          // Test data doesn't have block I/O, default to 0
-            rx_bytes: 0,             // Test data doesn't have network I/O, default to 0
-            tx_bytes: 0,             // Test data doesn't have network I/O, default to 0
+            read_bytes: tp.read_bytes,
+            write_bytes: tp.write_bytes,
+            rx_bytes: tp.rx_bytes,
+            tx_bytes: tp.tx_bytes,
             last_read_bytes: 0,      // No previous data for test
             last_write_bytes: 0,     // No previous data for test
             last_rx_bytes: 0,        // No previous data for test
@@ -167,7 +193,7 @@ pub fn command_generate_testdata(
 
     // Create the test data structure
     let test_data = TestData {
-        version: "1.0".to_string(),
+        version: "2.0".to_string(),
         generated_at: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         processes,
     };
@@ -210,6 +236,24 @@ fn generate_random_process(
     // CPU time: 0.0 - 10000.0 seconds
     let cpu_time_seconds: f64 = rng.gen_range(0.0..10000.0);
 
+    // Network I/O metrics
+    // rx_bytes, tx_bytes: 0 - 10 GB
+    let rx_bytes: u64 = rng.gen_range(0..MAX_NETWORK_BYTES);
+    let tx_bytes: u64 = rng.gen_range(0..MAX_NETWORK_BYTES);
+    // rx_packets, tx_packets: 0 - 1M
+    let rx_packets: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
+    let tx_packets: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
+    // dropped: 0 - 10K (typically much lower than total packets)
+    let dropped: u64 = rng.gen_range(0..MAX_DROPPED_PACKETS);
+
+    // Block I/O metrics
+    // read_bytes, write_bytes: 0 - 50 GB
+    let read_bytes: u64 = rng.gen_range(0..MAX_BLOCK_IO_BYTES);
+    let write_bytes: u64 = rng.gen_range(0..MAX_BLOCK_IO_BYTES);
+    // read_ops, write_ops: 0 - 100K
+    let read_ops: u64 = rng.gen_range(0..MAX_BLOCK_IO_OPS);
+    let write_ops: u64 = rng.gen_range(0..MAX_BLOCK_IO_OPS);
+
     TestProcess {
         pid,
         name,
@@ -220,5 +264,14 @@ fn generate_random_process(
         uss,
         cpu_percent,
         cpu_time_seconds,
+        rx_bytes,
+        tx_bytes,
+        rx_packets,
+        tx_packets,
+        dropped,
+        read_bytes,
+        write_bytes,
+        read_ops,
+        write_ops,
     }
 }
