@@ -42,7 +42,7 @@ pub struct TestProcess {
     pub tx_bytes: u64,
     pub rx_packets: u64,
     pub tx_packets: u64,
-    pub dropped: u64,
+    pub dropped: u64, // Network packets dropped
     // Block I/O metrics (based on ProcessBlkioStats)
     pub read_bytes: u64,
     pub write_bytes: u64,
@@ -59,6 +59,10 @@ pub struct TestData {
 }
 
 /// Converts a TestProcess from JSON test data into ProcMem for metrics.
+/// 
+/// Note: packet/operation count fields (rx_packets, tx_packets, read_ops, write_ops)
+/// are stored in TestProcess for completeness but not mapped to ProcMem, as ProcMem
+/// only tracks byte counts for memory efficiency.
 impl From<TestProcess> for ProcMem {
     fn from(tp: TestProcess) -> Self {
         ProcMem {
