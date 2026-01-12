@@ -14,6 +14,13 @@ use crate::cache::ProcMem;
 use crate::config::Config;
 use crate::process::{classify_process_with_config, SUBGROUPS};
 
+// Constants for test data generation ranges
+const MAX_NETWORK_BYTES: u64 = 10 * 1024 * 1024 * 1024; // 10 GB
+const MAX_NETWORK_PACKETS: u64 = 1_000_000; // 1M packets
+const MAX_BLOCK_IO_BYTES: u64 = 50 * 1024 * 1024 * 1024; // 50 GB
+const MAX_BLOCK_IO_OPS: u64 = 100_000; // 100K operations
+
+
 /// Test process entry for JSON serialization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestProcess {
@@ -223,21 +230,21 @@ fn generate_random_process(
 
     // Network I/O metrics
     // rx_bytes, tx_bytes: 0 - 10 GB
-    let rx_bytes: u64 = rng.gen_range(0..10 * 1024 * 1024 * 1024);
-    let tx_bytes: u64 = rng.gen_range(0..10 * 1024 * 1024 * 1024);
+    let rx_bytes: u64 = rng.gen_range(0..MAX_NETWORK_BYTES);
+    let tx_bytes: u64 = rng.gen_range(0..MAX_NETWORK_BYTES);
     // rx_packets, tx_packets: 0 - 1M
-    let rx_packets: u64 = rng.gen_range(0..1_000_000);
-    let tx_packets: u64 = rng.gen_range(0..1_000_000);
+    let rx_packets: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
+    let tx_packets: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
     // dropped: 0 - 1M (typically much lower than total packets)
-    let dropped: u64 = rng.gen_range(0..1_000_000);
+    let dropped: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
 
     // Block I/O metrics
     // read_bytes, write_bytes: 0 - 50 GB
-    let read_bytes: u64 = rng.gen_range(0..50 * 1024 * 1024 * 1024);
-    let write_bytes: u64 = rng.gen_range(0..50 * 1024 * 1024 * 1024);
+    let read_bytes: u64 = rng.gen_range(0..MAX_BLOCK_IO_BYTES);
+    let write_bytes: u64 = rng.gen_range(0..MAX_BLOCK_IO_BYTES);
     // read_ops, write_ops: 0 - 100K
-    let read_ops: u64 = rng.gen_range(0..100_000);
-    let write_ops: u64 = rng.gen_range(0..100_000);
+    let read_ops: u64 = rng.gen_range(0..MAX_BLOCK_IO_OPS);
+    let write_ops: u64 = rng.gen_range(0..MAX_BLOCK_IO_OPS);
 
     TestProcess {
         pid,
