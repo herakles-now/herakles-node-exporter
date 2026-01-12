@@ -235,10 +235,15 @@ impl EbpfManager {
 
         // Handle failed programs with explanations
         if !failed_programs.is_empty() {
+            // Helper to check if a program is an expected recv/send failure
+            let is_expected_recv_send_failure = |p: &str| -> bool {
+                p.contains("recv_enter") || p.contains("recv_exit") || 
+                p.contains("send_enter") || p.contains("send_exit")
+            };
+            
             // Check if recv/send failed (this is normal and expected)
             let recv_send_failed = failed_programs.iter()
-                .any(|p| p.contains("recv_enter") || p.contains("recv_exit") || 
-                         p.contains("send_enter") || p.contains("send_exit"));
+                .any(|p| is_expected_recv_send_failure(p));
             
             if recv_send_failed {
                 debug!("ℹ️  recv/send syscalls not available (covered by recvfrom/sendto - this is normal)");
@@ -246,8 +251,7 @@ impl EbpfManager {
             
             // Log other failures as warnings
             let other_failed: Vec<_> = failed_programs.iter()
-                .filter(|p| !p.contains("recv_enter") && !p.contains("recv_exit") &&
-                            !p.contains("send_enter") && !p.contains("send_exit"))
+                .filter(|p| !is_expected_recv_send_failure(p))
                 .map(|s| s.as_str())
                 .collect();
             
