@@ -26,6 +26,17 @@ pub struct TestProcess {
     pub uss: u64,
     pub cpu_percent: f64,
     pub cpu_time_seconds: f64,
+    // Network I/O metrics (based on ProcessNetStats)
+    pub rx_bytes: u64,
+    pub tx_bytes: u64,
+    pub rx_packets: u64,
+    pub tx_packets: u64,
+    pub dropped: u64,
+    // Block I/O metrics (based on ProcessBlkioStats)
+    pub read_bytes: u64,
+    pub write_bytes: u64,
+    pub read_ops: u64,
+    pub write_ops: u64,
 }
 
 /// Root structure for test data JSON file.
@@ -49,10 +60,10 @@ impl From<TestProcess> for ProcMem {
             cpu_time_seconds: tp.cpu_time_seconds as f32,
             vmswap: 0,               // Test data doesn't have swap, default to 0
             start_time_seconds: 0.0, // Test data doesn't have start_time, default to 0
-            read_bytes: 0,           // Test data doesn't have block I/O, default to 0
-            write_bytes: 0,          // Test data doesn't have block I/O, default to 0
-            rx_bytes: 0,             // Test data doesn't have network I/O, default to 0
-            tx_bytes: 0,             // Test data doesn't have network I/O, default to 0
+            read_bytes: tp.read_bytes,
+            write_bytes: tp.write_bytes,
+            rx_bytes: tp.rx_bytes,
+            tx_bytes: tp.tx_bytes,
             last_read_bytes: 0,      // No previous data for test
             last_write_bytes: 0,     // No previous data for test
             last_rx_bytes: 0,        // No previous data for test
@@ -167,7 +178,7 @@ pub fn command_generate_testdata(
 
     // Create the test data structure
     let test_data = TestData {
-        version: "1.0".to_string(),
+        version: "2.0".to_string(),
         generated_at: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         processes,
     };
@@ -210,6 +221,24 @@ fn generate_random_process(
     // CPU time: 0.0 - 10000.0 seconds
     let cpu_time_seconds: f64 = rng.gen_range(0.0..10000.0);
 
+    // Network I/O metrics
+    // rx_bytes, tx_bytes: 0 - 10 GB
+    let rx_bytes: u64 = rng.gen_range(0..10 * 1024 * 1024 * 1024);
+    let tx_bytes: u64 = rng.gen_range(0..10 * 1024 * 1024 * 1024);
+    // rx_packets, tx_packets: 0 - 1M
+    let rx_packets: u64 = rng.gen_range(0..1_000_000);
+    let tx_packets: u64 = rng.gen_range(0..1_000_000);
+    // dropped: 0 - 1M (typically much lower than total packets)
+    let dropped: u64 = rng.gen_range(0..1_000_000);
+
+    // Block I/O metrics
+    // read_bytes, write_bytes: 0 - 50 GB
+    let read_bytes: u64 = rng.gen_range(0..50 * 1024 * 1024 * 1024);
+    let write_bytes: u64 = rng.gen_range(0..50 * 1024 * 1024 * 1024);
+    // read_ops, write_ops: 0 - 100K
+    let read_ops: u64 = rng.gen_range(0..100_000);
+    let write_ops: u64 = rng.gen_range(0..100_000);
+
     TestProcess {
         pid,
         name,
@@ -220,5 +249,14 @@ fn generate_random_process(
         uss,
         cpu_percent,
         cpu_time_seconds,
+        rx_bytes,
+        tx_bytes,
+        rx_packets,
+        tx_packets,
+        dropped,
+        read_bytes,
+        write_bytes,
+        read_ops,
+        write_ops,
     }
 }
