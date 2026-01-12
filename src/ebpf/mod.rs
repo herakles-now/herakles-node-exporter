@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex};
 use tracing::debug;
 
 #[cfg(feature = "ebpf")]
+use std::collections::HashSet;
+#[cfg(feature = "ebpf")]
 use std::time::Instant;
 
 #[cfg(feature = "ebpf")]
@@ -158,11 +160,11 @@ impl EbpfManager {
 
         // Attach all programs and categorize by functionality
         let mut links = Vec::new();
-        let mut rx_syscalls = Vec::new();
-        let mut tx_syscalls = Vec::new();
-        let mut read_syscalls = Vec::new();
-        let mut write_syscalls = Vec::new();
-        let mut other_programs = Vec::new();
+        let mut rx_syscalls = HashSet::new();
+        let mut tx_syscalls = HashSet::new();
+        let mut read_syscalls = HashSet::new();
+        let mut write_syscalls = HashSet::new();
+        let mut other_programs = HashSet::new();
         let mut failed_programs = Vec::new();
 
         for prog in obj.progs_mut() {
@@ -178,25 +180,15 @@ impl EbpfManager {
                         .replace("_exit", "");
                     
                     if name.contains("recv") {
-                        if !rx_syscalls.contains(&syscall_name) {
-                            rx_syscalls.push(syscall_name);
-                        }
+                        rx_syscalls.insert(syscall_name);
                     } else if name.contains("send") {
-                        if !tx_syscalls.contains(&syscall_name) {
-                            tx_syscalls.push(syscall_name);
-                        }
+                        tx_syscalls.insert(syscall_name);
                     } else if name.contains("read") {
-                        if !read_syscalls.contains(&syscall_name) {
-                            read_syscalls.push(syscall_name);
-                        }
+                        read_syscalls.insert(syscall_name);
                     } else if name.contains("write") {
-                        if !write_syscalls.contains(&syscall_name) {
-                            write_syscalls.push(syscall_name);
-                        }
+                        write_syscalls.insert(syscall_name);
                     } else {
-                        if !other_programs.contains(&syscall_name) {
-                            other_programs.push(syscall_name);
-                        }
+                        other_programs.insert(syscall_name);
                     }
                     
                     links.push(link);
@@ -207,7 +199,13 @@ impl EbpfManager {
             }
         }
 
-        // Sort for consistent output
+        // Convert HashSets to sorted Vecs for consistent output
+        let mut rx_syscalls: Vec<_> = rx_syscalls.into_iter().collect();
+        let mut tx_syscalls: Vec<_> = tx_syscalls.into_iter().collect();
+        let mut read_syscalls: Vec<_> = read_syscalls.into_iter().collect();
+        let mut write_syscalls: Vec<_> = write_syscalls.into_iter().collect();
+        let mut other_programs: Vec<_> = other_programs.into_iter().collect();
+        
         rx_syscalls.sort();
         tx_syscalls.sort();
         read_syscalls.sort();
@@ -263,9 +261,22 @@ impl EbpfManager {
         }
 
         info!("✅ eBPF initialized: {} programs attached", links.len());
-        info!("   - Network RX/TX tracking enabled");
-        info!("   - Block I/O tracking enabled");
-        info!("   - TCP state tracking enabled");
+        
+        // Log feature summary based on what was actually loaded
+        let mut features = Vec::new();
+        if !rx_syscalls.is_empty() || !tx_syscalls.is_empty() {
+            features.push("Network RX/TX tracking enabled");
+        }
+        if !read_syscalls.is_empty() || !write_syscalls.is_empty() {
+            features.push("Block I/O tracking enabled");
+        }
+        if !other_programs.is_empty() {
+            features.push("TCP state tracking enabled");
+        }
+        
+        for feature in features {
+            info!("   - {}", feature);
+        }
 
         let now = Instant::now();
         Ok(EbpfInner {
