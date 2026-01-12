@@ -11,10 +11,12 @@ use std::sync::{Arc, Mutex};
 use tracing::debug;
 
 #[cfg(feature = "ebpf")]
+use std::collections::HashSet;
+#[cfg(feature = "ebpf")]
 use std::time::Instant;
 
 #[cfg(feature = "ebpf")]
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 #[cfg(feature = "ebpf")]
 use libbpf_rs::{MapCore, MapFlags, Object, ObjectBuilder};
@@ -156,25 +158,105 @@ impl EbpfManager {
         let open_obj = builder.open_memory(EBPF_OBJECT)?;
         let obj = open_obj.load()?;
 
-        // Attach all programs and store links to keep them alive
+        // Attach all programs and categorize by functionality
         let mut links = Vec::new();
+        let mut rx_syscalls = HashSet::new();
+        let mut tx_syscalls = HashSet::new();
+        let mut read_syscalls = HashSet::new();
+        let mut write_syscalls = HashSet::new();
+        let mut other_programs = HashSet::new();
+        let mut failed_programs = Vec::new();
+
         for prog in obj.progs_mut() {
+            let name = prog.name().to_string_lossy().to_string();
+            
             match prog.attach() {
                 Ok(link) => {
-                    info!(
-                        "✅ Attached eBPF program: {}",
-                        prog.name().to_string_lossy()
-                    );
+                    // Categorize by functionality
+                    // Extract syscall name (remove trace_, _enter, _exit)
+                    let syscall_name = name
+                        .replace("trace_", "")
+                        .replace("_enter", "")
+                        .replace("_exit", "");
+                    
+                    if name.contains("recv") {
+                        rx_syscalls.insert(syscall_name);
+                    } else if name.contains("send") {
+                        tx_syscalls.insert(syscall_name);
+                    } else if name.contains("read") {
+                        read_syscalls.insert(syscall_name);
+                    } else if name.contains("write") {
+                        write_syscalls.insert(syscall_name);
+                    } else {
+                        other_programs.insert(syscall_name);
+                    }
+                    
                     links.push(link);
                 }
-                Err(e) => {
-                    warn!(
-                        "⚠️  Failed to attach eBPF program {}: {}",
-                        prog.name().to_string_lossy(),
-                        e
-                    );
-                    // Continue with other programs
+                Err(_e) => {
+                    failed_programs.push(name);
                 }
+            }
+        }
+
+        // Convert HashSets to sorted Vecs for consistent output
+        let mut rx_syscalls: Vec<_> = rx_syscalls.into_iter().collect();
+        let mut tx_syscalls: Vec<_> = tx_syscalls.into_iter().collect();
+        let mut read_syscalls: Vec<_> = read_syscalls.into_iter().collect();
+        let mut write_syscalls: Vec<_> = write_syscalls.into_iter().collect();
+        let mut other_programs: Vec<_> = other_programs.into_iter().collect();
+        
+        rx_syscalls.sort();
+        tx_syscalls.sort();
+        read_syscalls.sort();
+        write_syscalls.sort();
+        other_programs.sort();
+
+        // Log grouped results
+        if !rx_syscalls.is_empty() {
+            info!("✅ Network RX tracking: {} ({} syscalls)", 
+                  rx_syscalls.join(", "), rx_syscalls.len());
+        }
+        if !tx_syscalls.is_empty() {
+            info!("✅ Network TX tracking: {} ({} syscalls)", 
+                  tx_syscalls.join(", "), tx_syscalls.len());
+        }
+        if !read_syscalls.is_empty() {
+            info!("✅ Block I/O read tracking: {} ({} syscalls)", 
+                  read_syscalls.join(", "), read_syscalls.len());
+        }
+        if !write_syscalls.is_empty() {
+            info!("✅ Block I/O write tracking: {} ({} syscalls)", 
+                  write_syscalls.join(", "), write_syscalls.len());
+        }
+        if !other_programs.is_empty() {
+            info!("✅ TCP connection tracking: {}", other_programs.join(", "));
+        }
+
+        // Handle failed programs with explanations
+        if !failed_programs.is_empty() {
+            // Helper to check if a program is an expected recv/send failure
+            let is_expected_recv_send_failure = |p: &str| -> bool {
+                p.contains("recv_enter") || p.contains("recv_exit") || 
+                p.contains("send_enter") || p.contains("send_exit")
+            };
+            
+            // Check if recv/send failed (this is normal and expected)
+            let recv_send_failed = failed_programs.iter()
+                .any(|p| is_expected_recv_send_failure(p));
+            
+            if recv_send_failed {
+                debug!("ℹ️  recv/send syscalls not available (covered by recvfrom/sendto - this is normal)");
+            }
+            
+            // Log other failures as warnings
+            let other_failed: Vec<_> = failed_programs.iter()
+                .filter(|p| !is_expected_recv_send_failure(p))
+                .map(|s| s.as_str())
+                .collect();
+            
+            if !other_failed.is_empty() {
+                warn!("⚠️  Some eBPF programs failed to attach: {}", other_failed.join(", "));
             }
         }
 
@@ -183,9 +265,22 @@ impl EbpfManager {
         }
 
         info!("✅ eBPF initialized: {} programs attached", links.len());
-        info!("   - Network RX/TX tracking enabled");
-        info!("   - Block I/O tracking enabled");
-        info!("   - TCP state tracking enabled");
+        
+        // Log feature summary based on what was actually loaded
+        let mut features = Vec::new();
+        if !rx_syscalls.is_empty() || !tx_syscalls.is_empty() {
+            features.push("Network RX/TX tracking enabled");
+        }
+        if !read_syscalls.is_empty() || !write_syscalls.is_empty() {
+            features.push("Block I/O tracking enabled");
+        }
+        if !other_programs.is_empty() {
+            features.push("TCP state tracking enabled");
+        }
+        
+        for feature in features {
+            info!("   - {}", feature);
+        }
 
         let now = Instant::now();
         Ok(EbpfInner {
