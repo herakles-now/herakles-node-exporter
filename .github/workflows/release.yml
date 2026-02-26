@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install eBPF build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            libbpf-dev \
+            linux-tools-common \
+            linux-tools-generic \
+            linux-headers-$(uname -r) \
+            pkg-config \
+            libelf-dev \
+            zlib1g-dev
+          # Ensure bpftool is available
+          if ! which bpftool; then
+            BPFTOOL_PATH=$(find /usr/lib/linux-tools -name bpftool | head -1)
+            test -n "$BPFTOOL_PATH" || { echo "bpftool not found"; exit 1; }
+            sudo ln -sf "$BPFTOOL_PATH" /usr/local/bin/bpftool
+          fi
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build with eBPF
+        run: cargo build --release --features ebpf
+
+      - name: Package binary
+        run: |
+          cp target/release/herakles-node-exporter herakles-node-exporter
+          tar -czf herakles-node-exporter-${{ github.ref_name }}-x86_64-linux.tar.gz herakles-node-exporter
+          sha256sum herakles-node-exporter-${{ github.ref_name }}-x86_64-linux.tar.gz > herakles-node-exporter-${{ github.ref_name }}-x86_64-linux.tar.gz.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            herakles-node-exporter-${{ github.ref_name }}-x86_64-linux.tar.gz
+            herakles-node-exporter-${{ github.ref_name }}-x86_64-linux.tar.gz.sha256
