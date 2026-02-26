@@ -32,9 +32,9 @@ A high-performance Prometheus exporter for comprehensive Linux system monitoring
 | `herakles_mem_process_uss_bytes` | Unique Set Size per process | pid, name, group, subgroup |
 | `herakles_cpu_process_usage_percent` | CPU usage percentage | pid, name, group, subgroup |
 | `herakles_cpu_process_time_seconds` | Total CPU time used | pid, name, group, subgroup |
-| `herakles_mem_group_*` | Aggregated memory metrics per subgroup | group, subgroup |
+| `herakles_group_memory_*` | Aggregated memory metrics per subgroup | group, subgroup |
 | `herakles_mem_top_process_*` | Top-N memory metrics per subgroup | group, subgroup, rank, pid, comm |
-| `herakles_cpu_group_*` | Aggregated CPU metrics per subgroup | group, subgroup |
+| `herakles_group_cpu_*` | Aggregated CPU metrics per subgroup | group, subgroup |
 | `herakles_cpu_top_process_*` | Top-N CPU metrics per subgroup | group, subgroup, rank, pid, comm |
 
 ### Top Process Metrics
@@ -52,65 +52,123 @@ Track the highest resource-consuming processes within each group/subgroup. See [
 | `herakles_top_net_process_rx_bytes_total` | Counter | Top-3 processes by network RX bytes (eBPF) |
 | `herakles_top_net_process_tx_bytes_total` | Counter | Top-3 processes by network TX bytes (eBPF) |
 
-### System Metrics
+### System Memory Metrics
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `herakles_mem_system_total_bytes` | Total system memory in bytes | - |
-| `herakles_mem_system_available_bytes` | Available system memory in bytes | - |
-| `herakles_mem_system_used_ratio` | Memory used ratio (0.0 to 1.0) | - |
-| `herakles_mem_system_cached_bytes` | Page cache memory in bytes | - |
-| `herakles_mem_system_buffers_bytes` | Buffer cache memory in bytes | - |
-| `herakles_mem_system_swap_used_ratio` | Swap used ratio (0.0 to 1.0) | - |
-| `herakles_mem_system_psi_wait_seconds_total` | Memory pressure stall total seconds | - |
-| `herakles_mem_group_swap_bytes` | Swap usage per subgroup | group, subgroup |
-| `herakles_cpu_system_usage_ratio` | CPU usage ratio per core and total | cpu |
-| `herakles_cpu_system_idle_ratio` | CPU idle ratio per core and total | cpu |
-| `herakles_cpu_system_iowait_ratio` | CPU IO-wait ratio per core and total | cpu |
-| `herakles_cpu_system_steal_ratio` | CPU steal time ratio per core and total | cpu |
-| `herakles_cpu_system_load_1` | System load average over 1 minute | - |
-| `herakles_cpu_system_load_5` | System load average over 5 minutes | - |
-| `herakles_cpu_system_load_15` | System load average over 15 minutes | - |
-| `herakles_cpu_system_psi_wait_seconds_total` | CPU pressure stall total seconds | - |
+| `herakles_system_memory_total_bytes` | Total system memory in bytes | - |
+| `herakles_system_memory_available_bytes` | Available system memory in bytes | - |
+| `herakles_system_memory_used_ratio` | Memory used ratio (0.0 to 1.0) | - |
+| `herakles_system_memory_cached_bytes` | Page cache memory in bytes | - |
+| `herakles_system_memory_buffers_bytes` | Buffer cache memory in bytes | - |
+| `herakles_system_swap_used_ratio` | Swap used ratio (0.0 to 1.0) | - |
+| `herakles_system_memory_psi_wait_seconds_total` | Memory pressure stall total seconds | - |
+
+### System CPU Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_system_cpu_usage_ratio` | CPU usage ratio per core and total | cpu |
+| `herakles_system_cpu_idle_ratio` | CPU idle ratio per core and total | cpu |
+| `herakles_system_cpu_iowait_ratio` | CPU IO-wait ratio per core and total | cpu |
+| `herakles_system_cpu_steal_ratio` | CPU steal time ratio per core and total | cpu |
+| `herakles_system_cpu_load_1` | System load average over 1 minute | - |
+| `herakles_system_cpu_load_5` | System load average over 5 minutes | - |
+| `herakles_system_cpu_load_15` | System load average over 15 minutes | - |
+| `herakles_system_cpu_psi_wait_seconds_total` | CPU pressure stall total seconds | - |
 
 ### Disk I/O Metrics
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `herakles_disk_reads_completed_total` | Total number of reads completed successfully | device |
-| `herakles_disk_reads_merged_total` | Total number of reads merged | device |
-| `herakles_disk_read_bytes_total` | Total number of bytes read successfully | device |
-| `herakles_disk_read_time_seconds_total` | Total seconds spent reading | device |
-| `herakles_disk_writes_completed_total` | Total number of writes completed successfully | device |
-| `herakles_disk_writes_merged_total` | Total number of writes merged | device |
-| `herakles_disk_written_bytes_total` | Total number of bytes written successfully | device |
-| `herakles_disk_write_time_seconds_total` | Total seconds spent writing | device |
-| `herakles_disk_io_now` | Number of I/Os currently in progress | device |
-| `herakles_disk_io_time_seconds_total` | Total seconds spent doing I/Os | device |
-| `herakles_disk_io_time_weighted_seconds_total` | Weighted seconds spent doing I/Os | device |
+| `herakles_system_disk_read_bytes_total` | Total number of bytes read | device |
+| `herakles_system_disk_write_bytes_total` | Total number of bytes written | device |
+| `herakles_system_disk_io_time_seconds_total` | Total seconds spent doing I/Os | device |
+| `herakles_system_disk_queue_depth` | Current I/O queue depth | device |
+| `herakles_system_disk_psi_wait_seconds_total` | Disk pressure stall total seconds | - |
 
 ### Filesystem Metrics
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `herakles_filesystem_size_bytes` | Filesystem size in bytes | device, mountpoint, fstype |
-| `herakles_filesystem_free_bytes` | Filesystem free space in bytes | device, mountpoint, fstype |
-| `herakles_filesystem_avail_bytes` | Filesystem space available to non-root users | device, mountpoint, fstype |
-| `herakles_filesystem_files` | Filesystem total file nodes (inodes) | device, mountpoint, fstype |
-| `herakles_filesystem_files_free` | Filesystem total free file nodes | device, mountpoint, fstype |
+| `herakles_system_filesystem_size_bytes` | Filesystem size in bytes | device, mountpoint, fstype |
+| `herakles_system_filesystem_avail_bytes` | Filesystem space available to non-root users | device, mountpoint, fstype |
+| `herakles_system_filesystem_files` | Filesystem total file nodes (inodes) | device, mountpoint, fstype |
+| `herakles_system_filesystem_files_free` | Filesystem total free file nodes | device, mountpoint, fstype |
 
 ### Network Interface Metrics
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `herakles_network_receive_bytes_total` | Network device bytes received | device |
-| `herakles_network_receive_packets_total` | Network device packets received | device |
-| `herakles_network_receive_errs_total` | Network device receive errors | device |
-| `herakles_network_receive_drop_total` | Network device receive drops | device |
-| `herakles_network_transmit_bytes_total` | Network device bytes transmitted | device |
-| `herakles_network_transmit_packets_total` | Network device packets transmitted | device |
-| `herakles_network_transmit_errs_total` | Network device transmit errors | device |
-| `herakles_network_transmit_drop_total` | Network device transmit drops | device |
+| `herakles_system_net_rx_bytes_total` | Network device bytes received | iface |
+| `herakles_system_net_tx_bytes_total` | Network device bytes transmitted | iface |
+| `herakles_system_net_rx_errors_total` | Network device receive errors | iface |
+| `herakles_system_net_tx_errors_total` | Network device transmit errors | iface |
+| `herakles_system_net_drops_total` | Network device drops | iface, direction |
+
+### TCP Connection State Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_system_tcp_connections_established` | TCP connections in ESTABLISHED state | - |
+| `herakles_system_tcp_connections_syn_sent` | TCP connections in SYN_SENT state | - |
+| `herakles_system_tcp_connections_syn_recv` | TCP connections in SYN_RECV state | - |
+| `herakles_system_tcp_connections_fin_wait1` | TCP connections in FIN_WAIT1 state | - |
+| `herakles_system_tcp_connections_fin_wait2` | TCP connections in FIN_WAIT2 state | - |
+| `herakles_system_tcp_connections_time_wait` | TCP connections in TIME_WAIT state | - |
+| `herakles_system_tcp_connections_close` | TCP connections in CLOSE state | - |
+| `herakles_system_tcp_connections_close_wait` | TCP connections in CLOSE_WAIT state | - |
+| `herakles_system_tcp_connections_last_ack` | TCP connections in LAST_ACK state | - |
+| `herakles_system_tcp_connections_listen` | TCP connections in LISTEN state | - |
+| `herakles_system_tcp_connections_closing` | TCP connections in CLOSING state | - |
+
+### Hardware and Host Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_system_cpu_temp_celsius` | CPU temperature in Celsius | sensor |
+| `herakles_system_uptime_seconds` | System uptime in seconds | - |
+| `herakles_system_boot_time_seconds` | System boot time as Unix timestamp | - |
+| `herakles_system_uname_info` | System uname information (always 1) | sysname, release, version, machine |
+
+### Kernel and Runtime Metrics
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_system_context_switches_total` | Total number of context switches | - |
+| `herakles_system_forks_total` | Total number of process forks | - |
+| `herakles_system_open_fds` | Number of open file descriptors | state |
+| `herakles_system_entropy_bits` | Available entropy in bits | - |
+
+### Group and Subgroup Metrics
+
+Aggregated metrics per process group and subgroup (always available):
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_group_memory_rss_bytes` | Aggregated RSS memory per subgroup | group, subgroup |
+| `herakles_group_memory_pss_bytes` | Aggregated PSS memory per subgroup | group, subgroup |
+| `herakles_group_memory_swap_bytes` | Aggregated swap usage per subgroup | group, subgroup |
+| `herakles_group_cpu_usage_ratio` | Aggregated CPU usage ratio per subgroup | group, subgroup |
+| `herakles_group_cpu_seconds_total` | Aggregated CPU time per subgroup and mode | group, subgroup, mode |
+| `herakles_group_blkio_read_bytes_total` | Aggregated disk read bytes per subgroup | group, subgroup |
+| `herakles_group_blkio_write_bytes_total` | Aggregated disk write bytes per subgroup | group, subgroup |
+| `herakles_group_blkio_read_syscalls_total` | Aggregated disk read syscalls per subgroup | group, subgroup |
+| `herakles_group_blkio_write_syscalls_total` | Aggregated disk write syscalls per subgroup | group, subgroup |
+| `herakles_group_net_rx_bytes_total` | Aggregated network RX bytes per subgroup (eBPF) | group, subgroup |
+| `herakles_group_net_tx_bytes_total` | Aggregated network TX bytes per subgroup (eBPF) | group, subgroup |
+| `herakles_group_net_connections_total` | Aggregated network connections per subgroup (eBPF) | group, subgroup, proto |
+
+### eBPF Performance Metrics
+
+Self-monitoring metrics for the eBPF subsystem (requires `ebpf` feature):
+
+| Metric | Description | Labels |
+|--------|-------------|--------|
+| `herakles_ebpf_events_processed_total` | Total eBPF events processed | - |
+| `herakles_ebpf_events_dropped_total` | Total eBPF events dropped | - |
+| `herakles_ebpf_maps_count` | Number of active eBPF maps | - |
+| `herakles_ebpf_cpu_seconds_total` | CPU time spent in eBPF programs | - |
 
 ### eBPF-based Process I/O Metrics (Optional Feature)
 
@@ -123,14 +181,6 @@ When the `ebpf` feature is enabled and eBPF is configured, these additional metr
 | `herakles_net_process_dropped_total` | Dropped packets per process from eBPF | pid, comm, group, subgroup |
 | `herakles_io_process_bytes_total` | Block I/O bytes per process/device from eBPF | pid, comm, device, group, subgroup, direction (read/write) |
 | `herakles_io_process_iops_total` | I/O operations per process/device from eBPF | pid, comm, device, group, subgroup, direction (read/write) |
-| `node_tcp_connections` | TCP connections by state from eBPF | state |
-| `herakles_io_group_read_bytes_total` | Aggregated disk read bytes per subgroup | group, subgroup |
-| `herakles_io_group_write_bytes_total` | Aggregated disk write bytes per subgroup | group, subgroup |
-| `herakles_net_group_rx_bytes_total` | Aggregated network RX bytes per subgroup | group, subgroup |
-| `herakles_net_group_tx_bytes_total` | Aggregated network TX bytes per subgroup | group, subgroup |
-| `herakles_io_top_process_bytes` | Top-N disk I/O processes | group, subgroup, rank, pid, comm, op (read/write) |
-| `herakles_net_top_process_bytes` | Top-N network I/O processes | group, subgroup, rank, pid, comm, dir (rx/tx) |
-| `herakles_io_system_psi_wait_seconds_total` | I/O Pressure Stall Information (PSI) | - |
 
 **eBPF Requirements:**
 - Linux kernel >= 4.18 (for CO-RE eBPF support with BTF)
@@ -702,14 +752,14 @@ The exporter is designed to work without eBPF:
 
 ### Current Implementation Status
 
-**⚠️ Development Note**: The eBPF integration is currently in development. The Rust infrastructure and metric definitions are complete, but the actual eBPF C programs need to be integrated from the `ultimate-exporter` project. When fully implemented, this will provide:
-- Real-time per-process network I/O tracking (bytes, packets, dropped)
-- Real-time per-process block I/O tracking (bytes, IOPS per device)
-- TCP connection state tracking via eBPF
-- Aggregated I/O metrics per process subgroup
-- Top-N I/O consumer rankings
+**✅ eBPF Integration Status**: The eBPF integration is **fully implemented**. The following features are active when the `ebpf` feature is compiled in and eBPF initializes successfully:
+- Real-time per-process network I/O tracking via `net_stats_map` (bytes RX/TX, packets, drops)
+- Real-time per-process block I/O tracking via `blkio_stats_map` (bytes read/write, syscall counts)
+- TCP connection state tracking via `tcp_state_map`
+- Aggregated I/O and network metrics per group/subgroup
+- eBPF performance self-monitoring (`herakles_ebpf_*` metrics)
 
-Until the eBPF C programs are integrated, eBPF metrics will return empty values, and the exporter will log that eBPF is not yet implemented.
+The eBPF programs are compiled from `src/ebpf/bpf/process_io.bpf.o` and embedded into the binary at build time.
 
 ## 🏷️ Subgroups System
 
@@ -908,53 +958,64 @@ count by (group, subgroup) (herakles_mem_process_uss_bytes)
 ### Disk I/O Metrics
 ```promql
 # Disk read/write rate in bytes per second
-rate(herakles_disk_read_bytes_total[5m])
-rate(herakles_disk_written_bytes_total[5m])
-
-# Disk I/O operations per second
-rate(herakles_disk_reads_completed_total[5m])
-rate(herakles_disk_writes_completed_total[5m])
+rate(herakles_system_disk_read_bytes_total[5m])
+rate(herakles_system_disk_write_bytes_total[5m])
 
 # Disk I/O utilization (percentage of time with I/O in progress)
-rate(herakles_disk_io_time_seconds_total[5m]) * 100
+rate(herakles_system_disk_io_time_seconds_total[5m]) * 100
 
-# Average I/O wait time
-rate(herakles_disk_io_time_weighted_seconds_total[5m]) / 
-  (rate(herakles_disk_reads_completed_total[5m]) + rate(herakles_disk_writes_completed_total[5m]))
+# Current I/O queue depth per device
+herakles_system_disk_queue_depth
 ```
 
 ### Filesystem Metrics
 ```promql
 # Filesystem usage percentage
-(herakles_filesystem_size_bytes - herakles_filesystem_free_bytes) / herakles_filesystem_size_bytes * 100
+(herakles_system_filesystem_size_bytes - herakles_system_filesystem_avail_bytes) / herakles_system_filesystem_size_bytes * 100
 
 # Filesystem available space in GB
-herakles_filesystem_avail_bytes / 1024 / 1024 / 1024
+herakles_system_filesystem_avail_bytes / 1024 / 1024 / 1024
 
-# Filesystems with less than 10% free space
-(herakles_filesystem_free_bytes / herakles_filesystem_size_bytes) < 0.1
+# Filesystems with less than 10% available space
+(herakles_system_filesystem_avail_bytes / herakles_system_filesystem_size_bytes) < 0.1
 
 # Inode usage percentage
-(herakles_filesystem_files - herakles_filesystem_files_free) / herakles_filesystem_files * 100
+(herakles_system_filesystem_files - herakles_system_filesystem_files_free) / herakles_system_filesystem_files * 100
 ```
 
 ### Network Metrics
 ```promql
 # Network traffic rate in bytes per second
-rate(herakles_network_receive_bytes_total[5m])
-rate(herakles_network_transmit_bytes_total[5m])
-
-# Network packet rate
-rate(herakles_network_receive_packets_total[5m])
-rate(herakles_network_transmit_packets_total[5m])
+rate(herakles_system_net_rx_bytes_total[5m])
+rate(herakles_system_net_tx_bytes_total[5m])
 
 # Network error rate
-rate(herakles_network_receive_errs_total[5m])
-rate(herakles_network_transmit_errs_total[5m])
+rate(herakles_system_net_rx_errors_total[5m])
+rate(herakles_system_net_tx_errors_total[5m])
+
+# Network drop rate (by direction)
+rate(herakles_system_net_drops_total[5m])
 
 # Total network bandwidth usage
-sum(rate(herakles_network_receive_bytes_total[5m])) + 
-  sum(rate(herakles_network_transmit_bytes_total[5m]))
+sum(rate(herakles_system_net_rx_bytes_total[5m])) + 
+  sum(rate(herakles_system_net_tx_bytes_total[5m]))
+```
+
+### Group Metrics
+```promql
+# Memory usage aggregated per subgroup
+herakles_group_memory_rss_bytes
+
+# CPU usage aggregated per subgroup
+herakles_group_cpu_usage_ratio
+
+# Block I/O per subgroup
+rate(herakles_group_blkio_read_bytes_total[5m])
+rate(herakles_group_blkio_write_bytes_total[5m])
+
+# Network I/O per subgroup (requires eBPF)
+rate(herakles_group_net_rx_bytes_total[5m])
+rate(herakles_group_net_tx_bytes_total[5m])
 ```
 
 
