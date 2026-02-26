@@ -1,0 +1,120 @@
+[package]
+name = "herakles-node-exporter"
+version = "0.1.0"
+description = "Comprehensive Prometheus exporter for Linux system metrics including per-process memory/CPU, disk I/O, filesystem, and network statistics"
+authors = ["Michael Moll <exporter@herakles.now>"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+repository = "https://github.com/cansp-dev/herakles-node-exporter"
+readme = "README.md"
+keywords = ["prometheus", "exporter", "memory", "metrics", "process"]
+categories = ["command-line-utilities", "monitoring"]
+
+[features]
+default = ["ebpf"]
+# Enable eBPF-based metrics collection
+ebpf = ["libbpf-rs", "libbpf-sys"]
+# Enable actix-web health server example
+health-actix = ["actix-web"]
+
+[dependencies]
+axum = { version = "0.8", features = ["http1", "macros", "tokio"] }
+tokio = { version = "1.0", features = ["full"] }
+clap = { version = "4.0", features = ["derive"] }
+prometheus = "0.14"
+rayon = "1.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+anyhow = "1.0"
+once_cell = "1.21.3"
+toml = "0.5"
+
+# LOGGING DEPENDENCIES
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Optional: For better performance
+ahash = "0.8"
+
+# Concurrent HashMap for ringbuffer management
+dashmap = "6.1"
+
+# System calls for runtime configuration (e.g., clock ticks)
+libc = "0.2"
+
+# Random number generation for testdata
+rand = "0.8"
+
+# DateTime handling for testdata timestamp
+chrono = { version = "0.4", features = ["serde"] }
+
+# Optional: actix-web for health server example
+actix-web = { version = "4", optional = true }
+
+# TLS support
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+tokio-rustls = "0.26"
+
+# eBPF support (optional - feature gated)
+libbpf-rs = { version = "0.24", optional = true }
+libbpf-sys = { version = "1.4", optional = true }
+regex = "1.10"
+
+# System user/group management for install command
+nix = { version = "0.29", features = ["user", "process", "fs"] }
+
+# Error handling derive macros
+thiserror = "1.0"
+
+[build-dependencies]
+vergen = { version = "8.0", features = ["build", "git", "gitcl"] }
+which = "6.0"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[dev-dependencies]
+tempfile = "3.23.0"
+
+[package.metadata.deb]
+name = "herakles-node-exporter"
+maintainer = "Michael Moll <exporter@herakles.now>"
+copyright = "2024, Herakles IO"
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+  [
+    "target/release/herakles-node-exporter",
+    "usr/bin/",
+    "755",
+  ],
+  [
+    "examples/herakles-node-exporter.yaml",
+    "/etc/herakles-node-exporter/",
+    "644",
+  ],
+  [
+    "examples/systemd.service",
+    "/lib/systemd/system/",
+    "644",
+  ],
+]
+extended-description = """\
+Comprehensive Prometheus exporter for Linux system monitoring providing:\
+- Per-process memory metrics (RSS, PSS, USS)\
+- Per-process CPU metrics\
+- Disk I/O statistics\
+- Filesystem usage and inode statistics\
+- Network interface statistics\
+Ideal for containerized environments and detailed system analysis.\
+"""

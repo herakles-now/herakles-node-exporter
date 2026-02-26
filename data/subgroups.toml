@@ -1,0 +1,580 @@
+# data/subgroups.toml
+# Herakles – The Ultimate Subgroup List 2025
+# 140+ entries – sorted, commented, production-ready
+
+subgroups = [
+  # === Backup Solutions ===
+  { group = "backup", subgroup = "bacula", matches = [
+    "bacula-dir",
+    "bacula-sd",
+    "bacula-fd",
+  ] },
+  { group = "backup", subgroup = "commvault", matches = [
+    "commvault",
+    "cvd",
+    "cvlaunch",
+    "cvfwd",
+    "cvmountd",
+    "cvrds",
+    "cvnet",
+  ] },
+  { group = "backup", subgroup = "cohesity", matches = [
+    "cohesity-agent",
+    "cohesity-service",
+    "iris",
+  ] },
+  { group = "backup", subgroup = "netbackup", matches = [
+    "nbjm",
+    "nbpem",
+    "nbemm",
+    "bprd",
+    "bpdbm",
+    "vnetd",
+    "bpjava",
+    "nbdisco",
+    "nbrb",
+  ] },
+  { group = "backup", subgroup = "networker", matches = [
+    "nsrexecd",
+    "nsrd",
+    "savegrp",
+    "nsrindexd",
+    "nsrmmd",
+  ] },
+  { group = "backup", subgroup = "rubrik", matches = [
+    "rubrik-agent",
+    "rubrik-gpsvc",
+    "rubrik-cdm",
+  ] },
+  { group = "backup", subgroup = "spectrum_protect", matches = [
+    "dsmcad",
+    "dsmsched",
+  ] },
+  { group = "backup", subgroup = "tsm", matches = [
+    "dsmc",
+    "dsmcad",
+    "dsmsched",
+    "dsmagent",
+    "dsmcsvc",
+  ], cmdline_matches = [
+    "com.tivoli.dsmc",
+  ] },
+  { group = "backup", subgroup = "veeam", matches = [
+    "veeamagent",
+    "veeamtransport",
+    "veeam.guest",
+    "Veeam.Backup",
+    "VeeamAgent",
+  ] },
+
+  # === Cache Systems ===
+  { group = "cache", subgroup = "memcached", matches = [
+    "memcached",
+  ] },
+  { group = "cache", subgroup = "redis", matches = [
+    "redis-server",
+    "redis-sentinel",
+  ] },
+  { group = "cache", subgroup = "varnish", matches = [
+    "varnishd",
+  ] },
+
+  # === CI/CD & Automation ===
+  { group = "cicd", subgroup = "ansible", matches = [
+    "ansible",
+  ] },
+  { group = "cicd", subgroup = "chef", matches = [
+    "chef-client",
+    "chef-server",
+  ] },
+  { group = "cicd", subgroup = "gitlab", matches = [
+    "gitlab",
+    "sidekiq",
+    "puma",
+  ] },
+  { group = "cicd", subgroup = "jenkins", matches = [
+    "jenkins",
+  ] },
+  { group = "cicd", subgroup = "openstack", matches = [
+    "nova-api",
+    "glance-api",
+    "neutron-server",
+    "cinder-api",
+  ] },
+  { group = "cicd", subgroup = "puppet", matches = [
+    "puppetagent",
+    "puppetmaster",
+  ] },
+  { group = "cicd", subgroup = "saltstack", matches = [
+    "salt-master",
+    "salt-minion",
+  ] },
+  { group = "cicd", subgroup = "terraform", matches = [
+    "terraform",
+  ] },
+
+  # === Container & Orchestration ===
+  { group = "container", subgroup = "containerd", matches = [
+    "containerd",
+  ] },
+  { group = "container", subgroup = "crio", matches = [
+    "crio",
+  ] },
+  { group = "container", subgroup = "docker", matches = [
+    "dockerd",
+    "docker",
+  ] },
+  { group = "container", subgroup = "kubelet", matches = [
+    "kubelet",
+  ] },
+  { group = "container", subgroup = "podman", matches = [
+    "podman",
+  ] },
+
+  # === Database Systems ===
+  { group = "db", subgroup = "cassandra", matches = [
+    "cassandra",
+    "cassandra-jvm",
+  ] },
+  { group = "db", subgroup = "clickhouse", matches = [
+    "clickhouse-server",
+    "clickhouse-serv",
+  ] },
+  { group = "db", subgroup = "cockroachdb", matches = [
+    "cockroach",
+  ] },
+  { group = "db", subgroup = "couchbase", matches = [
+    "beam.smp",
+    "couchbase-server",
+    "memcached",
+    "cbq-engine",
+  ] },
+  { group = "db", subgroup = "couchdb", matches = [
+    "couchdb",
+  ] },
+  { group = "db", subgroup = "db2", matches = [
+    "db2sysc",
+    "db2agent",
+    "db2tcpcm",
+    "db2wdog",
+    "db2vend",
+    "db2acd",
+    "db2resyn",
+    "db2ipccm",
+  ] },
+  { group = "db", subgroup = "influxdb", matches = [
+    "influxd",
+  ] },
+  { group = "db", subgroup = "mongodb", matches = [
+    "mongod",
+    "mongos",
+  ] },
+  { group = "db", subgroup = "mssql", matches = [
+    "sqlservr",
+  ] },
+  { group = "db", subgroup = "mysql", matches = [
+    "mysqld",
+    "mariadbd",
+  ] },
+  { group = "db", subgroup = "oracle", matches = [
+    "oracle",
+    "tnslsnr",
+    "pmon",
+    "smon",
+    "dbwr",
+    "lgwr",
+    "ckpt",
+    "arch",
+    "reco",
+    "mmon",
+    "mmnl",
+    "dbr",
+    "arc0",
+    "arc1",
+    "arc2",
+    "arc3",
+  ] },
+  { group = "db", subgroup = "percona", matches = [
+    "percona-server",
+    "percona-xtradb-cluster",
+  ] },
+  { group = "db", subgroup = "postgres", matches = [
+    "postgres",
+    "postmaster",
+    "autovacuum",
+    "walwriter",
+    "bgwriter",
+    "checkpointer",
+    "stats collector",
+    "logger",
+    "archiver",
+  ] },
+  { group = "db", subgroup = "rethinkdb", matches = [
+    "rethinkdb",
+  ] },
+  { group = "db", subgroup = "timescaledb", matches = [
+    "timescaledb",
+  ] },
+  { group = "db", subgroup = "yugabyte", matches = [
+    "yb-",
+  ] },
+
+  # === ERP Systems ===
+  { group = "erp", subgroup = "peoplesoft", matches = [
+    "psadmin",
+    "psserver",
+    "psappsrv",
+    "psprcsrv",
+    "psqcksrv",
+  ] },
+  { group = "erp", subgroup = "sap", matches = [
+    "sapstart",
+    "saposcol",
+    "disp+work",
+    "gwrd",
+    "icman",
+    "enqrep",
+    "enqwork",
+    "msg_server",
+    "jstart",
+    "jlaunch",
+    "jcontrol",
+    "jexec",
+  ], cmdline_matches = [
+    "com.sap",
+  ] },
+
+  # === Logging & SIEM ===
+  { group = "logging", subgroup = "elasticsearch", matches = [
+    "elasticsearch",
+  ] },
+  { group = "logging", subgroup = "filebeat", matches = [
+    "filebeat",
+  ] },
+  { group = "logging", subgroup = "fluentd", matches = [
+    "fluentd",
+  ] },
+  { group = "logging", subgroup = "graylog", matches = [
+    "graylog-server",
+  ] },
+  { group = "logging", subgroup = "kibana", matches = [
+    "kibana",
+  ] },
+  { group = "logging", subgroup = "log_collectors", matches = [
+    "vector",
+    "nxlog",
+  ] },
+  { group = "logging", subgroup = "logstash", matches = [
+    "logstash",
+  ] },
+  { group = "logging", subgroup = "splunk", matches = [
+    "splunkd",
+  ] },
+
+  # === Messaging & Queueing ===
+  { group = "messaging", subgroup = "activemq", cmdline_matches = [
+    "org.apache.activemq",
+  ] },
+  { group = "messaging", subgroup = "kafka", matches = [
+    "kafka",
+  ] },
+  { group = "messaging", subgroup = "nats", matches = [
+    "nats-server",
+  ] },
+  { group = "messaging", subgroup = "nsq", matches = [
+    "nsqd",
+    "nsqlookupd",
+  ] },
+  { group = "messaging", subgroup = "pulsar", matches = [
+    "pulsar",
+  ] },
+  { group = "messaging", subgroup = "rabbitmq", matches = [
+    "beam.smp",
+    "epmd",
+    "rabbitmq-server",
+  ] },
+  { group = "messaging", subgroup = "zeromq", matches = [
+    "zeromq",
+  ] },
+
+  # === Monitoring & Observability ===
+  { group = "monitoring", subgroup = "alertmanager", matches = [
+    "alertmanager",
+  ] },
+  { group = "monitoring", subgroup = "blackbox", matches = [
+    "blackbox_exporter",
+  ] },
+  { group = "monitoring", subgroup = "grafana", matches = [
+    "grafana",
+    "grafana-server",
+  ] },
+  { group = "monitoring", subgroup = "icinga_nagios", matches = [
+    "nagios",
+    "icinga2",
+    "nrpe",
+  ] },
+  { group = "monitoring", subgroup = "node_exporter", matches = [
+    "node_exporter",
+  ] },
+  { group = "monitoring", subgroup = "percona", matches = [
+    "pmm-managed",
+    "pmm-agent",
+    "pmm-server",
+  ] },
+  { group = "monitoring", subgroup = "prometheus", matches = [
+    "prometheus",
+  ] },
+  { group = "monitoring", subgroup = "snmp", matches = [
+    "snmpd",
+  ] },
+  { group = "monitoring", subgroup = "telegraf", matches = [
+    "telegraf",
+  ] },
+  { group = "monitoring", subgroup = "thanos", matches = [
+    "thanos",
+  ] },
+  { group = "monitoring", subgroup = "victoriametrics", matches = [
+    "victoria-metrics",
+    "victoriametrics",
+    "vmstorage",
+    "vminsert",
+    "vmselect",
+  ] },
+  { group = "monitoring", subgroup = "zabbix", matches = [
+    "zabbix_agentd",
+    "zabbix_server",
+    "zabbix_proxy",
+  ] },
+
+  # === Network Services ===
+  { group = "network", subgroup = "bind", matches = [
+    "named",
+  ] },
+  { group = "network", subgroup = "dhcp", matches = [
+    "dhcpd",
+  ] },
+  { group = "network", subgroup = "haproxy", matches = [
+    "haproxy",
+  ] },
+  { group = "network", subgroup = "keepalived", matches = [
+    "keepalived",
+  ] },
+  { group = "network", subgroup = "lvs", matches = [
+    "ipvsadm",
+  ] },
+  { group = "network", subgroup = "ntp", matches = [
+    "ntpd",
+    "chronyd",
+  ] },
+  { group = "network", subgroup = "proxy_squid", matches = [
+    "squid",
+  ] },
+  { group = "network", subgroup = "vpn", matches = [
+    "openvpn",
+    "strongswan",
+  ] },
+
+  # === Programming Language Runtimes ===
+  { group = "runtime", subgroup = "go", matches = [
+    "go",
+  ] },
+  { group = "runtime", subgroup = "java", matches = [
+    "java",
+  ] },
+  { group = "runtime", subgroup = "nodejs", matches = [
+    "node",
+  ] },
+  { group = "runtime", subgroup = "php", matches = [
+    "php-fpm",
+  ] },
+  { group = "runtime", subgroup = "python", matches = [
+    "python",
+    "python3",
+  ] },
+  { group = "runtime", subgroup = "ruby", matches = [
+    "ruby",
+  ] },
+
+  # === Security & IAM ===
+  { group = "security", subgroup = "audit_tools", matches = [
+    "ausearch",
+    "aureport",
+    "auditctl",
+    "auditd",
+  ] },
+  { group = "security", subgroup = "freeipa", matches = [
+    "ipa",
+  ] },
+  { group = "security", subgroup = "kerberos_client", matches = [
+    "kinit",
+    "klist",
+    "kdestroy",
+  ] },
+  { group = "security", subgroup = "keycloak", matches = [
+    "keycloak",
+  ] },
+  { group = "security", subgroup = "ldap_client", matches = [
+    "ldapsearch",
+    "pam_ldap",
+    "nslcd",
+  ] },
+  { group = "security", subgroup = "osquery", matches = [
+    "osqueryd",
+  ] },
+  { group = "security", subgroup = "selinux_apparmor", matches = [
+    "setenforce",
+    "sestatus",
+    "aa-status",
+  ] },
+  { group = "security", subgroup = "snort", matches = [
+    "snort",
+  ] },
+  { group = "security", subgroup = "sssd", matches = [
+    "sssd",
+  ] },
+  { group = "security", subgroup = "suricata", matches = [
+    "suricata",
+  ] },
+  { group = "security", subgroup = "vault", matches = [
+    "vault",
+  ] },
+  { group = "security", subgroup = "wazuh", matches = [
+    "wazuh-analysisd",
+    "wazuh-modulesd",
+    "wazuh-execd",
+    "wazuh-agentd",
+    "wazuh-remoted",
+    "ossec-",
+  ], cmdline_matches = [
+    "/var/ossec/bin/wazuh",
+  ] },
+  { group = "security", subgroup = "zeek", matches = [
+    "zeek",
+    "zeek-",
+  ] },
+
+  # === Storage Services ===
+  { group = "storage", subgroup = "ceph", matches = [
+    "ceph-mon",
+    "ceph-osd",
+    "ceph-mgr",
+  ] },
+  { group = "storage", subgroup = "drbd", matches = [
+    "drbd",
+  ] },
+  { group = "storage", subgroup = "gluster", matches = [
+    "glusterd",
+    "glusterfsd",
+  ] },
+  { group = "storage", subgroup = "iscsi", matches = [
+    "iscsid",
+    "tgtadm",
+  ] },
+  { group = "storage", subgroup = "lustre", matches = [
+    "lnet",
+    "mdd",
+    "ost",
+  ] },
+  { group = "storage", subgroup = "minio", matches = [
+    "minio",
+  ] },
+  { group = "storage", subgroup = "nfs", matches = [
+    "nfsd",
+    "rpc.mountd",
+  ] },
+  { group = "storage", subgroup = "samba", matches = [
+    "smbd",
+    "nmbd",
+  ] },
+
+  # === System Services ===
+  { group = "system", subgroup = "audit", matches = [
+    "auditd",
+  ] },
+  { group = "system", subgroup = "cron", matches = [
+    "cron",
+    "crond",
+  ] },
+  { group = "system", subgroup = "firewall", matches = [
+    "firewalld",
+  ] },
+  { group = "system", subgroup = "kernel", matches = [
+    "kthreadd",
+    "ksoftirqd",
+    "kworker",
+    "migration",
+  ] },
+  { group = "system", subgroup = "postfix", matches = [
+    "postfix",
+    "smtpd",
+  ] },
+  { group = "system", subgroup = "rsyslog", matches = [
+    "rsyslogd",
+  ] },
+  { group = "system", subgroup = "sendmail", matches = [
+    "sendmail",
+  ] },
+  { group = "system", subgroup = "ssh", matches = [
+    "sshd",
+    "sshd-session",    # Modern OpenSSH session process (post-privilege separation)
+    "sftp-server",     # SFTP subsystem process
+    "ssh-agent",       # SSH agent
+    "ssh-keysign",     # SSH key signing
+  ] },
+  { group = "system", subgroup = "systemd", matches = [
+    "systemd",
+    "systemd-journal",
+    "systemd-udevd",
+  ] },
+
+  # === Virtualization ===
+  { group = "virtualization", subgroup = "libvirt", matches = [
+    "libvirtd",
+  ] },
+  { group = "virtualization", subgroup = "qemu", matches = [
+    "qemu-system",
+  ] },
+  { group = "virtualization", subgroup = "vbox", matches = [
+    "VirtualBox",
+    "VBoxHeadless",
+  ] },
+
+  # === Web & Application Servers ===
+  { group = "web", subgroup = "apache", matches = [
+    "httpd",
+    "apache2",
+  ] },
+  { group = "web", subgroup = "caddy", matches = [
+    "caddy",
+  ] },
+  { group = "web", subgroup = "glassfish", cmdline_matches = [
+    "com.sun.enterprise.glassfish.bootstrap.ASMain",
+  ] },
+  { group = "web", subgroup = "jetty", cmdline_matches = [
+    "org.eclipse.jetty.start.Main",
+  ] },
+  { group = "web", subgroup = "nginx", matches = [
+    "nginx",
+  ] },
+  { group = "web", subgroup = "springboot", cmdline_matches = [
+    "org.springframework.boot.loader.JarLauncher",
+  ] },
+  { group = "web", subgroup = "tomcat", matches = [
+    "tomcat",
+  ], cmdline_matches = [
+    "org.apache.catalina.startup.Bootstrap",
+    "catalina.sh",
+  ] },
+  { group = "web", subgroup = "weblogic", cmdline_matches = [
+    "weblogic.Server",
+    "weblogic.nodemanager.NMMain",
+  ] },
+  { group = "web", subgroup = "websphere", cmdline_matches = [
+    "com.ibm.ws.runtime.WSStart",
+    "wasadmin",
+  ] },
+
+  # === Fallback ===
+  { group = "other", subgroup = "unknown", matches = [
+  ] },
+]

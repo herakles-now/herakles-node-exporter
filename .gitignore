@@ -1,0 +1,13 @@
+/target
+
+# Binary output directory
+/binary
+
+# eBPF generated files
+src/ebpf/bpf/vmlinux.h
+# eBPF compiled objects in OUT_DIR are ignored, but keep the embedded one in src tree
+*.bpf.o
+!src/ebpf/bpf/process_io.bpf.o
+
+# CodeQL artifacts
+_codeql_detected_source_root

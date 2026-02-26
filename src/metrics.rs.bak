@@ -1,0 +1,1436 @@
+//! Prometheus metrics definitions for herakles-node-exporter.
+//!
+//! This module defines all the Prometheus metrics used to export process
+//! memory and CPU usage information.
+
+use crate::config::Config;
+use prometheus::{Gauge, GaugeVec, Opts, Registry};
+
+/// Collection of Prometheus metrics for memory and CPU monitoring.
+#[derive(Clone)]
+pub struct MemoryMetrics {
+    // Node-Level Metrics (28 metrics)
+    pub node_uptime_seconds: Gauge,
+    pub node_cpu_usage_percent: Gauge,
+    pub node_cpu_iowait_percent: Gauge,
+    pub node_cpu_steal_percent: Gauge,
+    pub node_mem_total_bytes: Gauge,
+    pub node_mem_used_bytes: Gauge,
+    pub node_mem_available_bytes: Gauge,
+    pub node_mem_cached_bytes: Gauge,
+    pub node_mem_buffers_bytes: Gauge,
+    pub node_mem_swap_used_bytes: Gauge,
+    pub node_mem_swap_total_bytes: Gauge,
+    pub node_io_read_bytes_per_second: Gauge,
+    pub node_io_write_bytes_per_second: Gauge,
+    pub node_io_read_iops_per_second: Gauge,
+    pub node_io_write_iops_per_second: Gauge,
+    pub node_io_iowait_percent: Gauge,
+    pub node_net_rx_bytes_per_second: Gauge,
+    pub node_net_tx_bytes_per_second: Gauge,
+    pub node_net_rx_dropped_packets_per_second: Gauge,
+    pub node_net_tx_dropped_packets_per_second: Gauge,
+    pub node_net_rx_error_packets_per_second: Gauge,
+    pub node_net_tx_error_packets_per_second: Gauge,
+    pub node_fd_open: Gauge,
+    pub node_fd_max: Gauge,
+    pub node_fd_used_ratio: Gauge,
+    pub node_load1: Gauge,
+    pub node_load5: Gauge,
+    pub node_load15: Gauge,
+
+    // Subgroup-Level Metrics (13 metrics) - Labels: group, subgroup
+    pub subgroup_info: GaugeVec,
+    pub mem_rss_subgroup_bytes: GaugeVec,
+    pub mem_pss_subgroup_bytes: GaugeVec,
+    pub mem_uss_subgroup_bytes: GaugeVec,
+    pub mem_swap_subgroup_bytes: GaugeVec,
+    pub cpu_usage_subgroup_percent: GaugeVec,
+    pub cpu_iowait_subgroup_percent: GaugeVec,
+    pub io_read_subgroup_bytes_per_second: GaugeVec,
+    pub io_write_subgroup_bytes_per_second: GaugeVec,
+    pub net_rx_subgroup_bytes_per_second: GaugeVec,
+    pub net_tx_subgroup_bytes_per_second: GaugeVec,
+    pub subgroup_oldest_uptime_seconds: GaugeVec,
+    pub subgroup_alert_armed: GaugeVec,
+
+    // Top-3 RSS Memory metrics (9 metrics) - Labels: group, subgroup (and comm for _comm metrics)
+    pub mem_rss_subgroup_top1_bytes: GaugeVec,
+    pub mem_rss_subgroup_top2_bytes: GaugeVec,
+    pub mem_rss_subgroup_top3_bytes: GaugeVec,
+    pub mem_rss_subgroup_top1_pid: GaugeVec,
+    pub mem_rss_subgroup_top2_pid: GaugeVec,
+    pub mem_rss_subgroup_top3_pid: GaugeVec,
+    pub mem_rss_subgroup_top1_comm: GaugeVec,  // Labels: group, subgroup, comm
+    pub mem_rss_subgroup_top2_comm: GaugeVec,  // Labels: group, subgroup, comm
+    pub mem_rss_subgroup_top3_comm: GaugeVec,  // Labels: group, subgroup, comm
+
+    // Top-3 CPU Usage metrics (9 metrics) - Labels: group, subgroup (and comm for _comm metrics)
+    pub cpu_usage_subgroup_top1_percent: GaugeVec,
+    pub cpu_usage_subgroup_top2_percent: GaugeVec,
+    pub cpu_usage_subgroup_top3_percent: GaugeVec,
+    pub cpu_usage_subgroup_top1_pid: GaugeVec,
+    pub cpu_usage_subgroup_top2_pid: GaugeVec,
+    pub cpu_usage_subgroup_top3_pid: GaugeVec,
+    pub cpu_usage_subgroup_top1_comm: GaugeVec,  // Labels: group, subgroup, comm
+    pub cpu_usage_subgroup_top2_comm: GaugeVec,  // Labels: group, subgroup, comm
+    pub cpu_usage_subgroup_top3_comm: GaugeVec,  // Labels: group, subgroup, comm
+}
+
+impl MemoryMetrics {
+    /// Creates and registers all Prometheus metrics with the registry.
+    pub fn new(registry: &Registry) -> Result<Self, Box<dyn std::error::Error>> {
+        // Node-Level Metrics (28 metrics)
+
+        // Node-level metrics
+        let node_uptime_seconds = Gauge::new(
+            "herakles_node_uptime_seconds",
+            "System uptime in seconds from /proc/uptime",
+        )?;
+        let node_fd_open = Gauge::new(
+            "herakles_node_fd_open",
+            "Number of open file descriptors system-wide from /proc/sys/fs/file-nr",
+        )?;
+        let node_fd_max = Gauge::new(
+            "herakles_node_fd_max",
+            "Maximum number of file descriptors system-wide from /proc/sys/fs/file-nr",
+        )?;
+        let node_fd_used_ratio = Gauge::new(
+            "herakles_node_fd_used_ratio",
+            "Ratio of used file descriptors (open / max)",
+        )?;
+        let node_cpu_usage_percent = Gauge::new(
+            "herakles_node_cpu_usage_percent",
+            "Total CPU usage percentage across all cores",
+        )?;
+        let node_cpu_iowait_percent = Gauge::new(
+            "herakles_node_cpu_iowait_percent",
+            "Total CPU iowait percentage across all cores",
+        )?;
+        let node_cpu_steal_percent = Gauge::new(
+            "herakles_node_cpu_steal_percent",
+            "Total CPU steal percentage across all cores",
+        )?;
+        let node_mem_total_bytes = Gauge::new(
+            "herakles_node_mem_total_bytes",
+            "Total system memory in bytes",
+        )?;
+        let node_mem_used_bytes = Gauge::new(
+            "herakles_node_mem_used_bytes",
+            "Used system memory in bytes (total - available)",
+        )?;
+        let node_mem_available_bytes = Gauge::new(
+            "herakles_node_mem_available_bytes",
+            "Available system memory in bytes",
+        )?;
+        let node_mem_cached_bytes = Gauge::new(
+            "herakles_node_mem_cached_bytes",
+            "Page cache memory in bytes",
+        )?;
+        let node_mem_buffers_bytes = Gauge::new(
+            "herakles_node_mem_buffers_bytes",
+            "Buffer cache memory in bytes",
+        )?;
+        let node_mem_swap_used_bytes = Gauge::new(
+            "herakles_node_mem_swap_used_bytes",
+            "Used swap space in bytes",
+        )?;
+        let node_mem_swap_total_bytes = Gauge::new(
+            "herakles_node_mem_swap_total_bytes",
+            "Total swap space in bytes",
+        )?;
+        let node_load1 = Gauge::new(
+            "herakles_node_load1",
+            "System load average over 1 minute",
+        )?;
+        let node_load5 = Gauge::new(
+            "herakles_node_load5",
+            "System load average over 5 minutes",
+        )?;
+        let node_load15 = Gauge::new(
+            "herakles_node_load15",
+            "System load average over 15 minutes",
+        )?;
+
+        // Subgroup metadata metrics
+        let subgroup_info = GaugeVec::new(
+            Opts::new(
+                "herakles_subgroup_info",
+                "Subgroup information (always 1.0)",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let subgroup_oldest_uptime_seconds = GaugeVec::new(
+            Opts::new(
+                "herakles_subgroup_oldest_uptime_seconds",
+                "Oldest process uptime in seconds per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let subgroup_alert_armed = GaugeVec::new(
+            Opts::new(
+                "herakles_subgroup_alert_armed",
+                "Alert armed status per subgroup (1.0 = armed, 0.0 = not armed)",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Subgroup-level aggregated metrics (without uptime label)
+        let mem_rss_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_bytes",
+                "Sum of RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_pss_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_pss_subgroup_bytes",
+                "Sum of PSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_uss_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_uss_subgroup_bytes",
+                "Sum of USS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_swap_subgroup_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_swap_subgroup_bytes",
+                "Sum of swap bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_percent",
+                "CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_iowait_subgroup_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_iowait_subgroup_percent",
+                "CPU iowait percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Top-3 RSS Memory metrics (separate for top1, top2, top3)
+        let mem_rss_subgroup_top1_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top1_bytes",
+                "Top 1 RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top2_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top2_bytes",
+                "Top 2 RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top3_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top3_bytes",
+                "Top 3 RSS bytes per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top1_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top1_pid",
+                "Top 1 RSS process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top2_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top2_pid",
+                "Top 2 RSS process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top3_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top3_pid",
+                "Top 3 RSS process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let mem_rss_subgroup_top1_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top1_comm",
+                "Top 1 RSS process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let mem_rss_subgroup_top2_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top2_comm",
+                "Top 2 RSS process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let mem_rss_subgroup_top3_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_rss_subgroup_top3_comm",
+                "Top 3 RSS process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+
+        // Top-3 CPU Usage metrics (separate for top1, top2, top3)
+        let cpu_usage_subgroup_top1_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top1_percent",
+                "Top 1 CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top2_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top2_percent",
+                "Top 2 CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top3_percent = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top3_percent",
+                "Top 3 CPU usage percentage per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top1_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top1_pid",
+                "Top 1 CPU usage process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top2_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top2_pid",
+                "Top 2 CPU usage process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top3_pid = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top3_pid",
+                "Top 3 CPU usage process PID per subgroup",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_usage_subgroup_top1_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top1_comm",
+                "Top 1 CPU usage process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let cpu_usage_subgroup_top2_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top2_comm",
+                "Top 2 CPU usage process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+        let cpu_usage_subgroup_top3_comm = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_usage_subgroup_top3_comm",
+                "Top 3 CPU usage process name per subgroup (info metric)",
+            ),
+            &["group", "subgroup", "comm"],
+        )?;
+
+        // System-wide memory metrics (renamed)
+        let system_memory_total_bytes = Gauge::new(
+            "herakles_mem_system_total_bytes",
+            "Total system memory in bytes (MemTotal from /proc/meminfo)",
+        )?;
+        let system_memory_available_bytes = Gauge::new(
+            "herakles_mem_system_available_bytes",
+            "Available system memory in bytes (MemAvailable from /proc/meminfo)",
+        )?;
+        let system_memory_used_ratio = Gauge::new(
+            "herakles_mem_system_used_ratio",
+            "Memory used ratio: 1 - (available_bytes / total_bytes), value between 0.0 and 1.0",
+        )?;
+        let system_memory_cached_bytes = Gauge::new(
+            "herakles_mem_system_cached_bytes",
+            "Page cache memory in bytes (Cached from /proc/meminfo)",
+        )?;
+        let system_memory_buffers_bytes = Gauge::new(
+            "herakles_mem_system_buffers_bytes",
+            "Buffer cache memory in bytes (Buffers from /proc/meminfo)",
+        )?;
+        let system_memory_swap_used_ratio = Gauge::new(
+            "herakles_mem_system_swap_used_ratio",
+            "Swap used ratio: (SwapTotal - SwapFree) / SwapTotal, value between 0.0 and 1.0",
+        )?;
+        let system_memory_psi_wait_seconds_total = Gauge::new(
+            "herakles_mem_system_psi_wait_seconds_total",
+            "Memory Pressure Stall Information (PSI) - some total seconds from /proc/pressure/memory",
+        )?;
+
+        // System-wide CPU metrics (renamed)
+        let system_cpu_usage_ratio = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_system_usage_ratio",
+                "CPU usage ratio per core and total, calculated from /proc/stat deltas",
+            ),
+            &["cpu"],
+        )?;
+        let system_cpu_idle_ratio = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_system_idle_ratio",
+                "CPU idle ratio per core and total (0.0 to 1.0) from /proc/stat",
+            ),
+            &["cpu"],
+        )?;
+        let system_cpu_iowait_ratio = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_system_iowait_ratio",
+                "CPU IO-wait ratio per core and total (0.0 to 1.0) from /proc/stat",
+            ),
+            &["cpu"],
+        )?;
+        let system_cpu_steal_ratio = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_system_steal_ratio",
+                "CPU steal time ratio per core and total (0.0 to 1.0) from /proc/stat",
+            ),
+            &["cpu"],
+        )?;
+        let system_load1 = Gauge::new(
+            "herakles_cpu_system_load_1",
+            "System load average over 1 minute",
+        )?;
+        let system_load5 = Gauge::new(
+            "herakles_cpu_system_load_5",
+            "System load average over 5 minutes",
+        )?;
+        let system_load15 = Gauge::new(
+            "herakles_cpu_system_load_15",
+            "System load average over 15 minutes",
+        )?;
+        let system_cpu_psi_wait_seconds_total = Gauge::new(
+            "herakles_cpu_system_psi_wait_seconds_total",
+            "CPU Pressure Stall Information (PSI) - some total seconds from /proc/pressure/cpu",
+        )?;
+
+        // CPU group metrics
+        let cpu_group_usage_ratio = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_group_usage_ratio",
+                "CPU usage ratio per subgroup (0.0 to 1.0)",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let cpu_group_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_group_seconds_total",
+                "Total CPU time seconds per subgroup",
+            ),
+            &["group", "subgroup", "mode"],
+        )?;
+
+        // CPU top process metrics (with comm label)
+        let cpu_top_process_usage_ratio = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_top_process_usage_ratio",
+                "Top-3 CPU usage ratio per subgroup (0.0 to 1.0)",
+            ),
+            &["group", "subgroup", "rank", "pid", "comm"],
+        )?;
+        let cpu_top_process_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_cpu_top_process_seconds_total",
+                "Top-3 CPU time seconds per subgroup",
+            ),
+            &["group", "subgroup", "rank", "pid", "comm", "mode"],
+        )?;
+
+        // Memory group swap metrics
+        let mem_group_swap_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_mem_group_swap_bytes",
+                "Swap usage in bytes per subgroup from /proc/[pid]/status VmSwap",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Disk I/O metrics (reported as gauges with absolute cumulative values from /proc/diskstats)
+        let disk_reads_completed_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_reads_completed_total",
+                "The total number of reads completed successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_reads_merged_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_reads_merged_total",
+                "The total number of reads merged",
+            ),
+            &["device"],
+        )?;
+        let disk_read_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_read_bytes_total",
+                "The total number of bytes read successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_read_time_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_read_time_seconds_total",
+                "The total number of seconds spent reading",
+            ),
+            &["device"],
+        )?;
+        let disk_writes_completed_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_writes_completed_total",
+                "The total number of writes completed successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_writes_merged_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_writes_merged_total",
+                "The total number of writes merged",
+            ),
+            &["device"],
+        )?;
+        let disk_written_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_written_bytes_total",
+                "The total number of bytes written successfully",
+            ),
+            &["device"],
+        )?;
+        let disk_write_time_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_write_time_seconds_total",
+                "The total number of seconds spent writing",
+            ),
+            &["device"],
+        )?;
+        let disk_io_now = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_io_now",
+                "The number of I/Os currently in progress",
+            ),
+            &["device"],
+        )?;
+        let disk_io_time_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_io_time_seconds_total",
+                "Total seconds spent doing I/Os",
+            ),
+            &["device"],
+        )?;
+        let disk_io_time_weighted_seconds_total = GaugeVec::new(
+            Opts::new(
+                "herakles_disk_io_time_weighted_seconds_total",
+                "The weighted number of seconds spent doing I/Os",
+            ),
+            &["device"],
+        )?;
+
+        // Filesystem metrics
+        let filesystem_size_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_size_bytes",
+                "Filesystem size in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_free_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_free_bytes",
+                "Filesystem free space in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_avail_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_avail_bytes",
+                "Filesystem space available to non-root users in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_files = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_files",
+                "Filesystem total file nodes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let filesystem_files_free = GaugeVec::new(
+            Opts::new(
+                "herakles_filesystem_files_free",
+                "Filesystem total free file nodes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+
+        // Network interface metrics (reported as gauges with absolute cumulative values from /proc/net/dev)
+        let network_receive_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_bytes_total",
+                "Network device statistic receive_bytes",
+            ),
+            &["device"],
+        )?;
+        let network_receive_packets_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_packets_total",
+                "Network device statistic receive_packets",
+            ),
+            &["device"],
+        )?;
+        let network_receive_errs_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_errs_total",
+                "Network device statistic receive_errs",
+            ),
+            &["device"],
+        )?;
+        let network_receive_drop_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_receive_drop_total",
+                "Network device statistic receive_drop",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_bytes_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_bytes_total",
+                "Network device statistic transmit_bytes",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_packets_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_packets_total",
+                "Network device statistic transmit_packets",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_errs_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_errs_total",
+                "Network device statistic transmit_errs",
+            ),
+            &["device"],
+        )?;
+        let network_transmit_drop_total = GaugeVec::new(
+            Opts::new(
+                "herakles_network_transmit_drop_total",
+                "Network device statistic transmit_drop",
+            ),
+            &["device"],
+        )?;
+
+        // eBPF-based process network metrics
+        let herakles_net_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_process_bytes_total",
+                "TCP/UDP bytes per process from eBPF (direction: rx/tx)",
+            ),
+            &["pid", "comm", "group", "subgroup", "direction"],
+        )?;
+        let herakles_net_process_packets = GaugeVec::new(
+            Opts::new(
+                "herakles_net_process_packets_total",
+                "TCP/UDP packets per process from eBPF (direction: rx/tx)",
+            ),
+            &["pid", "comm", "group", "subgroup", "direction"],
+        )?;
+        let herakles_net_process_dropped = GaugeVec::new(
+            Opts::new(
+                "herakles_net_process_dropped_total",
+                "Dropped packets per process from eBPF",
+            ),
+            &["pid", "comm", "group", "subgroup"],
+        )?;
+
+        // eBPF-based process block I/O metrics
+        let herakles_io_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_process_bytes_total",
+                "Block I/O bytes per process/device from eBPF (direction: read/write)",
+            ),
+            &["pid", "comm", "device", "group", "subgroup", "direction"],
+        )?;
+        let herakles_io_process_iops = GaugeVec::new(
+            Opts::new(
+                "herakles_io_process_iops_total",
+                "I/O operations per process/device from eBPF (direction: read/write)",
+            ),
+            &["pid", "comm", "device", "group", "subgroup", "direction"],
+        )?;
+
+        // TCP connection tracking
+        let tcp_connections = GaugeVec::new(
+            Opts::new(
+                "node_tcp_connections",
+                "TCP connections by state from eBPF",
+            ),
+            &["state"],
+        )?;
+
+        // eBPF group aggregation metrics
+        let herakles_io_group_read_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_group_read_bytes_total",
+                "Aggregated disk read bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let herakles_io_group_write_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_group_write_bytes_total",
+                "Aggregated disk write bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let herakles_net_group_rx_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_group_rx_bytes_total",
+                "Aggregated network RX bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+        let herakles_net_group_tx_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_group_tx_bytes_total",
+                "Aggregated network TX bytes per subgroup from eBPF",
+            ),
+            &["group", "subgroup"],
+        )?;
+
+        // Top-N I/O process metrics
+        let herakles_io_top_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_io_top_process_bytes",
+                "Top-N disk I/O processes from eBPF (op: read/write)",
+            ),
+            &["group", "subgroup", "rank", "pid", "comm", "op"],
+        )?;
+        let herakles_net_top_process_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_net_top_process_bytes",
+                "Top-N network I/O processes from eBPF (dir: rx/tx)",
+            ),
+            &["group", "subgroup", "rank", "pid", "comm", "dir"],
+        )?;
+
+        // PSI I/O metric
+        let system_io_psi_wait_seconds_total = Gauge::new(
+            "herakles_io_system_psi_wait_seconds_total",
+            "I/O Pressure Stall Information (PSI) - some total seconds from /proc/pressure/io",
+        )?;
+
+        registry.register(Box::new(rss.clone()))?;
+        registry.register(Box::new(pss.clone()))?;
+        registry.register(Box::new(uss.clone()))?;
+        registry.register(Box::new(cpu_usage.clone()))?;
+        registry.register(Box::new(cpu_time.clone()))?;
+
+        registry.register(Box::new(agg_rss_sum.clone()))?;
+        registry.register(Box::new(agg_pss_sum.clone()))?;
+        registry.register(Box::new(agg_uss_sum.clone()))?;
+        registry.register(Box::new(agg_cpu_percent_sum.clone()))?;
+        registry.register(Box::new(agg_cpu_time_sum.clone()))?;
+
+        registry.register(Box::new(top_rss.clone()))?;
+        registry.register(Box::new(top_pss.clone()))?;
+        registry.register(Box::new(top_uss.clone()))?;
+        registry.register(Box::new(top_cpu_percent.clone()))?;
+        registry.register(Box::new(top_cpu_time.clone()))?;
+
+        registry.register(Box::new(top_cpu_percent_of_subgroup.clone()))?;
+        registry.register(Box::new(top_rss_percent_of_subgroup.clone()))?;
+        registry.register(Box::new(top_pss_percent_of_subgroup.clone()))?;
+        registry.register(Box::new(top_uss_percent_of_subgroup.clone()))?;
+
+        // Register node-level metrics
+        registry.register(Box::new(node_uptime_seconds.clone()))?;
+        registry.register(Box::new(node_fd_open.clone()))?;
+        registry.register(Box::new(node_fd_max.clone()))?;
+        registry.register(Box::new(node_fd_used_ratio.clone()))?;
+        registry.register(Box::new(node_cpu_usage_percent.clone()))?;
+        registry.register(Box::new(node_cpu_iowait_percent.clone()))?;
+        registry.register(Box::new(node_cpu_steal_percent.clone()))?;
+        registry.register(Box::new(node_mem_total_bytes.clone()))?;
+        registry.register(Box::new(node_mem_used_bytes.clone()))?;
+        registry.register(Box::new(node_mem_available_bytes.clone()))?;
+        registry.register(Box::new(node_mem_cached_bytes.clone()))?;
+        registry.register(Box::new(node_mem_buffers_bytes.clone()))?;
+        registry.register(Box::new(node_mem_swap_used_bytes.clone()))?;
+        registry.register(Box::new(node_mem_swap_total_bytes.clone()))?;
+        registry.register(Box::new(node_load1.clone()))?;
+        registry.register(Box::new(node_load5.clone()))?;
+        registry.register(Box::new(node_load15.clone()))?;
+
+        // Register subgroup metadata metrics
+        registry.register(Box::new(subgroup_info.clone()))?;
+        registry.register(Box::new(subgroup_oldest_uptime_seconds.clone()))?;
+        registry.register(Box::new(subgroup_alert_armed.clone()))?;
+
+        // Register subgroup-level aggregated metrics
+        registry.register(Box::new(mem_rss_subgroup_bytes.clone()))?;
+        registry.register(Box::new(mem_pss_subgroup_bytes.clone()))?;
+        registry.register(Box::new(mem_uss_subgroup_bytes.clone()))?;
+        registry.register(Box::new(mem_swap_subgroup_bytes.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_percent.clone()))?;
+        registry.register(Box::new(cpu_iowait_subgroup_percent.clone()))?;
+
+        // Register Top-3 RSS Memory metrics
+        registry.register(Box::new(mem_rss_subgroup_top1_bytes.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top2_bytes.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top3_bytes.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top1_pid.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top2_pid.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top3_pid.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top1_comm.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top2_comm.clone()))?;
+        registry.register(Box::new(mem_rss_subgroup_top3_comm.clone()))?;
+
+        // Register Top-3 CPU Usage metrics
+        registry.register(Box::new(cpu_usage_subgroup_top1_percent.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top2_percent.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top3_percent.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top1_pid.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top2_pid.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top3_pid.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top1_comm.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top2_comm.clone()))?;
+        registry.register(Box::new(cpu_usage_subgroup_top3_comm.clone()))?;
+
+        registry.register(Box::new(system_memory_total_bytes.clone()))?;
+        registry.register(Box::new(system_memory_available_bytes.clone()))?;
+        registry.register(Box::new(system_memory_used_ratio.clone()))?;
+        registry.register(Box::new(system_memory_cached_bytes.clone()))?;
+        registry.register(Box::new(system_memory_buffers_bytes.clone()))?;
+        registry.register(Box::new(system_memory_swap_used_ratio.clone()))?;
+        registry.register(Box::new(system_memory_psi_wait_seconds_total.clone()))?;
+        registry.register(Box::new(system_cpu_usage_ratio.clone()))?;
+        registry.register(Box::new(system_cpu_idle_ratio.clone()))?;
+        registry.register(Box::new(system_cpu_iowait_ratio.clone()))?;
+        registry.register(Box::new(system_cpu_steal_ratio.clone()))?;
+        registry.register(Box::new(system_load1.clone()))?;
+        registry.register(Box::new(system_load5.clone()))?;
+        registry.register(Box::new(system_load15.clone()))?;
+        registry.register(Box::new(system_cpu_psi_wait_seconds_total.clone()))?;
+        registry.register(Box::new(cpu_group_usage_ratio.clone()))?;
+        registry.register(Box::new(cpu_group_seconds_total.clone()))?;
+        registry.register(Box::new(cpu_top_process_usage_ratio.clone()))?;
+        registry.register(Box::new(cpu_top_process_seconds_total.clone()))?;
+        registry.register(Box::new(mem_group_swap_bytes.clone()))?;
+
+        // Register disk metrics
+        registry.register(Box::new(disk_reads_completed_total.clone()))?;
+        registry.register(Box::new(disk_reads_merged_total.clone()))?;
+        registry.register(Box::new(disk_read_bytes_total.clone()))?;
+        registry.register(Box::new(disk_read_time_seconds_total.clone()))?;
+        registry.register(Box::new(disk_writes_completed_total.clone()))?;
+        registry.register(Box::new(disk_writes_merged_total.clone()))?;
+        registry.register(Box::new(disk_written_bytes_total.clone()))?;
+        registry.register(Box::new(disk_write_time_seconds_total.clone()))?;
+        registry.register(Box::new(disk_io_now.clone()))?;
+        registry.register(Box::new(disk_io_time_seconds_total.clone()))?;
+        registry.register(Box::new(disk_io_time_weighted_seconds_total.clone()))?;
+
+        // Register filesystem metrics
+        registry.register(Box::new(filesystem_size_bytes.clone()))?;
+        registry.register(Box::new(filesystem_free_bytes.clone()))?;
+        registry.register(Box::new(filesystem_avail_bytes.clone()))?;
+        registry.register(Box::new(filesystem_files.clone()))?;
+        registry.register(Box::new(filesystem_files_free.clone()))?;
+
+        // Register network metrics
+        registry.register(Box::new(network_receive_bytes_total.clone()))?;
+        registry.register(Box::new(network_receive_packets_total.clone()))?;
+        registry.register(Box::new(network_receive_errs_total.clone()))?;
+        registry.register(Box::new(network_receive_drop_total.clone()))?;
+        registry.register(Box::new(network_transmit_bytes_total.clone()))?;
+        registry.register(Box::new(network_transmit_packets_total.clone()))?;
+        registry.register(Box::new(network_transmit_errs_total.clone()))?;
+        registry.register(Box::new(network_transmit_drop_total.clone()))?;
+
+        // Register eBPF metrics
+        registry.register(Box::new(herakles_net_process_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_process_packets.clone()))?;
+        registry.register(Box::new(herakles_net_process_dropped.clone()))?;
+        registry.register(Box::new(herakles_io_process_bytes.clone()))?;
+        registry.register(Box::new(herakles_io_process_iops.clone()))?;
+        registry.register(Box::new(tcp_connections.clone()))?;
+        registry.register(Box::new(herakles_io_group_read_bytes.clone()))?;
+        registry.register(Box::new(herakles_io_group_write_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_group_rx_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_group_tx_bytes.clone()))?;
+        registry.register(Box::new(herakles_io_top_process_bytes.clone()))?;
+        registry.register(Box::new(herakles_net_top_process_bytes.clone()))?;
+        registry.register(Box::new(system_io_psi_wait_seconds_total.clone()))?;
+
+        Ok(Self {
+            rss,
+            pss,
+            uss,
+            cpu_usage,
+            cpu_time,
+            agg_rss_sum,
+            agg_pss_sum,
+            agg_uss_sum,
+            agg_cpu_percent_sum,
+            agg_cpu_time_sum,
+            top_rss,
+            top_pss,
+            top_uss,
+            top_cpu_percent,
+            top_cpu_time,
+            top_cpu_percent_of_subgroup,
+            top_rss_percent_of_subgroup,
+            top_pss_percent_of_subgroup,
+            top_uss_percent_of_subgroup,
+            node_uptime_seconds,
+            node_fd_open,
+            node_fd_max,
+            node_fd_used_ratio,
+            node_cpu_usage_percent,
+            node_cpu_iowait_percent,
+            node_cpu_steal_percent,
+            node_mem_total_bytes,
+            node_mem_used_bytes,
+            node_mem_available_bytes,
+            node_mem_cached_bytes,
+            node_mem_buffers_bytes,
+            node_mem_swap_used_bytes,
+            node_mem_swap_total_bytes,
+            node_load1,
+            node_load5,
+            node_load15,
+            subgroup_info,
+            subgroup_oldest_uptime_seconds,
+            subgroup_alert_armed,
+            mem_rss_subgroup_bytes,
+            mem_pss_subgroup_bytes,
+            mem_uss_subgroup_bytes,
+            mem_swap_subgroup_bytes,
+            cpu_usage_subgroup_percent,
+            cpu_iowait_subgroup_percent,
+            mem_rss_subgroup_top1_bytes,
+            mem_rss_subgroup_top2_bytes,
+            mem_rss_subgroup_top3_bytes,
+            mem_rss_subgroup_top1_pid,
+            mem_rss_subgroup_top2_pid,
+            mem_rss_subgroup_top3_pid,
+            mem_rss_subgroup_top1_comm,
+            mem_rss_subgroup_top2_comm,
+            mem_rss_subgroup_top3_comm,
+            cpu_usage_subgroup_top1_percent,
+            cpu_usage_subgroup_top2_percent,
+            cpu_usage_subgroup_top3_percent,
+            cpu_usage_subgroup_top1_pid,
+            cpu_usage_subgroup_top2_pid,
+            cpu_usage_subgroup_top3_pid,
+            cpu_usage_subgroup_top1_comm,
+            cpu_usage_subgroup_top2_comm,
+            cpu_usage_subgroup_top3_comm,
+            system_memory_total_bytes,
+            system_memory_available_bytes,
+            system_memory_used_ratio,
+            system_memory_cached_bytes,
+            system_memory_buffers_bytes,
+            system_memory_swap_used_ratio,
+            system_memory_psi_wait_seconds_total,
+            system_cpu_usage_ratio,
+            system_cpu_idle_ratio,
+            system_cpu_iowait_ratio,
+            system_cpu_steal_ratio,
+            system_load1,
+            system_load5,
+            system_load15,
+            system_cpu_psi_wait_seconds_total,
+            cpu_group_usage_ratio,
+            cpu_group_seconds_total,
+            cpu_top_process_usage_ratio,
+            cpu_top_process_seconds_total,
+            mem_group_swap_bytes,
+            disk_reads_completed_total,
+            disk_reads_merged_total,
+            disk_read_bytes_total,
+            disk_read_time_seconds_total,
+            disk_writes_completed_total,
+            disk_writes_merged_total,
+            disk_written_bytes_total,
+            disk_write_time_seconds_total,
+            disk_io_now,
+            disk_io_time_seconds_total,
+            disk_io_time_weighted_seconds_total,
+            filesystem_size_bytes,
+            filesystem_free_bytes,
+            filesystem_avail_bytes,
+            filesystem_files,
+            filesystem_files_free,
+            network_receive_bytes_total,
+            network_receive_packets_total,
+            network_receive_errs_total,
+            network_receive_drop_total,
+            network_transmit_bytes_total,
+            network_transmit_packets_total,
+            network_transmit_errs_total,
+            network_transmit_drop_total,
+            herakles_net_process_bytes,
+            herakles_net_process_packets,
+            herakles_net_process_dropped,
+            herakles_io_process_bytes,
+            herakles_io_process_iops,
+            tcp_connections,
+            herakles_io_group_read_bytes,
+            herakles_io_group_write_bytes,
+            herakles_net_group_rx_bytes,
+            herakles_net_group_tx_bytes,
+            herakles_io_top_process_bytes,
+            herakles_net_top_process_bytes,
+            system_io_psi_wait_seconds_total,
+        })
+    }
+
+    /// Resets all metrics to zero (used before updating with fresh data).
+    pub fn reset(&self) {
+        self.rss.reset();
+        self.pss.reset();
+        self.uss.reset();
+        self.cpu_usage.reset();
+        self.cpu_time.reset();
+
+        self.agg_rss_sum.reset();
+        self.agg_pss_sum.reset();
+        self.agg_uss_sum.reset();
+        self.agg_cpu_percent_sum.reset();
+        self.agg_cpu_time_sum.reset();
+
+        self.top_rss.reset();
+        self.top_pss.reset();
+        self.top_uss.reset();
+        self.top_cpu_percent.reset();
+        self.top_cpu_time.reset();
+
+        self.top_cpu_percent_of_subgroup.reset();
+        self.top_rss_percent_of_subgroup.reset();
+        self.top_pss_percent_of_subgroup.reset();
+        self.top_uss_percent_of_subgroup.reset();
+
+        // Reset subgroup metadata metrics
+        self.subgroup_info.reset();
+        self.subgroup_oldest_uptime_seconds.reset();
+        self.subgroup_alert_armed.reset();
+
+        // Reset subgroup-level aggregated metrics
+        self.mem_rss_subgroup_bytes.reset();
+        self.mem_pss_subgroup_bytes.reset();
+        self.mem_uss_subgroup_bytes.reset();
+        self.mem_swap_subgroup_bytes.reset();
+        self.cpu_usage_subgroup_percent.reset();
+        self.cpu_iowait_subgroup_percent.reset();
+
+        // Reset Top-3 RSS Memory metrics
+        self.mem_rss_subgroup_top1_bytes.reset();
+        self.mem_rss_subgroup_top2_bytes.reset();
+        self.mem_rss_subgroup_top3_bytes.reset();
+        self.mem_rss_subgroup_top1_pid.reset();
+        self.mem_rss_subgroup_top2_pid.reset();
+        self.mem_rss_subgroup_top3_pid.reset();
+        self.mem_rss_subgroup_top1_comm.reset();
+        self.mem_rss_subgroup_top2_comm.reset();
+        self.mem_rss_subgroup_top3_comm.reset();
+
+        // Reset Top-3 CPU Usage metrics
+        self.cpu_usage_subgroup_top1_percent.reset();
+        self.cpu_usage_subgroup_top2_percent.reset();
+        self.cpu_usage_subgroup_top3_percent.reset();
+        self.cpu_usage_subgroup_top1_pid.reset();
+        self.cpu_usage_subgroup_top2_pid.reset();
+        self.cpu_usage_subgroup_top3_pid.reset();
+        self.cpu_usage_subgroup_top1_comm.reset();
+        self.cpu_usage_subgroup_top2_comm.reset();
+        self.cpu_usage_subgroup_top3_comm.reset();
+
+        // Reset system metrics
+        self.system_cpu_usage_ratio.reset();
+        self.system_cpu_idle_ratio.reset();
+        self.system_cpu_iowait_ratio.reset();
+        self.system_cpu_steal_ratio.reset();
+
+        // Reset group and top process metrics
+        self.cpu_group_usage_ratio.reset();
+        self.cpu_group_seconds_total.reset();
+        self.cpu_top_process_usage_ratio.reset();
+        self.cpu_top_process_seconds_total.reset();
+        self.mem_group_swap_bytes.reset();
+
+        // Reset disk metrics
+        self.disk_reads_completed_total.reset();
+        self.disk_reads_merged_total.reset();
+        self.disk_read_bytes_total.reset();
+        self.disk_read_time_seconds_total.reset();
+        self.disk_writes_completed_total.reset();
+        self.disk_writes_merged_total.reset();
+        self.disk_written_bytes_total.reset();
+        self.disk_write_time_seconds_total.reset();
+        self.disk_io_now.reset();
+        self.disk_io_time_seconds_total.reset();
+        self.disk_io_time_weighted_seconds_total.reset();
+
+        // Reset filesystem metrics
+        self.filesystem_size_bytes.reset();
+        self.filesystem_free_bytes.reset();
+        self.filesystem_avail_bytes.reset();
+        self.filesystem_files.reset();
+        self.filesystem_files_free.reset();
+
+        // Reset network metrics
+        self.network_receive_bytes_total.reset();
+        self.network_receive_packets_total.reset();
+        self.network_receive_errs_total.reset();
+        self.network_receive_drop_total.reset();
+        self.network_transmit_bytes_total.reset();
+        self.network_transmit_packets_total.reset();
+        self.network_transmit_errs_total.reset();
+        self.network_transmit_drop_total.reset();
+
+        // Reset eBPF metrics
+        self.herakles_net_process_bytes.reset();
+        self.herakles_net_process_packets.reset();
+        self.herakles_net_process_dropped.reset();
+        self.herakles_io_process_bytes.reset();
+        self.herakles_io_process_iops.reset();
+        self.tcp_connections.reset();
+        self.herakles_io_group_read_bytes.reset();
+        self.herakles_io_group_write_bytes.reset();
+        self.herakles_net_group_rx_bytes.reset();
+        self.herakles_net_group_tx_bytes.reset();
+        self.herakles_io_top_process_bytes.reset();
+        self.herakles_net_top_process_bytes.reset();
+    }
+
+    /// Sets system memory metrics (total, available, used ratio, cached, buffers, swap).
+    pub fn set_system_memory_metrics(
+        &self,
+        total_bytes: u64,
+        available_bytes: u64,
+        cached_bytes: u64,
+        buffers_bytes: u64,
+        swap_total_bytes: u64,
+        swap_free_bytes: u64,
+    ) {
+        self.system_memory_total_bytes.set(total_bytes as f64);
+        self.system_memory_available_bytes
+            .set(available_bytes as f64);
+        self.system_memory_cached_bytes.set(cached_bytes as f64);
+        self.system_memory_buffers_bytes.set(buffers_bytes as f64);
+
+        // Calculate used ratio: 1 - (available / total)
+        if total_bytes > 0 {
+            let used_ratio = 1.0 - (available_bytes as f64 / total_bytes as f64);
+            self.system_memory_used_ratio.set(used_ratio);
+        } else {
+            self.system_memory_used_ratio.set(0.0);
+        }
+
+        // Calculate swap used ratio: (total - free) / total
+        if swap_total_bytes > 0 {
+            let swap_used_ratio =
+                (swap_total_bytes - swap_free_bytes) as f64 / swap_total_bytes as f64;
+            self.system_memory_swap_used_ratio.set(swap_used_ratio);
+        } else {
+            self.system_memory_swap_used_ratio.set(0.0);
+        }
+    }
+
+    /// Sets CPU usage ratio metrics for each CPU core and total.
+    pub fn set_system_cpu_usage_ratios(&self, cpu_ratios: &crate::system::CpuRatios) {
+        for (cpu_name, ratio) in &cpu_ratios.usage {
+            self.system_cpu_usage_ratio
+                .with_label_values(&[cpu_name])
+                .set(*ratio);
+        }
+        for (cpu_name, ratio) in &cpu_ratios.idle {
+            self.system_cpu_idle_ratio
+                .with_label_values(&[cpu_name])
+                .set(*ratio);
+        }
+        for (cpu_name, ratio) in &cpu_ratios.iowait {
+            self.system_cpu_iowait_ratio
+                .with_label_values(&[cpu_name])
+                .set(*ratio);
+        }
+        for (cpu_name, ratio) in &cpu_ratios.steal {
+            self.system_cpu_steal_ratio
+                .with_label_values(&[cpu_name])
+                .set(*ratio);
+        }
+    }
+
+    /// Sets load average metrics with the new metric names.
+    pub fn set_system_load_metrics(&self, load_1min: f64, load_5min: f64, load_15min: f64) {
+        self.system_load1.set(load_1min);
+        self.system_load5.set(load_5min);
+        self.system_load15.set(load_15min);
+    }
+
+    /// Sets PSI metrics (Pressure Stall Information).
+    pub fn set_psi_metrics(&self, cpu_psi_total: f64, memory_psi_total: f64) {
+        self.system_cpu_psi_wait_seconds_total.set(cpu_psi_total);
+        self.system_memory_psi_wait_seconds_total
+            .set(memory_psi_total);
+    }
+
+    /// Sets metric values for a specific process with classification.
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_for_process(
+        &self,
+        pid: &str,
+        name: &str,
+        group: &str,
+        subgroup: &str,
+        rss: u64,
+        pss: u64,
+        uss: u64,
+        cpu_percent: f64,
+        cpu_time_seconds: f64,
+        cfg: &Config,
+        uptime_in_seconds: &str,
+    ) {
+        let labels = &[pid, name, group, subgroup, uptime_in_seconds];
+
+        let enable_rss = cfg.enable_rss.unwrap_or(true);
+        let enable_pss = cfg.enable_pss.unwrap_or(true);
+        let enable_uss = cfg.enable_uss.unwrap_or(true);
+        let enable_cpu = cfg.enable_cpu.unwrap_or(true);
+
+        if enable_rss {
+            self.rss.with_label_values(labels).set(rss as f64);
+        }
+        if enable_pss {
+            self.pss.with_label_values(labels).set(pss as f64);
+        }
+        if enable_uss {
+            self.uss.with_label_values(labels).set(uss as f64);
+        }
+        if enable_cpu {
+            self.cpu_usage.with_label_values(labels).set(cpu_percent);
+            self.cpu_time
+                .with_label_values(labels)
+                .set(cpu_time_seconds);
+        }
+    }
+
+    /// Updates disk I/O metrics for a device.
+    pub fn update_disk_stats(&self, device: &str, stats: &crate::collectors::diskstats::DiskStats) {
+        let labels = &[device];
+        
+        self.disk_reads_completed_total.with_label_values(labels).set(stats.reads_completed as f64);
+        self.disk_reads_merged_total.with_label_values(labels).set(stats.reads_merged as f64);
+        // Convert sectors to bytes (assuming 512 bytes per sector)
+        self.disk_read_bytes_total.with_label_values(labels).set((stats.sectors_read * 512) as f64);
+        // Convert milliseconds to seconds
+        self.disk_read_time_seconds_total.with_label_values(labels).set(stats.time_reading_ms as f64 / 1000.0);
+        
+        self.disk_writes_completed_total.with_label_values(labels).set(stats.writes_completed as f64);
+        self.disk_writes_merged_total.with_label_values(labels).set(stats.writes_merged as f64);
+        self.disk_written_bytes_total.with_label_values(labels).set((stats.sectors_written * 512) as f64);
+        self.disk_write_time_seconds_total.with_label_values(labels).set(stats.time_writing_ms as f64 / 1000.0);
+        
+        self.disk_io_now.with_label_values(labels).set(stats.ios_in_progress as f64);
+        self.disk_io_time_seconds_total.with_label_values(labels).set(stats.time_io_ms as f64 / 1000.0);
+        self.disk_io_time_weighted_seconds_total.with_label_values(labels).set(stats.weighted_time_io_ms as f64 / 1000.0);
+    }
+
+    /// Updates filesystem metrics for a mount point.
+    pub fn update_filesystem_stats(&self, stats: &crate::collectors::filesystem::FilesystemStats) {
+        let labels = &[stats.device.as_str(), stats.mount_point.as_str(), stats.fstype.as_str()];
+        
+        self.filesystem_size_bytes.with_label_values(labels).set(stats.size_bytes as f64);
+        self.filesystem_free_bytes.with_label_values(labels).set((stats.size_bytes - stats.used_bytes) as f64);
+        self.filesystem_avail_bytes.with_label_values(labels).set(stats.available_bytes as f64);
+        self.filesystem_files.with_label_values(labels).set(stats.files_total as f64);
+        self.filesystem_files_free.with_label_values(labels).set(stats.files_free as f64);
+    }
+
+    /// Updates network interface metrics.
+    pub fn update_network_stats(&self, interface: &str, stats: &crate::collectors::netdev::NetDevStats) {
+        let labels = &[interface];
+        
+        self.network_receive_bytes_total.with_label_values(labels).set(stats.receive_bytes as f64);
+        self.network_receive_packets_total.with_label_values(labels).set(stats.receive_packets as f64);
+        self.network_receive_errs_total.with_label_values(labels).set(stats.receive_errs as f64);
+        self.network_receive_drop_total.with_label_values(labels).set(stats.receive_drop as f64);
+        
+        self.network_transmit_bytes_total.with_label_values(labels).set(stats.transmit_bytes as f64);
+        self.network_transmit_packets_total.with_label_values(labels).set(stats.transmit_packets as f64);
+        self.network_transmit_errs_total.with_label_values(labels).set(stats.transmit_errs as f64);
+        self.network_transmit_drop_total.with_label_values(labels).set(stats.transmit_drop as f64);
+    }
+
+    /// Updates eBPF process network metrics.
+    pub fn update_process_network_metrics(&self, stats: &[crate::ebpf::ProcessNetStats]) {
+        use crate::process::classify_process_raw;
+        
+        for stat in stats {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            
+            // RX bytes
+            self.herakles_net_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "rx"])
+                .set(stat.rx_bytes as f64);
+            
+            // TX bytes
+            self.herakles_net_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "tx"])
+                .set(stat.tx_bytes as f64);
+            
+            // RX packets
+            self.herakles_net_process_packets
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "rx"])
+                .set(stat.rx_packets as f64);
+            
+            // TX packets
+            self.herakles_net_process_packets
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref(), "tx"])
+                .set(stat.tx_packets as f64);
+            
+            // Dropped packets
+            self.herakles_net_process_dropped
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), group.as_ref(), subgroup.as_ref()])
+                .set(stat.dropped as f64);
+        }
+    }
+
+    /// Updates eBPF process block I/O metrics.
+    pub fn update_process_blkio_metrics(&self, stats: &[crate::ebpf::ProcessBlkioStats]) {
+        use crate::process::classify_process_raw;
+        
+        for stat in stats {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            
+            // Read bytes
+            self.herakles_io_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "read"])
+                .set(stat.read_bytes as f64);
+            
+            // Write bytes
+            self.herakles_io_process_bytes
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "write"])
+                .set(stat.write_bytes as f64);
+            
+            // Read ops
+            self.herakles_io_process_iops
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "read"])
+                .set(stat.read_ops as f64);
+            
+            // Write ops
+            self.herakles_io_process_iops
+                .with_label_values(&[pid_str.as_str(), stat.comm.as_str(), stat.device.as_str(), group.as_ref(), subgroup.as_ref(), "write"])
+                .set(stat.write_ops as f64);
+        }
+    }
+
+    /// Updates TCP connection metrics.
+    pub fn update_tcp_metrics(&self, stats: &crate::ebpf::TcpStats) {
+        self.tcp_connections.with_label_values(&["established"]).set(stats.established as f64);
+        self.tcp_connections.with_label_values(&["syn_sent"]).set(stats.syn_sent as f64);
+        self.tcp_connections.with_label_values(&["syn_recv"]).set(stats.syn_recv as f64);
+        self.tcp_connections.with_label_values(&["fin_wait1"]).set(stats.fin_wait1 as f64);
+        self.tcp_connections.with_label_values(&["fin_wait2"]).set(stats.fin_wait2 as f64);
+        self.tcp_connections.with_label_values(&["time_wait"]).set(stats.time_wait as f64);
+        self.tcp_connections.with_label_values(&["close"]).set(stats.close as f64);
+        self.tcp_connections.with_label_values(&["close_wait"]).set(stats.close_wait as f64);
+        self.tcp_connections.with_label_values(&["last_ack"]).set(stats.last_ack as f64);
+        self.tcp_connections.with_label_values(&["listen"]).set(stats.listen as f64);
+        self.tcp_connections.with_label_values(&["closing"]).set(stats.closing as f64);
+    }
+
+    /// Updates aggregated I/O metrics by subgroup.
+    pub fn update_io_aggregations(
+        &self,
+        net_agg: &std::collections::HashMap<(String, String), (u64, u64)>,
+        blkio_agg: &std::collections::HashMap<(String, String), (u64, u64)>,
+    ) {
+        // Update network aggregations
+        for ((group, subgroup), (rx_bytes, tx_bytes)) in net_agg {
+            self.herakles_net_group_rx_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*rx_bytes as f64);
+            self.herakles_net_group_tx_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*tx_bytes as f64);
+        }
+        
+        // Update block I/O aggregations
+        for ((group, subgroup), (read_bytes, write_bytes)) in blkio_agg {
+            self.herakles_io_group_read_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*read_bytes as f64);
+            self.herakles_io_group_write_bytes
+                .with_label_values(&[group, subgroup])
+                .set(*write_bytes as f64);
+        }
+    }
+
+    /// Updates top-N I/O process metrics.
+    pub fn update_top_io_processes(
+        &self,
+        top_net: &[crate::ebpf::ProcessNetStats],
+        top_blkio: &[crate::ebpf::ProcessBlkioStats],
+    ) {
+        use crate::process::classify_process_raw;
+        
+        // Update top network processes
+        for (rank, stat) in top_net.iter().enumerate() {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            let rank_str = (rank + 1).to_string();
+            
+            // RX bytes
+            self.herakles_net_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "rx"])
+                .set(stat.rx_bytes as f64);
+            
+            // TX bytes
+            self.herakles_net_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "tx"])
+                .set(stat.tx_bytes as f64);
+        }
+        
+        // Update top block I/O processes
+        for (rank, stat) in top_blkio.iter().enumerate() {
+            let (group, subgroup) = classify_process_raw(&stat.comm);
+            let pid_str = stat.pid.to_string();
+            let rank_str = (rank + 1).to_string();
+            
+            // Read bytes
+            self.herakles_io_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "read"])
+                .set(stat.read_bytes as f64);
+            
+            // Write bytes
+            self.herakles_io_top_process_bytes
+                .with_label_values(&[group.as_ref(), subgroup.as_ref(), rank_str.as_str(), pid_str.as_str(), stat.comm.as_str(), "write"])
+                .set(stat.write_bytes as f64);
+        }
+    }
+}
