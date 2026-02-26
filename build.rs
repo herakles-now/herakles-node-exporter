@@ -32,7 +32,7 @@ fn compile_ebpf_programs() {
     // Generate vmlinux.h if needed
     let vmlinux_h = bpf_src.join("vmlinux.h");
     if !vmlinux_h.exists() {
-        println!("cargo:warning=Generating vmlinux.h from kernel BTF...");
+        eprintln!("  ℹ️  Generating vmlinux.h from kernel BTF...");
         let output = Command::new("bpftool")
             .args(&[
                 "btf",
@@ -106,17 +106,14 @@ fn compile_ebpf_programs() {
     let embedded_obj = manifest_dir.join("src/ebpf/bpf/process_io.bpf.o");
     std::fs::copy(&bpf_obj, &embedded_obj).expect("Failed to copy eBPF object to src tree");
 
-    println!(
-        "cargo:warning=✅ eBPF object embedded at: {}",
-        embedded_obj.display()
-    );
+    eprintln!("  ✅ eBPF object embedded at: {}", embedded_obj.display());
 
     fn check_tool(tool: &str, arg: &str) {
         let output = Command::new(tool).arg(arg).output();
 
         match output {
             Ok(out) if out.status.success() => {
-                println!("cargo:warning=Found {}: OK", tool);
+                eprintln!("  ✅ Found {}: OK", tool);
             }
             _ => {
                 panic!(
@@ -150,10 +147,7 @@ fn compile_ebpf_programs() {
                     {
                         let include_dir = path.join("out").join("include");
                         if include_dir.exists() {
-                            println!(
-                                "cargo:warning=Found libbpf headers at: {}",
-                                include_dir.display()
-                            );
+                            eprintln!("  ✅ Found libbpf headers at: {}", include_dir.display());
                             return Some(include_dir.to_string_lossy().to_string());
                         }
                     }
@@ -165,7 +159,7 @@ fn compile_ebpf_programs() {
         for path in &["/usr/include", "/usr/local/include"] {
             let bpf_helpers = PathBuf::from(path).join("bpf/bpf_helpers.h");
             if bpf_helpers.exists() {
-                println!("cargo:warning=Using system libbpf headers at: {}", path);
+                eprintln!("  ✅ Using system libbpf headers at: {}", path);
                 return Some(path.to_string());
             }
         }
