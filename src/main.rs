@@ -601,7 +601,17 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                 .health_stats
                 .ebpf_lost_events
                 .store(perf_stats.lost_events_total, Ordering::Relaxed);
+    }
+    }
+
+    // Prune the database once per update cycle and update database metrics
+    if state.config.ringbuffer.enable_database {
+        if let Err(e) = state.ringbuffer_manager.prune_database() {
+            warn!("Failed to prune database: {}", e);
         }
+        let db_stats = state.ringbuffer_manager.get_stats();
+        state.database_entries.set(db_stats.db_entries as f64);
+        state.database_size_bytes.set(db_stats.db_size_bytes as f64);
     }
 
     info!(
@@ -725,12 +735,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "herakles_exporter_cache_updating",
         "Whether cache update is currently in progress (1) or idle (0)",
     )?;
+    let database_entries = Gauge::new(
+        "herakles_exporter_database_entries",
+        "Total number of entries currently stored in the persistent database",
+    )?;
+    let database_size_bytes = Gauge::new(
+        "herakles_exporter_database_size_bytes",
+        "Size of the persistent database on disk in bytes",
+    )?;
 
     registry.register(Box::new(scrape_duration.clone()))?;
     registry.register(Box::new(processes_total.clone()))?;
     registry.register(Box::new(cache_update_duration.clone()))?;
     registry.register(Box::new(cache_update_success.clone()))?;
     registry.register(Box::new(cache_updating.clone()))?;
+    registry.register(Box::new(database_entries.clone()))?;
+    registry.register(Box::new(database_size_bytes.clone()))?;
 
     debug!("All metrics registered successfully");
 
@@ -809,6 +829,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache_update_duration,
         cache_update_success,
         cache_updating,
+        database_entries,
+        database_size_bytes,
         cache: Arc::new(RwLock::new(MetricsCache::default())),
         config: Arc::new(config.clone()),
         buffer_config,

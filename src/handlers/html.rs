@@ -89,99 +89,312 @@ fn html_header(title: &str) -> String {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title} - Herakles Node Exporter</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
-        .container {{ max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-        h1 {{ color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }}
-        h2 {{ color: #555; margin-top: 30px; }}
-        h3 {{ color: #666; }}
-        h4 {{ color: #777; margin-top: 20px; }}
-        h5 {{ color: #888; }}
-        nav {{ background: #007bff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }}
-        nav a {{ color: white; text-decoration: none; margin-right: 20px; font-weight: 500; }}
-        nav a:hover {{ text-decoration: underline; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-        th {{ background: #007bff; color: white; padding: 12px; text-align: left; font-weight: 600; }}
-        td {{ padding: 10px; border-bottom: 1px solid #ddd; }}
-        tr:hover {{ background: #f8f9fa; }}
-        .metric {{ display: inline-block; margin: 10px 20px 10px 0; padding: 10px 15px; background: #e9ecef; border-radius: 4px; }}
-        .metric-label {{ font-weight: 600; color: #555; }}
-        .metric-value {{ font-size: 1.2em; color: #007bff; }}
-        .footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9em; }}
-        .status-ok {{ color: #28a745; font-weight: 600; }}
-        .status-warn {{ color: #ffc107; font-weight: 600; }}
-        .status-error {{ color: #dc3545; font-weight: 600; }}
-        a {{ color: #007bff; text-decoration: none; }}
-        a:hover {{ text-decoration: underline; }}
-        .info-box {{ background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; padding: 15px; margin: 20px 0; }}
-        code {{ background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }}
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }}
+        h1 {{
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            border-bottom: none;
+            padding-bottom: 0;
+        }}
+        h2 {{
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+        }}
+        h3 {{
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #cbd5e1;
+        }}
+        h4 {{ color: #94a3b8; margin-top: 20px; }}
+        h5 {{ color: #64748b; }}
+        p {{
+            color: #94a3b8;
+            line-height: 1.6;
+        }}
+        nav {{
+            background: #1e293b;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }}
+        nav a {{
+            color: #94a3b8;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }}
+        nav a:hover {{
+            color: #f8fafc;
+            background: #334155;
+            text-decoration: none;
+        }}
+        table {{
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            margin: 20px 0;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }}
+        th {{
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-bottom: 2px solid #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        td {{
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 0.925rem;
+        }}
+        tr:last-child td {{
+            border-bottom: none;
+        }}
+        tr:hover td {{
+            background: #24334a;
+            color: #f8fafc;
+        }}
+        .metric {{
+            display: inline-block;
+            margin: 10px 20px 10px 0;
+            padding: 16px 20px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            vertical-align: top;
+        }}
+        .metric:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            border-color: #475569;
+        }}
+        .metric-label {{
+            font-weight: 500;
+            color: #94a3b8;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }}
+        .metric-value {{
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #38bdf8;
+        }}
+        .quick-links {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }}
+        .link-card {{
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid #334155;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: block;
+        }}
+        .link-card:hover {{
+            border-color: #6366f1;
+            background: #24334a;
+            text-decoration: none;
+        }}
+        .link-card h3 {{
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .link-card p {{
+            margin: 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }}
+        .footer {{
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #334155;
+            color: #64748b;
+            font-size: 0.875rem;
+            text-align: center;
+        }}
+        .status-badge {{
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        .status-ok {{
+            background: #065f46;
+            color: #34d399;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+        .status-warn {{
+            background: #78350f;
+            color: #fbbf24;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+        .status-error {{
+            background: #7f1d1d;
+            color: #f87171;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+        a {{
+            color: #60a5fa;
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }}
+        a:hover {{
+            color: #93c5fd;
+            text-decoration: underline;
+        }}
+        .info-box {{
+            background: #1e293b;
+            border-left: 4px solid #3b82f6;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            color: #cbd5e1;
+        }}
+        code {{
+            background: #0f172a;
+            color: #f472b6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.875rem;
+            border: 1px solid #334155;
+        }}
         
         /* Collapsible sections styling */
-        details {{ 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
-            margin: 10px 0; 
-            padding: 0;
-            background: #f9f9f9; 
+        details {{
+            border: 1px solid #334155;
+            border-radius: 12px;
+            margin: 16px 0;
+            overflow: hidden;
+            background: #1e293b;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }}
-        summary {{ 
-            cursor: pointer; 
-            font-weight: 600; 
-            padding: 15px; 
-            background: #007bff; 
-            color: white; 
-            border-radius: 4px;
+        summary {{
+            cursor: pointer;
+            font-weight: 600;
+            padding: 16px 20px;
+            background: #1e293b;
+            color: #f8fafc;
             user-select: none;
+            border-bottom: 1px solid transparent;
+            transition: all 0.2s ease;
         }}
-        summary:hover {{ 
-            background: #0056b3; 
+        details[open] summary {{
+            background: #24334a;
+            border-bottom-color: #334155;
         }}
-        .subgroup-content {{ 
-            padding: 20px; 
-            margin-top: 0;
-            background: white;
+        summary:hover {{
+            background: #24334a;
+        }}
+        .subgroup-content {{
+            padding: 24px;
+            background: #0f172a;
         }}
         
         /* Sortable process table styling */
         .sortable-process-table {{
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             margin: 20px 0;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
         }}
         
         .sortable-process-table th {{
-            background: #007bff;
-            color: white;
-            padding: 12px;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 14px 16px;
             text-align: left;
             cursor: pointer;
             user-select: none;
             position: relative;
             font-weight: 600;
+            border-bottom: 2px solid #334155;
         }}
         
         .sortable-process-table th:hover {{
-            background: #0056b3;
+            background: #24334a;
         }}
         
         .sortable-process-table th.sorted-desc::after {{
-            content: ' ▼';
-            position: absolute;
-            right: 8px;
+            content: ' ↓';
+            font-weight: bold;
         }}
         
         .sortable-process-table th.sorted-asc::after {{
-            content: ' ▲';
-            position: absolute;
-            right: 8px;
+            content: ' ↑';
+            font-weight: bold;
         }}
         
         .sortable-process-table td {{
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            color: #cbd5e1;
         }}
         
         .sortable-process-table tr:hover {{
-            background: #f8f9fa;
+            background: #24334a;
         }}
         
         .rank {{
@@ -192,17 +405,20 @@ fn html_header(title: &str) -> String {
         
         /* CPU heatmap colors */
         .cpu-critical {{
-            background: #ff4444 !important;
-            color: white !important;
-            font-weight: bold !important;
+            background: #991b1b !important;
+            color: #fca5a5 !important;
+            font-weight: 600 !important;
         }}
         
         .cpu-high {{
-            background: #ffaa44 !important;
+            background: #78350f !important;
+            color: #fde047 !important;
+            font-weight: 600 !important;
         }}
         
         .cpu-medium {{
-            background: #ffff88 !important;
+            background: #1e293b !important;
+            color: #fbbf24 !important;
         }}
         
         .cpu-low {{
@@ -599,6 +815,7 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
     html.push_str("<p>Human-friendly HTML views for inspection and debugging</p>\n");
 
     html.push_str("<h2>Overview</h2>\n");
+    html.push_str(r#"<div class="metric-grid">"#);
     html.push_str(r#"<div class="metric"><span class="metric-label">Version:</span> <span class="metric-value">0.1.0</span></div>"#);
     html.push_str(&format!(
         r#"<div class="metric"><span class="metric-label">Hostname:</span> <span class="metric-value">{}</span></div>"#,
@@ -618,14 +835,34 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
         stats.max_memory_mb
     ));
 
+    // Database info card(s)
+    if stats.db_enabled {
+        html.push_str(r#"<div class="metric"><span class="metric-label">Database Persistence:</span> <span class="metric-value"><span class="status-badge status-ok">Enabled</span></span></div>"#);
+        html.push_str(&format!(
+            r#"<div class="metric"><span class="metric-label">Database Size:</span> <span class="metric-value">{}</span></div>"#,
+            format_bytes(stats.db_size_bytes)
+        ));
+        html.push_str(&format!(
+            r#"<div class="metric"><span class="metric-label">Database Entries:</span> <span class="metric-value">{}</span></div>"#,
+            stats.db_entries
+        ));
+        html.push_str(&format!(
+            r#"<div class="metric"><span class="metric-label">Retention Policy:</span> <span class="metric-value" style="font-size: 1.1rem; line-height: 1.5;">{}</span></div>"#,
+            state.config.ringbuffer.retention
+        ));
+    } else {
+        html.push_str(r#"<div class="metric"><span class="metric-label">Database Persistence:</span> <span class="metric-value"><span class="status-badge status-error">Disabled</span></span></div>"#);
+    }
+    html.push_str(r#"</div>"#);
+
     html.push_str("<h2>Quick Links</h2>\n");
-    html.push_str("<ul>\n");
-    html.push_str(r#"<li><a href="/html/details">Details</a> - Ringbuffer statistics and subgroup history</li>"#);
-    html.push_str(r#"<li><a href="/html/subgroups">Subgroups</a> - All subgroups with current metrics</li>"#);
-    html.push_str(r#"<li><a href="/html/health">Health</a> - Exporter health and buffer status</li>"#);
-    html.push_str(r#"<li><a href="/html/config">Config</a> - Current configuration</li>"#);
-    html.push_str(r#"<li><a href="/html/docs">Docs</a> - Documentation and FAQ</li>"#);
-    html.push_str("</ul>\n");
+    html.push_str(r#"<div class="quick-links">"#);
+    html.push_str(r#"<a href="/html/details" class="link-card"><h3>📈 Details</h3><p>Persistent database stats, ringbuffer info, and per-subgroup historical charts/tables.</p></a>"#);
+    html.push_str(r#"<a href="/html/subgroups" class="link-card"><h3>📊 Subgroups</h3><p>Real-time overview of all classified subgroups and their aggregated CPU & memory usage.</p></a>"#);
+    html.push_str(r#"<a href="/html/health" class="link-card"><h3>❤️ Health</h3><p>Check the exporter daemon's health metrics, event rate, buffer safety, and internal performance stats.</p></a>"#);
+    html.push_str(r#"<a href="/html/config" class="link-card"><h3>⚙️ Configuration</h3><p>Inspect the running configuration including resource limits, eBPF flags, and server bindings.</p></a>"#);
+    html.push_str(r#"<a href="/html/docs" class="link-card"><h3>📖 Documentation</h3><p>Read the built-in user guide, API references, FAQ, and Prometheus integration walkthrough.</p></a>"#);
+    html.push_str(r#"</div>"#);
 
     html.push_str(&html_footer());
     Html(html)
@@ -684,13 +921,35 @@ pub async fn html_details_handler(
         stats.history_seconds,
         stats.history_seconds / 60
     ));
+    html.push_str(&format!(
+        "<tr><td>Database Persistence</td><td>{}</td></tr>\n",
+        if stats.db_enabled { "Enabled" } else { "Disabled" }
+    ));
+    if stats.db_enabled {
+        html.push_str(&format!(
+            "<tr><td>Database Path</td><td><code>{}</code></td></tr>\n",
+            stats.db_path.as_deref().unwrap_or("")
+        ));
+        html.push_str(&format!(
+            "<tr><td>Database Size on Disk</td><td>{}</td></tr>\n",
+            format_bytes(stats.db_size_bytes)
+        ));
+        html.push_str(&format!(
+            "<tr><td>Database Total Entries</td><td>{}</td></tr>\n",
+            stats.db_entries
+        ));
+        html.push_str(&format!(
+            "<tr><td>Database Retention Limit</td><td>{}</td></tr>\n",
+            state.config.ringbuffer.retention
+        ));
+    }
     html.push_str("</table>\n");
 
     // Add expand/collapse all buttons
     html.push_str(r#"
 <div style="margin: 20px 0;">
-    <button onclick="expandAll()" style="padding: 10px 20px; margin-right: 10px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;">Expand All</button>
-    <button onclick="collapseAll()" style="padding: 10px 20px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px;">Collapse All</button>
+    <button onclick="expandAll()" style="padding: 10px 20px; margin-right: 10px; cursor: pointer; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 500;">Expand All</button>
+    <button onclick="collapseAll()" style="padding: 10px 20px; cursor: pointer; background: #4b5563; color: white; border: none; border-radius: 8px; font-weight: 500;">Collapse All</button>
 </div>
 <script>
 function expandAll() {
@@ -1493,6 +1752,18 @@ pub async fn html_config_handler(State(state): State<SharedState>) -> impl IntoR
     html.push_str(&format!(
         "<tr><td>Max Entries per Subgroup</td><td>{}</td></tr>\n",
         cfg.ringbuffer.max_entries_per_subgroup
+    ));
+    html.push_str(&format!(
+        "<tr><td>Enable Database</td><td>{}</td></tr>\n",
+        cfg.ringbuffer.enable_database
+    ));
+    html.push_str(&format!(
+        "<tr><td>Database Path</td><td><code>{}</code></td></tr>\n",
+        cfg.ringbuffer.database_path.display()
+    ));
+    html.push_str(&format!(
+        "<tr><td>Database Retention Limit</td><td>{}</td></tr>\n",
+        cfg.ringbuffer.retention
     ));
     html.push_str("</table>\n");
 

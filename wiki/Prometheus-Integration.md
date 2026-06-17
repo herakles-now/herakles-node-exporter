@@ -631,6 +631,26 @@ groups:
         expr: sum by (group) (herakles_mem_process_rss_bytes)
 ```
 
+## Grafana Integration
+
+A pre-configured Grafana dashboard template is available in [examples/grafana-dashboard.json](file:///home/micmol/Projekte/herakles-node-exporter/examples/grafana-dashboard.json).
+
+### How to Import the Dashboard
+
+1. Open your Grafana instance.
+2. Navigate to **Dashboards** -> **New** -> **Import**.
+3. Copy the contents of the `examples/grafana-dashboard.json` file or upload the file.
+4. Select your **Prometheus** data source when prompted.
+5. Click **Import**.
+
+### Dashboard Features
+
+The dashboard includes panels for:
+- **System Overview**: Uptime, CPU Usage Ratio, and Memory Usage.
+- **Process Subgroups**: Dynamic PSS Memory usage and CPU Usage ratio split by process categories.
+- **eBPF Network & Disk Throughput**: Real-time network rx/tx rates and Disk read/write throughput per process subgroup.
+- **Pressure Stall Information (PSI)**: High-resolution hardware bottleneck tracking (CPU, RAM, and Disk pressure).
+
 ## Next Steps
 
 - [Set up alerting rules](Alerting-Examples.md)

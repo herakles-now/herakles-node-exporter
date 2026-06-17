@@ -3,12 +3,14 @@
 //! This module provides a fixed-size ringbuffer for storing historical
 //! metrics entries with predictable memory usage.
 
+use serde::{Serialize, Deserialize};
+
 /// Size of a single ringbuffer entry in bytes (256 bytes with extended top-N data).
 pub const ENTRY_SIZE_BYTES: usize = 256;
 
 /// Top process information stored in ringbuffer (24 bytes per entry).
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct TopProcessInfo {
     pub pid: u32,              // 4 bytes - Process ID
     pub value: u32,            // 4 bytes - Value in KB (for memory) or scaled (for CPU)
@@ -50,8 +52,9 @@ impl TopProcessInfo {
 
 /// Fixed-size entry for ringbuffer storage (256 bytes with extended data).
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct RingbufferEntry {
+
     // Existing aggregated metrics (40 bytes)
     pub timestamp: i64,        // 8 bytes - Unix timestamp
     pub rss_kb: u64,           // 8 bytes

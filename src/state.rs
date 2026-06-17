@@ -31,6 +31,8 @@ pub struct AppState {
     pub cache_update_duration: Gauge,
     pub cache_update_success: Gauge,
     pub cache_updating: Gauge,
+    pub database_entries: Gauge,
+    pub database_size_bytes: Gauge,
     pub cache: Arc<RwLock<MetricsCache>>,
     pub config: Arc<Config>,
     pub buffer_config: BufferConfig,

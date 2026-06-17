@@ -8,3 +8,8 @@ src/ebpf/bpf/vmlinux.h
 
 # CodeQL artifacts
 _codeql_detected_source_root
+
+# Local DB test files
+test_metrics.db/
+*.db
+

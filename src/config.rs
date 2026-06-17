@@ -14,6 +14,60 @@ pub const DEFAULT_BIND_ADDR: &str = "0.0.0.0";
 pub const DEFAULT_PORT: u16 = 9215;
 pub const DEFAULT_CACHE_TTL: u64 = 30;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum RetentionLimit {
+    Duration(std::time::Duration),
+    Size(u64), // bytes
+}
+
+pub fn parse_retention(s: &str) -> Result<RetentionLimit, String> {
+    let s = s.trim().to_lowercase();
+    if s.is_empty() {
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(24 * 3600)));
+    }
+
+    let mut num_str = s.clone();
+    let mut is_size = false;
+    let mut multiplier: u64 = 1;
+
+    if s.ends_with("kb") || s.ends_with("k") {
+        is_size = true;
+        multiplier = 1024;
+        num_str = s.trim_end_matches("kb").trim_end_matches('k').to_string();
+    } else if s.ends_with("mb") || s.ends_with("mg") || s.ends_with("m") {
+        is_size = true;
+        multiplier = 1024 * 1024;
+        num_str = s.trim_end_matches("mb").trim_end_matches("mg").trim_end_matches('m').to_string();
+    } else if s.ends_with("gb") || s.ends_with("g") {
+        is_size = true;
+        multiplier = 1024 * 1024 * 1024;
+        num_str = s.trim_end_matches("gb").trim_end_matches('g').to_string();
+    } else if s.ends_with("b") {
+        is_size = true;
+        multiplier = 1;
+        num_str = s.trim_end_matches('b').to_string();
+    } else if s.ends_with("h") {
+        num_str = s.trim_end_matches('h').to_string();
+    } else if s.ends_with("d") {
+        multiplier = 24;
+        num_str = s.trim_end_matches('d').to_string();
+    } else if s.ends_with("s") {
+        num_str = s.trim_end_matches('s').to_string();
+        let val: u64 = num_str.trim().parse().map_err(|e| format!("Invalid number: {}", e))?;
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(val)));
+    } else {
+        let val: u64 = s.trim().parse().map_err(|e| format!("Invalid retention format: {}", e))?;
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(val * 3600)));
+    }
+
+    let val: u64 = num_str.trim().parse().map_err(|e| format!("Invalid number: {}", e))?;
+    if is_size {
+        Ok(RetentionLimit::Size(val * multiplier))
+    } else {
+        Ok(RetentionLimit::Duration(std::time::Duration::from_secs(val * multiplier * 3600)))
+    }
+}
+
 /// Ringbuffer configuration for historical metrics tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RingbufferConfig {
@@ -32,6 +86,18 @@ pub struct RingbufferConfig {
     /// Maximum entries per subgroup (default: 120)
     #[serde(default = "default_max_entries")]
     pub max_entries_per_subgroup: usize,
+
+    /// Enable database persistence (default: true)
+    #[serde(default = "default_enable_database")]
+    pub enable_database: bool,
+
+    /// Path to persistent database (default: "/var/lib/herakles/metrics.db")
+    #[serde(default = "default_database_path")]
+    pub database_path: PathBuf,
+
+    /// Retention limit (e.g., "24h", "100MB", "1GB") (default: "24h")
+    #[serde(default = "default_retention")]
+    pub retention: String,
 }
 
 fn default_max_memory_mb() -> usize {
@@ -46,6 +112,15 @@ fn default_min_entries() -> usize {
 fn default_max_entries() -> usize {
     120
 }
+fn default_enable_database() -> bool {
+    true
+}
+fn default_database_path() -> PathBuf {
+    PathBuf::from("/var/lib/herakles/metrics.db")
+}
+fn default_retention() -> String {
+    "24h".to_string()
+}
 
 impl Default for RingbufferConfig {
     fn default() -> Self {
@@ -54,9 +129,13 @@ impl Default for RingbufferConfig {
             interval_seconds: default_interval_seconds(),
             min_entries_per_subgroup: default_min_entries(),
             max_entries_per_subgroup: default_max_entries(),
+            enable_database: default_enable_database(),
+            database_path: default_database_path(),
+            retention: default_retention(),
         }
     }
 }
+
 
 /// Enhanced configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -410,6 +489,20 @@ pub fn resolve_config(args: &Args) -> Result<Config, Box<dyn std::error::Error>>
     }
     if args.disable_tcp_tracking {
         config.enable_tcp_tracking = Some(false);
+    }
+
+    // Database configuration: CLI wins if provided
+    if args.enable_database {
+        config.ringbuffer.enable_database = true;
+    }
+    if args.disable_database {
+        config.ringbuffer.enable_database = false;
+    }
+    if let Some(db_path) = &args.database_path {
+        config.ringbuffer.database_path = db_path.clone();
+    }
+    if let Some(retention) = &args.database_retention {
+        config.ringbuffer.retention = retention.clone();
     }
 
     Ok(config)
