@@ -197,4 +197,38 @@ mod tests {
         assert_eq!(group.as_ref(), "system");
         assert_eq!(subgroup.as_ref(), "ssh");
     }
+
+    #[test]
+    fn test_classify_mail_servers() {
+        let (group, subgroup) = classify_process_raw("stalwart");
+        assert_eq!(group.as_ref(), "mail");
+        assert_eq!(subgroup.as_ref(), "stalwart");
+
+        let (group, subgroup) = classify_process_raw("stalwart-mail");
+        assert_eq!(group.as_ref(), "mail");
+        assert_eq!(subgroup.as_ref(), "stalwart");
+
+        let (group, subgroup) = classify_process_raw("postfix");
+        assert_eq!(group.as_ref(), "mail");
+        assert_eq!(subgroup.as_ref(), "postfix");
+    }
+
+    #[test]
+    fn test_classify_workstation_processes() {
+        let (group, subgroup) = classify_process_raw("Hyprland");
+        assert_eq!(group.as_ref(), "desktop");
+        assert_eq!(subgroup.as_ref(), "hyprland");
+
+        let (group, subgroup) = classify_process_raw("pipewire-pulse");
+        assert_eq!(group.as_ref(), "audio");
+        assert_eq!(subgroup.as_ref(), "pipewire");
+
+        let (group, subgroup) = classify_process_raw("claude");
+        assert_eq!(group.as_ref(), "ai");
+        assert_eq!(subgroup.as_ref(), "coding_agents");
+
+        let (group, subgroup) = classify_process_raw("dropbox");
+        assert_eq!(group.as_ref(), "sync");
+        assert_eq!(subgroup.as_ref(), "file_sync");
+    }
 }
