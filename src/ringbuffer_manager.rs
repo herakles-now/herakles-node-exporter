@@ -280,6 +280,15 @@ impl RingbufferManager {
 
         subgroups.into_iter().collect()
     }
+
+    /// Flushes all pending writes in the database to disk.
+    pub fn flush(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(ref db) = self.db {
+            db.flush()?;
+            info!("Persistent sled database flushed successfully.");
+        }
+        Ok(())
+    }
 }
 
 fn get_dir_size<P: AsRef<std::path::Path>>(path: P) -> std::io::Result<u64> {

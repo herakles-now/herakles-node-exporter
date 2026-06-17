@@ -1003,6 +1003,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     background_task.abort();
     let _ = background_task.await;
 
+    // Flush the persistent database to disk on graceful shutdown
+    if let Err(e) = state.ringbuffer_manager.flush() {
+        error!("Failed to flush persistent database: {}", e);
+    }
+
     info!("herakles-node-exporter stopped gracefully");
     Ok(())
 }
