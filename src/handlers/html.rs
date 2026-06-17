@@ -856,7 +856,7 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
         ));
         html.push_str(&format!(
             r#"<div class="metric"><span class="metric-label">Retention Policy:</span> <span class="metric-value" style="font-size: 1.1rem; line-height: 1.5;">{}</span></div>"#,
-            state.config.ringbuffer.retention
+            state.config().ringbuffer.retention
         ));
     } else {
         html.push_str(r#"<div class="metric"><span class="metric-label">Database Persistence:</span> <span class="metric-value"><span class="status-badge status-error">Disabled</span></span></div>"#);
@@ -952,7 +952,7 @@ pub async fn html_details_handler(
         ));
         html.push_str(&format!(
             "<tr><td>Database Retention Limit</td><td>{}</td></tr>\n",
-            state.config.ringbuffer.retention
+            state.config().ringbuffer.retention
         ));
     }
     html.push_str("</table>\n");
@@ -1752,7 +1752,8 @@ pub async fn html_config_handler(State(state): State<SharedState>) -> impl IntoR
     debug!("Processing /html/config request");
     state.health_stats.record_http_request();
 
-    let cfg = &state.config;
+    let config_guard = state.config();
+    let cfg = &*config_guard;
 
     let mut html = html_header("Configuration");
     html.push_str("<h1>Configuration</h1>\n");

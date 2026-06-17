@@ -19,7 +19,8 @@ pub async fn config_handler(State(state): State<SharedState>) -> impl IntoRespon
     // Track HTTP request
     state.health_stats.record_http_request();
 
-    let cfg = &state.config;
+    let config_guard = state.config();
+    let cfg = &*config_guard;
 
     let mut out = String::new();
 

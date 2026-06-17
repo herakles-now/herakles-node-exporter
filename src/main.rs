@@ -57,7 +57,7 @@ use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
     parse_start_time_seconds, read_block_io, read_process_name, read_vmswap,
-    should_include_process, BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
+    should_include_process, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
     MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
 };
 use ringbuffer::{RingbufferEntry, TopProcessInfo};
@@ -92,24 +92,7 @@ fn setup_logging(_config: &Config, args: &Args) {
     info!("Logging initialized with level: {:?}", args.log_level);
 }
 
-/// Resolve effective buffer sizes (CLI > config > defaults).
-fn resolve_buffer_config(cfg: &Config, args: &Args) -> BufferConfig {
-    let io_kb = args
-        .io_buffer_kb
-        .unwrap_or_else(|| cfg.io_buffer_kb.unwrap_or(256));
-    let smaps_kb = args
-        .smaps_buffer_kb
-        .unwrap_or_else(|| cfg.smaps_buffer_kb.unwrap_or(512));
-    let smaps_rollup_kb = args
-        .smaps_rollup_buffer_kb
-        .unwrap_or_else(|| cfg.smaps_rollup_buffer_kb.unwrap_or(256));
 
-    BufferConfig {
-        io_kb,
-        smaps_kb,
-        smaps_rollup_kb,
-    }
-}
 
 /// Reads the exporter's own memory and CPU usage from /proc/self.
 fn read_self_resources() -> (f64, f64) {
@@ -214,7 +197,11 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         debug!("Cache marked as updating (old snapshot still available)");
     }
 
-    let min_uss_bytes = state.config.min_uss_kb.unwrap_or(0) * 1024;
+    let (test_data_file, max_processes, min_uss_bytes, config_snapshot, buffer_config_snapshot) = {
+        let cfg = state.config();
+        let buf_cfg = state.buffer_config();
+        (cfg.test_data_file.clone(), cfg.max_processes, cfg.min_uss_kb.unwrap_or(0) * 1024, cfg.clone(), *buf_cfg)
+    };
 
     use std::sync::atomic::AtomicUsize;
     let included_count = AtomicUsize::new(0);
@@ -226,7 +213,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         cache.processes.clone()
     };
 
-    let results: Vec<ProcMem> = if let Some(test_file) = &state.config.test_data_file {
+    let results: Vec<ProcMem> = if let Some(test_file) = &test_data_file {
         info!("Using test data from file: {}", test_file.display());
 
         let test_data = match load_test_data_from_file(test_file) {
@@ -249,7 +236,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             .processes
             .into_iter()
             .filter_map(|tp| {
-                if !should_include_process(&tp.name, &state.config) {
+                if !should_include_process(&tp.name, &config_snapshot) {
                     debug!("Skipping process {}: filtered by name config", tp.name);
                     skipped_count.fetch_add(1, Ordering::Relaxed);
                     return None;
@@ -279,7 +266,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
             })
             .collect()
     } else {
-        let entries = collect_proc_entries("/proc", state.config.max_processes);
+        let entries = collect_proc_entries("/proc", max_processes);
         debug!("Collected {} process entries from /proc", entries.len());
 
         entries
@@ -295,7 +282,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                     }
                 };
 
-                if !should_include_process(&name, &state.config) {
+                if !should_include_process(&name, &config_snapshot) {
                     debug!("Skipping process {}: filtered by name config", name);
                     skipped_count.fetch_add(1, Ordering::Relaxed);
                     return None;
@@ -304,7 +291,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                 let cpu = get_cpu_stat_for_pid(entry.pid, &entry.proc_path, &state.cpu_cache);
 
                 let parse_start = Instant::now();
-                match parse_memory_for_process(&entry.proc_path, &state.buffer_config) {
+                match parse_memory_for_process(&entry.proc_path, &buffer_config_snapshot) {
                     Ok((rss, pss, uss)) => {
                         let parse_duration_ms = parse_start.elapsed().as_secs_f64() * 1000.0;
                         state.health_stats.record_parsing_duration_ms(parse_duration_ms);
@@ -637,7 +624,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     }
 
     // Prune the database once per update cycle and update database metrics
-    if state.config.ringbuffer.enable_database {
+    if state.config().ringbuffer.enable_database {
         if let Err(e) = state.ringbuffer_manager.prune_database(false) {
             warn!("Failed to prune database: {}", e);
         }
@@ -740,7 +727,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let buffer_config = resolve_buffer_config(&config, &args);
+    let buffer_config = crate::process::resolve_buffer_config(&config, &args);
 
     // Initialize Prometheus metrics registry
     let registry = Registry::new();
@@ -842,7 +829,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Initialize ringbuffer manager
-    let initial_subgroup_count = SUBGROUPS.len().max(1); // Prevent division by zero
+    let initial_subgroup_count = SUBGROUPS.read().unwrap().len().max(1); // Prevent division by zero
     let ringbuffer_manager = Arc::new(RingbufferManager::new(
         config.ringbuffer.clone(),
         initial_subgroup_count,
@@ -864,8 +851,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         database_entries,
         database_size_bytes,
         cache: Arc::new(RwLock::new(MetricsCache::default())),
-        config: Arc::new(config.clone()),
-        buffer_config,
+        config: Arc::new(StdRwLock::new(config.clone())),
+        buffer_config: StdRwLock::new(buffer_config),
+        args: args.clone(),
         cpu_cache: StdRwLock::new(HashMap::new()),
         health_stats: health_stats.clone(),
         health_state,
@@ -886,7 +874,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start background cache refresh task
     let bg_state = state.clone();
-    let ttl = Duration::from_secs(state.config.cache_ttl.unwrap_or(DEFAULT_CACHE_TTL));
+    let ttl = Duration::from_secs(state.config().cache_ttl.unwrap_or(DEFAULT_CACHE_TTL));
 
     let background_task = tokio::spawn(async move {
         let mut int = interval(ttl);
@@ -962,6 +950,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if config.enable_pprof.unwrap_or(false) {
         debug!("Debug endpoints enabled at /debug/pprof");
+    }
+
+    #[cfg(unix)]
+    {
+        let state_clone = state.clone();
+        tokio::spawn(async move {
+            let mut stream = match signal::unix::signal(signal::unix::SignalKind::hangup()) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Failed to install SIGHUP handler: {}", e);
+                    return;
+                }
+            };
+            info!("SIGHUP signal handler installed (for config/subgroup reloading)");
+            while stream.recv().await.is_some() {
+                info!("SIGHUP received, reloading configuration and subgroups...");
+                
+                // 1. Reload subgroups
+                crate::process::reload_subgroups();
+                
+                // 2. Reload general config
+                match state_clone.reload_config() {
+                    Ok(_) => info!("Configuration and subgroups reloaded successfully."),
+                    Err(e) => error!("Failed to reload configuration: {}", e),
+                }
+            }
+        });
     }
 
     let app = app.with_state(state.clone());

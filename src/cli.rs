@@ -27,7 +27,7 @@ pub enum ConfigFormat {
 }
 
 /// Main CLI arguments structure
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(
     name = "herakles-node-exporter",
     about = "Prometheus exporter for per-process RSS/PSS/USS and CPU metrics",
@@ -202,7 +202,7 @@ pub struct Args {
 }
 
 /// Subcommands for additional functionality
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
     /// Validate configuration and system requirements
     Check {

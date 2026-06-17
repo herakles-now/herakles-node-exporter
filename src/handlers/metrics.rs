@@ -81,7 +81,8 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             // Reset metrics before populating with fresh data
             state.metrics.reset();
 
-            let cfg = &state.config;
+            let config_guard = state.config();
+            let cfg = &*config_guard;
             let enable_rss = cfg.enable_rss.unwrap_or(true);
             let enable_pss = cfg.enable_pss.unwrap_or(true);
             let enable_cpu = cfg.enable_cpu.unwrap_or(true);
@@ -92,7 +93,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
 
             for p in &processes_vec {
                 if let Some((group, subgroup)) =
-                    classify_process_with_config(&p.name, &state.config)
+                    classify_process_with_config(&p.name, cfg)
                 {
                     exported_count += 1;
 
