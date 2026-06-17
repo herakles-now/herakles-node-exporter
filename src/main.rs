@@ -606,7 +606,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
 
     // Prune the database once per update cycle and update database metrics
     if state.config.ringbuffer.enable_database {
-        if let Err(e) = state.ringbuffer_manager.prune_database() {
+        if let Err(e) = state.ringbuffer_manager.prune_database(false) {
             warn!("Failed to prune database: {}", e);
         }
         let db_stats = state.ringbuffer_manager.get_stats();

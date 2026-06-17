@@ -3,6 +3,7 @@ use crate::ringbuffer::{Ringbuffer, RingbufferEntry, TopProcessInfo, ENTRY_SIZE_
 use dashmap::DashMap;
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicI64, Ordering};
 use tracing::{info, warn, error};
 
 /// Statistics about the ringbuffer system.
@@ -29,6 +30,7 @@ pub struct RingbufferManager {
     config: RingbufferConfig,
     estimated_ram_bytes: usize,
     db: Option<sled::Db>,
+    last_prune: AtomicI64,
 }
 
 impl RingbufferManager {
@@ -96,6 +98,7 @@ impl RingbufferManager {
             config,
             estimated_ram_bytes,
             db,
+            last_prune: AtomicI64::new(0),
         }
     }
 
@@ -123,11 +126,20 @@ impl RingbufferManager {
     }
 
     /// Prunes database entries exceeding the retention limit.
-    pub fn prune_database(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn prune_database(&self, force: bool) -> Result<(), Box<dyn std::error::Error>> {
         let db = match &self.db {
             Some(db) => db,
             None => return Ok(()),
         };
+
+        let now = chrono::Utc::now().timestamp();
+        if !force {
+            let last = self.last_prune.load(Ordering::Relaxed);
+            if now - last < 300 {
+                return Ok(());
+            }
+        }
+        self.last_prune.store(now, Ordering::Relaxed);
 
         let limit = crate::config::parse_retention(&self.config.retention)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
@@ -536,7 +548,7 @@ mod tests {
         if let Some(ref db) = manager.db {
             let _ = db.flush();
         }
-        manager.prune_database().unwrap();
+        manager.prune_database(true).unwrap();
 
         // Historical data should now only contain the recent entry
         let history = manager.get_subgroup_history("subgroup_a").unwrap();
