@@ -49,8 +49,8 @@ use config::{
 };
 use handlers::{
     config_handler, details_handler, doc_handler, health_handler, html_config_handler,
-    html_details_handler, html_docs_handler, html_health_handler, html_index_handler,
-    html_subgroups_handler, metrics_handler, root_handler, subgroups_handler,
+    html_dashboard_handler, html_details_handler, html_docs_handler, html_health_handler,
+    html_index_handler, html_subgroups_handler, metrics_handler, root_handler, subgroups_handler,
 };
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
@@ -942,6 +942,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/details", get(details_handler))
         .route("/html", get(html_index_handler))
         .route("/html/", get(html_index_handler))
+        .route("/html/dashboard", get(html_dashboard_handler))
         .route("/html/details", get(html_details_handler))
         .route("/html/subgroups", get(html_subgroups_handler))
         .route("/html/health", get(html_health_handler))

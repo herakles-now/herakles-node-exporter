@@ -424,12 +424,214 @@ fn html_header(title: &str) -> String {
         .cpu-low {{
             background: transparent;
         }}
+        .dashboard-shell {{
+            display: grid;
+            gap: 20px;
+        }}
+        .dashboard-toolbar {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 18px 20px;
+            background: #182235;
+            border: 1px solid #334155;
+            border-radius: 8px;
+        }}
+        .dashboard-toolbar h1 {{
+            margin: 0 0 6px 0;
+        }}
+        .dashboard-toolbar p {{
+            margin: 0;
+        }}
+        .dashboard-actions {{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }}
+        .dashboard-button {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-weight: 600;
+            text-decoration: none;
+        }}
+        .dashboard-button.primary {{
+            background: #0f766e;
+            border-color: #14b8a6;
+            color: #ecfeff;
+        }}
+        .dashboard-kpis {{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }}
+        .dashboard-card {{
+            background: #182235;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 18px;
+            min-width: 0;
+        }}
+        .dashboard-card h2,
+        .dashboard-card h3 {{
+            margin: 0 0 14px 0;
+            border: 0;
+            padding: 0;
+        }}
+        .kpi-label {{
+            display: block;
+            color: #94a3b8;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }}
+        .kpi-value {{
+            color: #f8fafc;
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }}
+        .kpi-detail {{
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }}
+        .trend-up {{ color: #34d399; }}
+        .trend-warn {{ color: #fbbf24; }}
+        .trend-down {{ color: #fb7185; }}
+        .dashboard-main {{
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+            gap: 20px;
+            align-items: start;
+        }}
+        .chart {{
+            height: 260px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding: 18px 8px 8px 8px;
+            border-radius: 8px;
+            background:
+                linear-gradient(to top, rgba(148, 163, 184, 0.14) 1px, transparent 1px) 0 0 / 100% 25%,
+                #0f172a;
+            border: 1px solid #263449;
+        }}
+        .chart-bar {{
+            flex: 1;
+            min-width: 18px;
+            border-radius: 6px 6px 0 0;
+            background: linear-gradient(180deg, #38bdf8, #0f766e);
+            position: relative;
+        }}
+        .chart-bar.warn {{
+            background: linear-gradient(180deg, #f59e0b, #b45309);
+        }}
+        .chart-bar.hot {{
+            background: linear-gradient(180deg, #fb7185, #be123c);
+        }}
+        .chart-labels {{
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 10px;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 10px;
+            text-align: center;
+        }}
+        .split-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }}
+        .group-row {{
+            display: grid;
+            grid-template-columns: minmax(96px, 1fr) 64px 76px;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #263449;
+        }}
+        .group-row:last-child {{
+            border-bottom: 0;
+        }}
+        .bar-track {{
+            height: 8px;
+            border-radius: 999px;
+            background: #0f172a;
+            overflow: hidden;
+            border: 1px solid #263449;
+        }}
+        .bar-fill {{
+            height: 100%;
+            background: #38bdf8;
+        }}
+        .bar-fill.green {{ background: #34d399; }}
+        .bar-fill.amber {{ background: #fbbf24; }}
+        .bar-fill.red {{ background: #fb7185; }}
+        .event-list {{
+            display: grid;
+            gap: 12px;
+        }}
+        .event {{
+            display: grid;
+            grid-template-columns: 86px minmax(0, 1fr);
+            gap: 12px;
+            color: #cbd5e1;
+        }}
+        .event-time {{
+            color: #64748b;
+            font-size: 0.85rem;
+        }}
+        .mini-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }}
+        .mini-stat {{
+            background: #0f172a;
+            border: 1px solid #263449;
+            border-radius: 8px;
+            padding: 14px;
+        }}
+        .mini-stat strong {{
+            display: block;
+            color: #f8fafc;
+            font-size: 1.25rem;
+            margin-bottom: 4px;
+        }}
+        @media (max-width: 980px) {{
+            .dashboard-kpis,
+            .dashboard-main,
+            .split-grid,
+            .mini-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .chart {{
+                gap: 6px;
+            }}
+            .chart-labels {{
+                gap: 6px;
+                font-size: 0.68rem;
+            }}
+        }}
     </style>
 </head>
 <body>
 <div class="container">
 <nav>
     <a href="/html/">Home</a>
+    <a href="/html/dashboard">Dashboard</a>
     <a href="/html/details">Details</a>
     <a href="/html/subgroups">Subgroups</a>
     <a href="/html/health">Health</a>
@@ -464,6 +666,22 @@ fn format_bytes(bytes: u64) -> String {
     } else {
         format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
     }
+}
+
+/// Escape text for HTML output.
+fn escape_html(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 /// Render interactive HTML table for a specific subgroup.
@@ -865,12 +1083,289 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
 
     html.push_str("<h2>Quick Links</h2>\n");
     html.push_str(r#"<div class="quick-links">"#);
+    html.push_str(r#"<a href="/html/dashboard" class="link-card"><h3>Dashboard</h3><p>Visual mockup with example system, subgroup, process, and exporter health data.</p></a>"#);
     html.push_str(r#"<a href="/html/details" class="link-card"><h3>📈 Details</h3><p>Persistent database stats, ringbuffer info, and per-subgroup historical charts/tables.</p></a>"#);
     html.push_str(r#"<a href="/html/subgroups" class="link-card"><h3>📊 Subgroups</h3><p>Real-time overview of all classified subgroups and their aggregated CPU & memory usage.</p></a>"#);
     html.push_str(r#"<a href="/html/health" class="link-card"><h3>❤️ Health</h3><p>Check the exporter daemon's health metrics, event rate, buffer safety, and internal performance stats.</p></a>"#);
     html.push_str(r#"<a href="/html/config" class="link-card"><h3>⚙️ Configuration</h3><p>Inspect the running configuration including resource limits, eBPF flags, and server bindings.</p></a>"#);
     html.push_str(r#"<a href="/html/docs" class="link-card"><h3>📖 Documentation</h3><p>Read the built-in user guide, API references, FAQ, and Prometheus integration walkthrough.</p></a>"#);
     html.push_str(r#"</div>"#);
+
+    html.push_str(&html_footer());
+    Html(html)
+}
+
+/// Handler for /html/dashboard with live overview data.
+#[instrument(skip(state))]
+pub async fn html_dashboard_handler(State(state): State<SharedState>) -> impl IntoResponse {
+    debug!("Processing /html/dashboard request");
+    state.health_stats.record_http_request();
+
+    let cache = state.cache.read().await;
+    let ringbuffer_stats = state.ringbuffer_manager.get_stats();
+    let cache_ttl = state.config().cache_ttl.unwrap_or(0);
+    let current_time = chrono::Utc::now().timestamp() as f64;
+
+    let mut processes: Vec<&ProcMem> = cache.processes.values().collect();
+    processes.sort_by(|a, b| {
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let tracked_processes = processes.len();
+    let tracked_rss: u64 = processes.iter().map(|proc| proc.rss).sum();
+    let tracked_cpu: f32 = processes.iter().map(|proc| proc.cpu_percent).sum();
+    let high_cpu_count = processes
+        .iter()
+        .filter(|proc| proc.cpu_percent >= CPU_MEDIUM_THRESHOLD)
+        .count();
+
+    let mut subgroup_data: std::collections::HashMap<String, (u64, f32, usize)> =
+        std::collections::HashMap::new();
+    for proc in &processes {
+        let (group, subgroup) = classify_process_raw(&proc.name);
+        let key = format!("{}:{}", group, subgroup);
+        let entry = subgroup_data.entry(key).or_insert((0, 0.0, 0));
+        entry.0 += proc.rss;
+        entry.1 += proc.cpu_percent;
+        entry.2 += 1;
+    }
+
+    let mut subgroups: Vec<_> = subgroup_data.into_iter().collect();
+    subgroups.sort_by_key(|entry| std::cmp::Reverse(entry.1 .0));
+    let max_subgroup_rss = subgroups.first().map(|entry| entry.1 .0).unwrap_or(0);
+
+    let mut chart_bars = String::new();
+    for proc in processes.iter().take(12) {
+        let height = proc.cpu_percent.clamp(3.0, 100.0);
+        let class = if proc.cpu_percent >= CPU_CRITICAL_THRESHOLD {
+            " hot"
+        } else if proc.cpu_percent >= CPU_HIGH_THRESHOLD {
+            " warn"
+        } else {
+            ""
+        };
+        chart_bars.push_str(&format!(
+            r#"<div class="chart-bar{}" style="height: {:.1}%" title="{}: {:.2}% CPU"></div>"#,
+            class,
+            height,
+            escape_html(&proc.name),
+            proc.cpu_percent
+        ));
+    }
+    if chart_bars.is_empty() {
+        chart_bars.push_str(
+            r#"<div class="chart-bar" style="height: 3%" title="No process data"></div>"#,
+        );
+    }
+
+    let mut chart_labels = String::new();
+    for proc in processes.iter().take(12) {
+        chart_labels.push_str(&format!("<span>{}</span>", proc.pid));
+    }
+    if chart_labels.is_empty() {
+        chart_labels.push_str("<span>none</span>");
+    }
+
+    let mut subgroup_rows = String::new();
+    for (subgroup_key, (rss, cpu, count)) in subgroups.iter().take(5) {
+        let width = if max_subgroup_rss > 0 {
+            ((*rss as f64 / max_subgroup_rss as f64) * 100.0).clamp(3.0, 100.0)
+        } else {
+            3.0
+        };
+        let fill_class = if *cpu >= CPU_HIGH_THRESHOLD {
+            "red"
+        } else if *cpu >= CPU_MEDIUM_THRESHOLD {
+            "amber"
+        } else {
+            "green"
+        };
+        subgroup_rows.push_str(&format!(
+            r#"<div class="group-row">
+                <strong><a href="/html/details?subgroup={}">{}</a></strong>
+                <div class="bar-track"><div class="bar-fill {}" style="width: {:.1}%"></div></div>
+                <span>{}</span>
+            </div>"#,
+            escape_html(subgroup_key),
+            escape_html(subgroup_key),
+            fill_class,
+            width,
+            format_bytes(*rss)
+        ));
+        subgroup_rows.push_str(&format!(
+            r#"<div class="kpi-detail" style="margin: -8px 0 8px 0;">{} processes, {:.2}% CPU</div>"#,
+            count, cpu
+        ));
+    }
+    if subgroup_rows.is_empty() {
+        subgroup_rows.push_str("<p>No subgroup data available yet.</p>");
+    }
+
+    let mut hot_process_rows = String::new();
+    for proc in processes.iter().take(6) {
+        let rates = calculate_io_rates(proc, current_time);
+        let io_rate = rates.read_bytes_per_sec
+            + rates.write_bytes_per_sec
+            + rates.rx_bytes_per_sec
+            + rates.tx_bytes_per_sec;
+        hot_process_rows.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td>{:.2}%</td><td>{}</td><td>{}/s</td></tr>\n",
+            escape_html(&proc.name),
+            proc.pid,
+            proc.cpu_percent,
+            format_bytes(proc.rss),
+            format_bytes(io_rate.max(0.0) as u64)
+        ));
+    }
+    if hot_process_rows.is_empty() {
+        hot_process_rows.push_str(
+            r#"<tr><td colspan="5"><em>No process data available yet.</em></td></tr>"#,
+        );
+    }
+
+    let success_rate = state.health_stats.get_scan_success_rate();
+    let (last_scan_duration, avg_scan_duration, _, _, scan_count) =
+        state.health_stats.scan_duration_seconds.snapshot();
+    let last_scan_time = state.health_stats.get_last_scan_time_str();
+    let exporter_status = if cache.update_success && cache.last_updated.is_some() {
+        "OK"
+    } else {
+        "ERROR"
+    };
+    let status_class = if exporter_status == "OK" {
+        "trend-up"
+    } else {
+        "trend-down"
+    };
+    let scan_detail = if scan_count > 0 {
+        format!("Last scan {:.2} ms at {}", last_scan_duration * 1000.0, last_scan_time)
+    } else {
+        "No scan completed yet".to_string()
+    };
+    let cache_age = cache
+        .last_updated
+        .map(|updated| format!("{:.2}s ago", updated.elapsed().as_secs_f64()))
+        .unwrap_or_else(|| "never".to_string());
+    let ebpf_status = if state.ebpf.is_some() {
+        "eBPF manager active"
+    } else {
+        "eBPF metrics unavailable"
+    };
+    let database_status = if ringbuffer_stats.db_enabled {
+        format!(
+            "Sled database: {}, {} entries",
+            format_bytes(ringbuffer_stats.db_size_bytes),
+            ringbuffer_stats.db_entries
+        )
+    } else {
+        "Sled database disabled".to_string()
+    };
+
+    let mut html = html_header("Dashboard Preview");
+    html.push_str(&format!(
+        r#"<div class="dashboard-shell">
+    <div class="dashboard-toolbar">
+        <div>
+            <h1>Dashboard</h1>
+            <p>Live overview from the current exporter cache and health statistics.</p>
+        </div>
+        <div class="dashboard-actions">
+            <a class="dashboard-button" href="/metrics">Metrics</a>
+            <a class="dashboard-button" href="/html/subgroups">Subgroups</a>
+            <a class="dashboard-button primary" href="/html/details">Details</a>
+        </div>
+    </div>
+
+    <section class="dashboard-kpis" aria-label="Key metrics">
+        <div class="dashboard-card">
+            <span class="kpi-label">Tracked CPU</span>
+            <div class="kpi-value">{tracked_cpu:.1}%</div>
+            <div class="kpi-detail">{high_cpu_count} processes above {cpu_medium_threshold:.0}% CPU</div>
+        </div>
+        <div class="dashboard-card">
+            <span class="kpi-label">Tracked RSS</span>
+            <div class="kpi-value">{tracked_rss}</div>
+            <div class="kpi-detail">Sum of cached process RSS</div>
+        </div>
+        <div class="dashboard-card">
+            <span class="kpi-label">Tracked Processes</span>
+            <div class="kpi-value">{tracked_processes}</div>
+            <div class="kpi-detail">{subgroup_count} active subgroups</div>
+        </div>
+        <div class="dashboard-card">
+            <span class="kpi-label">Exporter Health</span>
+            <div class="kpi-value">{exporter_status}</div>
+            <div class="kpi-detail {status_class}">Avg scan {avg_scan_ms:.2} ms</div>
+        </div>
+    </section>
+
+    <section class="dashboard-main">
+        <div class="dashboard-card">
+            <h2>Top CPU Processes</h2>
+            <div class="chart" role="img" aria-label="Current top CPU processes">
+                {chart_bars}
+            </div>
+            <div class="chart-labels">
+                {chart_labels}
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <h2>Top Subgroups</h2>
+            {subgroup_rows}
+        </div>
+    </section>
+
+    <section class="split-grid">
+        <div class="dashboard-card">
+            <h2>Hot Processes</h2>
+            <table>
+                <tr><th>Process</th><th>PID</th><th>CPU</th><th>RSS</th><th>I/O</th></tr>
+                {hot_process_rows}
+            </table>
+        </div>
+
+        <div class="dashboard-card">
+            <h2>Exporter Activity</h2>
+            <div class="mini-grid">
+                <div class="mini-stat"><strong>{success_rate:.2}%</strong><span>scan success</span></div>
+                <div class="mini-stat"><strong>{ringbuffer_ram}</strong><span>ringbuffer RAM</span></div>
+                <div class="mini-stat"><strong>{cache_ttl}s</strong><span>cache interval</span></div>
+            </div>
+            <h3 style="margin-top: 22px;">Live Activity</h3>
+            <div class="event-list">
+                <div class="event"><span class="event-time">{last_scan_time}</span><span>{scan_detail}</span></div>
+                <div class="event"><span class="event-time">{cache_age}</span><span>Cache contains {tracked_processes} processes and {subgroup_count} subgroups.</span></div>
+                <div class="event"><span class="event-time">storage</span><span>{database_status}</span></div>
+                <div class="event"><span class="event-time">io</span><span>{ebpf_status}</span></div>
+            </div>
+        </div>
+    </section>
+</div>"#,
+        tracked_cpu = tracked_cpu,
+        high_cpu_count = high_cpu_count,
+        cpu_medium_threshold = CPU_MEDIUM_THRESHOLD,
+        tracked_rss = format_bytes(tracked_rss),
+        tracked_processes = tracked_processes,
+        subgroup_count = subgroups.len(),
+        exporter_status = exporter_status,
+        status_class = status_class,
+        avg_scan_ms = avg_scan_duration * 1000.0,
+        chart_bars = chart_bars,
+        chart_labels = chart_labels,
+        subgroup_rows = subgroup_rows,
+        hot_process_rows = hot_process_rows,
+        success_rate = success_rate,
+        ringbuffer_ram = format_bytes(ringbuffer_stats.estimated_ram_bytes as u64),
+        cache_ttl = cache_ttl,
+        last_scan_time = last_scan_time,
+        scan_detail = escape_html(&scan_detail),
+        cache_age = escape_html(&cache_age),
+        database_status = escape_html(&database_status),
+        ebpf_status = escape_html(ebpf_status),
+    ));
 
     html.push_str(&html_footer());
     Html(html)
@@ -1576,6 +2071,7 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
 
     let cache = state.cache.read().await;
     let buffer_health = state.health_state.get_health();
+    let ringbuffer_stats = state.ringbuffer_manager.get_stats();
 
     let status = if cache.update_success && cache.last_updated.is_some() {
         "OK"
@@ -1610,8 +2106,10 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
         .health_stats
         .scan_failure_count
         .load(Ordering::Relaxed);
-    let (_, avg_duration, _, _, _) = state.health_stats.scan_duration_seconds.snapshot();
+    let (last_duration, avg_duration, max_duration, min_duration, duration_count) =
+        state.health_stats.scan_duration_seconds.snapshot();
     let (_, avg_processes, _, _, _) = state.health_stats.scanned_processes.snapshot();
+    let last_scan_time = state.health_stats.get_last_scan_time_str();
 
     html.push_str(&format!(
         "<tr><td>Total Scans</td><td>{}</td></tr>\n",
@@ -1628,6 +2126,30 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
     html.push_str(&format!(
         "<tr><td>Avg Duration</td><td>{:.2}ms</td></tr>\n",
         avg_duration * 1000.0
+    ));
+    html.push_str(&format!(
+        "<tr><td>Fastest Scan</td><td>{}</td></tr>\n",
+        if duration_count > 0 {
+            format!("{:.2}ms", min_duration * 1000.0)
+        } else {
+            "Never".to_string()
+        }
+    ));
+    html.push_str(&format!(
+        "<tr><td>Longest Scan</td><td>{}</td></tr>\n",
+        if duration_count > 0 {
+            format!("{:.2}ms", max_duration * 1000.0)
+        } else {
+            "Never".to_string()
+        }
+    ));
+    html.push_str(&format!(
+        "<tr><td>Last Scan</td><td>{}</td></tr>\n",
+        if duration_count > 0 {
+            format!("{:.2}ms at {}", last_duration * 1000.0, last_scan_time)
+        } else {
+            "Never".to_string()
+        }
     ));
     html.push_str(&format!(
         "<tr><td>Avg Processes Scanned</td><td>{:.0}</td></tr>\n",
@@ -1653,6 +2175,34 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
     html.push_str(&format!(
         "<tr><td>Update Duration</td><td>{:.2}ms</td></tr>\n",
         cache.update_duration_seconds * 1000.0
+    ));
+    html.push_str("</table>\n");
+
+    // Persistent Database Stats
+    html.push_str("<h2>Persistent Storage</h2>\n");
+    html.push_str("<table>\n");
+    html.push_str("<tr><th>Metric</th><th>Value</th></tr>\n");
+    html.push_str(&format!(
+        "<tr><td>Sled Database</td><td>{}</td></tr>\n",
+        if ringbuffer_stats.db_enabled {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
+    ));
+    if let Some(db_path) = &ringbuffer_stats.db_path {
+        html.push_str(&format!(
+            "<tr><td>Sled Path</td><td><code>{}</code></td></tr>\n",
+            db_path
+        ));
+    }
+    html.push_str(&format!(
+        "<tr><td>Sled Size on Disk</td><td>{}</td></tr>\n",
+        format_bytes(ringbuffer_stats.db_size_bytes)
+    ));
+    html.push_str(&format!(
+        "<tr><td>Sled Entries</td><td>{}</td></tr>\n",
+        ringbuffer_stats.db_entries
     ));
     html.push_str("</table>\n");
 
