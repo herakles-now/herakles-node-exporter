@@ -501,4 +501,46 @@ mod tests {
             assert_eq!(history[0].rss_kb, 500);
         }
     }
+
+    #[test]
+    fn test_sled_pruning() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test_metrics.db");
+
+        let mut config = default_config();
+        config.enable_database = true;
+        config.database_path = db_path.clone();
+        config.retention = "10s".to_string();
+
+        let manager = RingbufferManager::new(config.clone(), 10);
+        let now_ts = chrono::Utc::now().timestamp();
+
+        let make_entry = |ts| RingbufferEntry {
+            timestamp: ts,
+            rss_kb: 500,
+            pss_kb: 400,
+            uss_kb: 300,
+            cpu_percent: 12.5,
+            cpu_time_seconds: 5.0,
+            top_cpu: [TopProcessInfo::default(); 3],
+            top_rss: [TopProcessInfo::default(); 3],
+            top_pss: [TopProcessInfo::default(); 3],
+            _padding: [],
+        };
+
+        // Record one old entry (20 seconds ago) and one recent entry (now)
+        manager.record("subgroup_a", make_entry(now_ts - 20));
+        manager.record("subgroup_a", make_entry(now_ts));
+
+        // Flush and prune
+        if let Some(ref db) = manager.db {
+            let _ = db.flush();
+        }
+        manager.prune_database().unwrap();
+
+        // Historical data should now only contain the recent entry
+        let history = manager.get_subgroup_history("subgroup_a").unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].timestamp, now_ts);
+    }
 }
