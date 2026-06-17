@@ -5,8 +5,7 @@
 
 use axum::{
     extract::State,
-    http::header,
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse},
 };
 use tracing::{debug, instrument};
 
@@ -20,7 +19,7 @@ pub async fn root_handler(State(state): State<SharedState>) -> impl IntoResponse
     state.health_stats.record_http_request();
 
     let version = env!("CARGO_PKG_VERSION");
-    
+
     // Calculate actual uptime from service start time
     let uptime_secs = state.start_time.elapsed().as_secs();
     let hours = uptime_secs / 3600;

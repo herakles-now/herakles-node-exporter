@@ -93,17 +93,27 @@ pub fn command_check(
     if all || config.ringbuffer.enable_database {
         println!("\n🗄️  Checking sled database persistence...");
         if config.ringbuffer.enable_database {
-            println!("   ⚙️  Database path: {}", config.ringbuffer.database_path.display());
+            println!(
+                "   ⚙️  Database path: {}",
+                config.ringbuffer.database_path.display()
+            );
             println!("   ⚙️  Retention limit: {}", config.ringbuffer.retention);
 
             // 1. Try to create the parent directory if it does not exist
             if let Some(parent) = config.ringbuffer.database_path.parent() {
                 match std::fs::create_dir_all(parent) {
                     Ok(_) => {
-                        println!("   ✅ Database directory is accessible/created: {}", parent.display());
+                        println!(
+                            "   ✅ Database directory is accessible/created: {}",
+                            parent.display()
+                        );
                     }
                     Err(e) => {
-                        println!("   ❌ Failed to create/access database directory {}: {}", parent.display(), e);
+                        println!(
+                            "   ❌ Failed to create/access database directory {}: {}",
+                            parent.display(),
+                            e
+                        );
                         all_ok = false;
                     }
                 }

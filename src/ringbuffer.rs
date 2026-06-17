@@ -3,28 +3,18 @@
 //! This module provides a fixed-size ringbuffer for storing historical
 //! metrics entries with predictable memory usage.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Size of a single ringbuffer entry in bytes (256 bytes with extended top-N data).
 pub const ENTRY_SIZE_BYTES: usize = 256;
 
 /// Top process information stored in ringbuffer (24 bytes per entry).
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct TopProcessInfo {
-    pub pid: u32,              // 4 bytes - Process ID
-    pub value: u32,            // 4 bytes - Value in KB (for memory) or scaled (for CPU)
-    pub name: [u8; 16],        // 16 bytes - Null-terminated process name
-}
-
-impl Default for TopProcessInfo {
-    fn default() -> Self {
-        Self {
-            pid: 0,
-            value: 0,
-            name: [0; 16],
-        }
-    }
+    pub pid: u32,       // 4 bytes - Process ID
+    pub value: u32,     // 4 bytes - Value in KB (for memory) or scaled (for CPU)
+    pub name: [u8; 16], // 16 bytes - Null-terminated process name
 }
 
 impl TopProcessInfo {
@@ -45,7 +35,11 @@ impl TopProcessInfo {
     /// Get the process name as a string.
     pub fn name_str(&self) -> String {
         // Find the null terminator, or use full length if none found
-        let len = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
+        let len = self
+            .name
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or(self.name.len());
         String::from_utf8_lossy(&self.name[..len]).to_string()
     }
 }
@@ -54,7 +48,6 @@ impl TopProcessInfo {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct RingbufferEntry {
-
     // Existing aggregated metrics (40 bytes)
     pub timestamp: i64,        // 8 bytes - Unix timestamp
     pub rss_kb: u64,           // 8 bytes
@@ -65,13 +58,12 @@ pub struct RingbufferEntry {
 
     // Top-3 processes by each metric
     // 3 entries per metric × 3 metrics = 9 entries × 24 bytes = 216 bytes
-    pub top_cpu: [TopProcessInfo; 3],         // 72 bytes - Top 3 by CPU
-    pub top_rss: [TopProcessInfo; 3],         // 72 bytes - Top 3 by RSS
-    pub top_pss: [TopProcessInfo; 3],         // 72 bytes - Top 3 by PSS
-    
-    // Total: 40 + 216 = 256 bytes exactly
+    pub top_cpu: [TopProcessInfo; 3], // 72 bytes - Top 3 by CPU
+    pub top_rss: [TopProcessInfo; 3], // 72 bytes - Top 3 by RSS
+    pub top_pss: [TopProcessInfo; 3], // 72 bytes - Top 3 by PSS
 
-    pub _padding: [u8; 0],     // No padding needed - exactly 256 bytes
+    // Total: 40 + 216 = 256 bytes exactly
+    pub _padding: [u8; 0], // No padding needed - exactly 256 bytes
 }
 
 /// A circular buffer for storing metric entries with fixed capacity.
@@ -127,22 +119,6 @@ impl Ringbuffer {
 
         result
     }
-
-    /// Returns the current number of entries in the buffer.
-    pub fn len(&self) -> usize {
-        self.count
-    }
-
-    /// Returns the maximum capacity of the buffer.
-    pub fn capacity(&self) -> usize {
-        self.capacity
-    }
-
-    /// Returns true if the buffer is empty.
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.count == 0
-    }
 }
 
 #[cfg(test)]
@@ -159,8 +135,7 @@ mod tests {
     fn test_ringbuffer_push_and_read() {
         let mut rb = Ringbuffer::new(3);
 
-        assert_eq!(rb.len(), 0);
-        assert_eq!(rb.capacity(), 3);
+        assert!(rb.get_history().is_empty());
 
         // Push first entry
         rb.push(RingbufferEntry {
@@ -176,7 +151,6 @@ mod tests {
             _padding: [],
         });
 
-        assert_eq!(rb.len(), 1);
         let history = rb.get_history();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].timestamp, 1000);
@@ -240,9 +214,6 @@ mod tests {
     #[test]
     fn test_ringbuffer_empty() {
         let rb = Ringbuffer::new(10);
-        assert_eq!(rb.len(), 0);
-        assert!(rb.is_empty());
-
         let history = rb.get_history();
         assert_eq!(history.len(), 0);
     }

@@ -36,7 +36,7 @@ struct IoRates {
 /// Calculate I/O rates from process metrics.
 fn calculate_io_rates(proc: &ProcMem, current_time: f64) -> IoRates {
     let time_delta = current_time - proc.last_update_time;
-    
+
     // Handle edge cases: no previous data or invalid time delta
     if time_delta <= 0.0 || proc.last_update_time == 0.0 {
         return IoRates {
@@ -46,19 +46,19 @@ fn calculate_io_rates(proc: &ProcMem, current_time: f64) -> IoRates {
             tx_bytes_per_sec: 0.0,
         };
     }
-    
+
     // Calculate deltas (handle counter wraps with saturating_sub)
     let read_delta = proc.read_bytes.saturating_sub(proc.last_read_bytes);
     let write_delta = proc.write_bytes.saturating_sub(proc.last_write_bytes);
     let rx_delta = proc.rx_bytes.saturating_sub(proc.last_rx_bytes);
     let tx_delta = proc.tx_bytes.saturating_sub(proc.last_tx_bytes);
-    
+
     // Calculate rates (bytes per second)
     let read_rate = read_delta as f64 / time_delta;
     let write_rate = write_delta as f64 / time_delta;
     let rx_rate = rx_delta as f64 / time_delta;
     let tx_rate = tx_delta as f64 / time_delta;
-    
+
     IoRates {
         read_bytes_per_sec: read_rate,
         write_bytes_per_sec: write_rate,
@@ -469,39 +469,43 @@ fn format_bytes(bytes: u64) -> String {
 /// Render interactive HTML table for a specific subgroup.
 async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Html<String> {
     use chrono::{Local, TimeZone};
-    
+
     let cache = state.cache.read().await;
     let current_timestamp = chrono::Utc::now().timestamp();
-    
+
     // Parse subgroup_name once (format: "group:subgroup")
     let subgroup_parts: Vec<&str> = subgroup_name.split(':').collect();
     if subgroup_parts.len() != 2 {
-        return Html(format!(
+        return Html(
             r#"<!DOCTYPE html><html><body><h1>Error</h1><p>Invalid subgroup format. Expected "group:subgroup"</p></body></html>"#
-        ));
+                .to_string(),
+        );
     }
     let expected_group = subgroup_parts[0];
     let expected_subgroup = subgroup_parts[1];
-    
+
     // Collect all processes for the subgroup
     let mut processes: Vec<&ProcMem> = Vec::new();
     for proc in cache.processes.values() {
         let (group, subgroup) = classify_process_raw(&proc.name);
-        
+
         if group.as_ref() == expected_group && subgroup.as_ref() == expected_subgroup {
             processes.push(proc);
         }
     }
-    
+
     // Sort by CPU descending (default)
     processes.sort_by(|a, b| {
-        b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal)
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
-    
+
     // Generate HTML
     let mut html = String::new();
-    
-    html.push_str(&format!(r#"<!DOCTYPE html>
+
+    html.push_str(&format!(
+        r#"<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -631,8 +635,10 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
         </tr>
       </thead>
       <tbody>
-"#, subgroup_name, subgroup_name));
-    
+"#,
+        subgroup_name, subgroup_name
+    ));
+
     // Add process rows
     for proc in processes {
         let cpu_class = if proc.cpu_percent > 80.0 {
@@ -644,29 +650,31 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
         } else {
             ""
         };
-        
-        let timestamp_str = Local.timestamp_opt(current_timestamp, 0)
+
+        let timestamp_str = Local
+            .timestamp_opt(current_timestamp, 0)
             .single()
             .map(|dt| dt.format("%H:%M:%S").to_string())
             .unwrap_or_else(|| {
                 // Timestamp conversion failed - use Unix timestamp as fallback
                 format!("{}", current_timestamp)
             });
-        
+
         let rss_mb = proc.rss as f64 / (1024.0 * 1024.0);
         let pss_mb = proc.pss as f64 / (1024.0 * 1024.0);
         let uss_mb = proc.uss as f64 / (1024.0 * 1024.0);
-        
+
         // Calculate Block I/O rate (bytes per second)
         // NOTE: Set to 0.0 as proper implementation requires delta calculation between
         // consecutive scrapes (current_io - previous_io) / time_delta. This would need
         // historical tracking in the cache or ringbuffer to calculate the rate accurately.
         let blkio_mb_s = 0.0;
-        
+
         // Get Network I/O rate from eBPF if available
         let netio_mb_s = if let Some(ref ebpf_manager) = state.ebpf {
             if let Ok(net_stats) = ebpf_manager.read_process_net_stats() {
-                net_stats.iter()
+                net_stats
+                    .iter()
                     .find(|s| s.pid == proc.pid)
                     .map(|s| (s.rx_bytes + s.tx_bytes) as f64 / (1024.0 * 1024.0))
                     .unwrap_or(0.0)
@@ -676,7 +684,7 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
         } else {
             0.0
         };
-        
+
         html.push_str(&format!(r#"
         <tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio="{}" data-netio="{}" data-pid="{}" data-timestamp="{}">
           <td class="rank"></td>
@@ -696,7 +704,7 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
             rss_mb, pss_mb, uss_mb, blkio_mb_s, netio_mb_s
         ));
     }
-    
+
     html.push_str(r#"
       </tbody>
     </table>
@@ -786,7 +794,7 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
 </body>
 </html>
 "#);
-    
+
     Html(html)
 }
 
@@ -797,7 +805,7 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
     state.health_stats.record_http_request();
 
     let stats = state.ringbuffer_manager.get_stats();
-    
+
     // Calculate uptime from service start time
     let uptime_secs = state.start_time.elapsed().as_secs();
     let hours = uptime_secs / 3600;
@@ -923,7 +931,11 @@ pub async fn html_details_handler(
     ));
     html.push_str(&format!(
         "<tr><td>Database Persistence</td><td>{}</td></tr>\n",
-        if stats.db_enabled { "Enabled" } else { "Disabled" }
+        if stats.db_enabled {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
     ));
     if stats.db_enabled {
         html.push_str(&format!(
@@ -966,13 +978,18 @@ function collapseAll() {
     subgroups.sort();
 
     html.push_str("<h2>All Subgroups</h2>\n");
-    html.push_str(&format!("<p>Showing {} subgroups. Click to expand/collapse details.</p>\n", subgroups.len()));
+    html.push_str(&format!(
+        "<p>Showing {} subgroups. Click to expand/collapse details.</p>\n",
+        subgroups.len()
+    ));
 
     // Render each subgroup in a collapsible section
     for subgroup_name in subgroups {
         // Get history for this subgroup
-        let history = state.ringbuffer_manager.get_subgroup_history(&subgroup_name);
-        
+        let history = state
+            .ringbuffer_manager
+            .get_subgroup_history(&subgroup_name);
+
         // Calculate current aggregated values from cache
         let mut subgroup_processes: Vec<&ProcMem> = Vec::new();
         for proc in cache.processes.values() {
@@ -987,15 +1004,18 @@ function collapseAll() {
         html.push_str("<details>\n");
         html.push_str(&format!("<summary>{}</summary>\n", subgroup_name));
         html.push_str(r#"<div class="subgroup-content">"#);
-        html.push_str("\n");
+        html.push('\n');
 
         if !subgroup_processes.is_empty() {
             html.push_str("<h3>Current Live Snapshot</h3>\n");
-            
+
             let total_rss: u64 = subgroup_processes.iter().map(|p| p.rss).sum();
             let total_pss: u64 = subgroup_processes.iter().map(|p| p.pss).sum();
             let total_uss: u64 = subgroup_processes.iter().map(|p| p.uss).sum();
-            let total_cpu: f64 = subgroup_processes.iter().map(|p| p.cpu_percent as f64).sum();
+            let total_cpu: f64 = subgroup_processes
+                .iter()
+                .map(|p| p.cpu_percent as f64)
+                .sum();
 
             // Find oldest uptime
             let oldest_uptime = subgroup_processes
@@ -1031,91 +1051,91 @@ function collapseAll() {
                 oldest_uptime
             ));
             html.push_str("</table>\n");
-            
+
             // Add sortable table showing ALL processes
             let current_timestamp = chrono::Utc::now().timestamp();
-            
+
             html.push_str(&format!(
                 "<h3>All Processes ({} total) - Click column to sort</h3>\n",
                 subgroup_processes.len()
             ));
-            
+
             // Create safe table ID from subgroup_name
             let table_id = subgroup_name.replace(":", "-");
-            
+
             html.push_str(&format!(
                 r#"<table id="table-{}" class="sortable-process-table">"#,
                 table_id
             ));
-            html.push_str("\n");
-            
+            html.push('\n');
+
             // Table header
             html.push_str("<thead>\n<tr>\n");
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'rank')">#</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'pid')">PID</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'name')">Name</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'timestamp')">Timestamp</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'cpu')" class="sorted-desc">CPU%</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'rss')">RSS</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'pss')">PSS</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'uss')">USS</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'blkio-read')">Blk Read</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'blkio-write')">Blk Write</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'net-rx')">Net RX</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'net-tx')">Net TX</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str("</tr>\n</thead>\n");
-            
+
             // Table body with all processes
             html.push_str("<tbody>\n");
-            
+
             // Sort by CPU descending (default)
             let mut sorted_procs = subgroup_processes.clone();
             sorted_procs.sort_by(|a, b| {
@@ -1123,10 +1143,10 @@ function collapseAll() {
                     .partial_cmp(&a.cpu_percent)
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            
+
             // Get current time for rate calculations
             let current_time = chrono::Utc::now().timestamp() as f64;
-            
+
             for proc in sorted_procs {
                 // Determine CPU heatmap class
                 let cpu_class = if proc.cpu_percent > CPU_CRITICAL_THRESHOLD {
@@ -1138,7 +1158,7 @@ function collapseAll() {
                 } else {
                     "cpu-low"
                 };
-                
+
                 // Format timestamp as HH:MM:SS
                 let timestamp_str = {
                     use chrono::{Local, TimeZone};
@@ -1148,21 +1168,21 @@ function collapseAll() {
                         .map(|dt| dt.format("%H:%M:%S").to_string())
                         .unwrap_or_else(|| format!("{}", current_timestamp))
                 };
-                
+
                 // Calculate I/O rates using the helper function
                 let rates = calculate_io_rates(proc, current_time);
-                
+
                 // Convert to KB for data attributes (to avoid precision issues)
                 let rss_kb = proc.rss / 1024;
                 let pss_kb = proc.pss / 1024;
                 let uss_kb = proc.uss / 1024;
-                
+
                 // Convert rates to KB/s for data attributes
                 let blkio_read_kb_s = (rates.read_bytes_per_sec / 1024.0) as u64;
                 let blkio_write_kb_s = (rates.write_bytes_per_sec / 1024.0) as u64;
                 let net_rx_kb_s = (rates.rx_bytes_per_sec / 1024.0) as u64;
                 let net_tx_kb_s = (rates.tx_bytes_per_sec / 1024.0) as u64;
-                
+
                 // Write table row with data attributes for sorting
                 html.push_str(&format!(
                     r#"<tr data-cpu="{}" data-rss="{}" data-pss="{}" data-uss="{}" data-blkio-read="{}" data-blkio-write="{}" data-net-rx="{}" data-net-tx="{}" data-pid="{}" data-timestamp="{}" data-name="{}">"#,
@@ -1178,61 +1198,73 @@ function collapseAll() {
                     current_timestamp,
                     proc.name
                 ));
-                html.push_str("\n");
-                
+                html.push('\n');
+
                 // Rank column (will be populated by JavaScript)
                 html.push_str(r#"  <td class="rank"></td>"#);
-                html.push_str("\n");
-                
+                html.push('\n');
+
                 // PID
                 html.push_str(&format!("  <td>{}</td>\n", proc.pid));
-                
+
                 // Name
                 html.push_str(&format!("  <td>{}</td>\n", proc.name));
-                
+
                 // Timestamp
                 html.push_str(&format!("  <td>{}</td>\n", timestamp_str));
-                
+
                 // CPU with heatmap class
                 html.push_str(&format!(
                     r#"  <td class="{}">{:.2}%</td>"#,
                     cpu_class, proc.cpu_percent
                 ));
-                html.push_str("\n");
-                
+                html.push('\n');
+
                 // RSS
                 html.push_str(&format!(
                     "  <td>{:.2} MB</td>\n",
                     proc.rss as f64 / (1024.0 * 1024.0)
                 ));
-                
+
                 // PSS
                 html.push_str(&format!(
                     "  <td>{:.2} MB</td>\n",
                     proc.pss as f64 / (1024.0 * 1024.0)
                 ));
-                
+
                 // USS
                 html.push_str(&format!(
                     "  <td>{:.2} MB</td>\n",
                     proc.uss as f64 / (1024.0 * 1024.0)
                 ));
-                
+
                 // Block Read
-                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.read_bytes_per_sec / (1024.0 * 1024.0)));
-                
+                html.push_str(&format!(
+                    "  <td>{:.2} MB/s</td>\n",
+                    rates.read_bytes_per_sec / (1024.0 * 1024.0)
+                ));
+
                 // Block Write
-                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.write_bytes_per_sec / (1024.0 * 1024.0)));
-                
+                html.push_str(&format!(
+                    "  <td>{:.2} MB/s</td>\n",
+                    rates.write_bytes_per_sec / (1024.0 * 1024.0)
+                ));
+
                 // Net RX
-                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.rx_bytes_per_sec / (1024.0 * 1024.0)));
-                
+                html.push_str(&format!(
+                    "  <td>{:.2} MB/s</td>\n",
+                    rates.rx_bytes_per_sec / (1024.0 * 1024.0)
+                ));
+
                 // Net TX
-                html.push_str(&format!("  <td>{:.2} MB/s</td>\n", rates.tx_bytes_per_sec / (1024.0 * 1024.0)));
-                
+                html.push_str(&format!(
+                    "  <td>{:.2} MB/s</td>\n",
+                    rates.tx_bytes_per_sec / (1024.0 * 1024.0)
+                ));
+
                 html.push_str("</tr>\n");
             }
-            
+
             html.push_str("</tbody>\n");
             html.push_str("</table>\n");
         } else {
@@ -1243,14 +1275,18 @@ function collapseAll() {
         if let Some(history) = history {
             if !history.is_empty() {
                 html.push_str("<h3>Historical Ringbuffer Data</h3>\n");
-                html.push_str(&format!("<p>Showing {} historical entries.</p>\n", history.len()));
-                
+                html.push_str(&format!(
+                    "<p>Showing {} historical entries.</p>\n",
+                    history.len()
+                ));
+
                 // Calculate averages
                 let avg_rss = history.iter().map(|e| e.rss_kb).sum::<u64>() / history.len() as u64;
                 let avg_pss = history.iter().map(|e| e.pss_kb).sum::<u64>() / history.len() as u64;
                 let avg_uss = history.iter().map(|e| e.uss_kb).sum::<u64>() / history.len() as u64;
-                let avg_cpu = history.iter().map(|e| e.cpu_percent).sum::<f32>() / history.len() as f32;
-                
+                let avg_cpu =
+                    history.iter().map(|e| e.cpu_percent).sum::<f32>() / history.len() as f32;
+
                 html.push_str("<table>\n");
                 html.push_str("<tr><th>Metric</th><th>Average</th><th>Latest</th></tr>\n");
                 let latest = &history[history.len() - 1];
@@ -1271,14 +1307,16 @@ function collapseAll() {
                     avg_cpu, latest.cpu_percent
                 ));
                 html.push_str("</table>\n");
-                
+
                 // Show top-N from latest historical entry
                 html.push_str("<h4>Historical Top-3 (Latest Entry)</h4>\n");
-                
+
                 // Top-3 by CPU from history
                 html.push_str("<h5>By CPU Usage</h5>\n");
                 html.push_str("<table>\n");
-                html.push_str("<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU (scaled)</th></tr>\n");
+                html.push_str(
+                    "<tr><th>Rank</th><th>PID</th><th>Name</th><th>CPU (scaled)</th></tr>\n",
+                );
                 for (rank, top) in latest.top_cpu.iter().enumerate() {
                     if top.pid != 0 {
                         html.push_str(&format!(
@@ -1291,7 +1329,7 @@ function collapseAll() {
                     }
                 }
                 html.push_str("</table>\n");
-                
+
                 // Top-3 by RSS from history
                 html.push_str("<h5>By Memory (RSS)</h5>\n");
                 html.push_str("<table>\n");
@@ -1308,7 +1346,7 @@ function collapseAll() {
                     }
                 }
                 html.push_str("</table>\n");
-                
+
                 // Top-3 by PSS from history
                 html.push_str("<h5>By Memory (PSS)</h5>\n");
                 html.push_str("<table>\n");
@@ -1333,7 +1371,8 @@ function collapseAll() {
     }
 
     // Add JavaScript for table sorting
-    html.push_str(r#"
+    html.push_str(
+        r#"
 <script>
 // Track sort state per table
 let sortStates = {};
@@ -1449,7 +1488,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-"#);
+"#,
+    );
 
     html.push_str(&html_footer());
     Html(html)
@@ -1487,20 +1527,24 @@ pub async fn html_subgroups_handler(
 
     // Sort based on query parameter
     match params.sort.as_deref() {
-        Some("rss") => subgroups.sort_by(|a, b| b.1 .0.cmp(&a.1 .0)),
+        Some("rss") => subgroups.sort_by_key(|entry| std::cmp::Reverse(entry.1 .0)),
         Some("cpu") => subgroups.sort_by(|a, b| b.1 .3.partial_cmp(&a.1 .3).unwrap()),
         _ => subgroups.sort_by(|a, b| a.0.cmp(&b.0)), // Default: alphabetical
     }
 
     let mut html = html_header("Subgroups");
     html.push_str("<h1>Subgroups</h1>\n");
-    html.push_str("<p>All active subgroups with current metrics. Click column headers to sort.</p>\n");
+    html.push_str(
+        "<p>All active subgroups with current metrics. Click column headers to sort.</p>\n",
+    );
 
-    html.push_str(r#"<div style="margin: 20px 0;">
+    html.push_str(
+        r#"<div style="margin: 20px 0;">
         <a href="/html/subgroups">Alphabetical</a> | 
         <a href="/html/subgroups?sort=rss">Sort by RSS</a> | 
         <a href="/html/subgroups?sort=cpu">Sort by CPU</a>
-    </div>"#);
+    </div>"#,
+    );
 
     html.push_str("<table>\n");
     html.push_str("<tr><th>Subgroup</th><th>Process Count</th><th>RSS</th><th>PSS</th><th>USS</th><th>CPU %</th></tr>\n");
@@ -1516,7 +1560,7 @@ pub async fn html_subgroups_handler(
             format_bytes(uss),
             cpu
         ));
-        html.push_str("\n");
+        html.push('\n');
     }
 
     html.push_str("</table>\n");
@@ -1615,7 +1659,9 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
     // Buffer Health
     html.push_str("<h2>Buffer Health</h2>\n");
     html.push_str("<table>\n");
-    html.push_str("<tr><th>Buffer</th><th>Usage (KB)</th><th>Capacity (KB)</th><th>Status</th></tr>\n");
+    html.push_str(
+        "<tr><th>Buffer</th><th>Usage (KB)</th><th>Capacity (KB)</th><th>Status</th></tr>\n",
+    );
 
     for buffer in &buffer_health.buffers {
         let status_class = match buffer.status.as_str() {
@@ -1628,7 +1674,7 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
             r#"<tr><td>{}</td><td>{}</td><td>{}</td><td class="{}">{}</td></tr>"#,
             buffer.name, buffer.current_kb, buffer.capacity_kb, status_class, buffer.status
         ));
-        html.push_str("\n");
+        html.push('\n');
     }
 
     html.push_str("</table>\n");
@@ -1728,8 +1774,7 @@ pub async fn html_config_handler(State(state): State<SharedState>) -> impl IntoR
     ));
     html.push_str(&format!(
         "<tr><td>Cache TTL</td><td>{} seconds</td></tr>\n",
-        cfg.cache_ttl
-            .unwrap_or(crate::config::DEFAULT_CACHE_TTL)
+        cfg.cache_ttl.unwrap_or(crate::config::DEFAULT_CACHE_TTL)
     ));
     html.push_str("</table>\n");
 

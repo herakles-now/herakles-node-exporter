@@ -1,10 +1,9 @@
 use crate::config::RingbufferConfig;
-use crate::ringbuffer::{Ringbuffer, RingbufferEntry, TopProcessInfo, ENTRY_SIZE_BYTES};
+use crate::ringbuffer::{Ringbuffer, RingbufferEntry, ENTRY_SIZE_BYTES};
 use dashmap::DashMap;
 use serde::Serialize;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 /// Statistics about the ringbuffer system.
 #[derive(Debug, Clone, Serialize)]
@@ -195,8 +194,11 @@ impl RingbufferManager {
                     // Sort oldest first
                     keys_with_ts.sort_by_key(|(ts, _)| *ts);
 
-                    for i in 0..to_remove_count.min(keys_with_ts.len()) {
-                        let _ = db.remove(&keys_with_ts[i].1);
+                    for (_, key) in keys_with_ts
+                        .iter()
+                        .take(to_remove_count.min(keys_with_ts.len()))
+                    {
+                        let _ = db.remove(key);
                     }
                 }
             }
@@ -244,13 +246,11 @@ impl RingbufferManager {
         if let Some(ref db) = self.db {
             let mut prefix = subgroup.to_string();
             prefix.push(':');
-            
+
             let mut entries = Vec::new();
-            for item in db.scan_prefix(prefix.as_bytes()) {
-                if let Ok((_, value)) = item {
-                    if let Ok(entry) = serde_json::from_slice::<RingbufferEntry>(&value) {
-                        entries.push(entry);
-                    }
+            for (_, value) in db.scan_prefix(prefix.as_bytes()).flatten() {
+                if let Ok(entry) = serde_json::from_slice::<RingbufferEntry>(&value) {
+                    entries.push(entry);
                 }
             }
 
@@ -279,12 +279,10 @@ impl RingbufferManager {
 
         // 2. Database subgroups
         if let Some(ref db) = self.db {
-            for item in db.iter() {
-                if let Ok((key, _)) = item {
-                    if let Some(pos) = key.iter().position(|&b| b == b':') {
-                        if let Ok(subgroup) = std::str::from_utf8(&key[..pos]) {
-                            subgroups.insert(subgroup.to_string());
-                        }
+            for (key, _) in db.iter().flatten() {
+                if let Some(pos) = key.iter().position(|&b| b == b':') {
+                    if let Ok(subgroup) = std::str::from_utf8(&key[..pos]) {
+                        subgroups.insert(subgroup.to_string());
                     }
                 }
             }
@@ -324,10 +322,11 @@ fn get_dir_size<P: AsRef<std::path::Path>>(path: P) -> std::io::Result<u64> {
     Ok(size)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ringbuffer::TopProcessInfo;
+    use std::path::PathBuf;
 
     fn default_config() -> RingbufferConfig {
         RingbufferConfig {
@@ -457,12 +456,30 @@ mod tests {
         use crate::config::{parse_retention, RetentionLimit};
         use std::time::Duration;
 
-        assert_eq!(parse_retention("24h").unwrap(), RetentionLimit::Duration(Duration::from_secs(24 * 3600)));
-        assert_eq!(parse_retention("7d").unwrap(), RetentionLimit::Duration(Duration::from_secs(7 * 24 * 3600)));
-        assert_eq!(parse_retention("100MB").unwrap(), RetentionLimit::Size(100 * 1024 * 1024));
-        assert_eq!(parse_retention("100mg").unwrap(), RetentionLimit::Size(100 * 1024 * 1024));
-        assert_eq!(parse_retention("1G").unwrap(), RetentionLimit::Size(1024 * 1024 * 1024));
-        assert_eq!(parse_retention("60s").unwrap(), RetentionLimit::Duration(Duration::from_secs(60)));
+        assert_eq!(
+            parse_retention("24h").unwrap(),
+            RetentionLimit::Duration(Duration::from_secs(24 * 3600))
+        );
+        assert_eq!(
+            parse_retention("7d").unwrap(),
+            RetentionLimit::Duration(Duration::from_secs(7 * 24 * 3600))
+        );
+        assert_eq!(
+            parse_retention("100MB").unwrap(),
+            RetentionLimit::Size(100 * 1024 * 1024)
+        );
+        assert_eq!(
+            parse_retention("100mg").unwrap(),
+            RetentionLimit::Size(100 * 1024 * 1024)
+        );
+        assert_eq!(
+            parse_retention("1G").unwrap(),
+            RetentionLimit::Size(1024 * 1024 * 1024)
+        );
+        assert_eq!(
+            parse_retention("60s").unwrap(),
+            RetentionLimit::Duration(Duration::from_secs(60))
+        );
     }
 
     #[test]
@@ -494,7 +511,7 @@ mod tests {
                 _padding: [],
             };
             manager.record("subgroup_a", entry);
-            
+
             if let Some(ref db) = manager.db {
                 let _ = db.flush();
             }

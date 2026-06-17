@@ -8,13 +8,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-/// Temperature reading with sensor name.
-#[derive(Debug, Clone)]
-pub struct ThermalReading {
-    pub sensor_name: String,
-    pub temperature_celsius: f64,
-}
-
 /// Reads temperature from all thermal zones.
 /// Returns a HashMap mapping sensor name to temperature in Celsius.
 pub fn read_thermal_zones() -> Result<HashMap<String, f64>, String> {
@@ -70,8 +63,8 @@ pub fn read_hwmon_temps() -> Result<HashMap<String, f64>, String> {
         return Ok(temperatures); // No hwmon devices available
     }
 
-    let entries = fs::read_dir(hwmon_base)
-        .map_err(|e| format!("Failed to read hwmon directory: {}", e))?;
+    let entries =
+        fs::read_dir(hwmon_base).map_err(|e| format!("Failed to read hwmon directory: {}", e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();

@@ -22,8 +22,8 @@ pub struct ProcMem {
     pub read_bytes: u64,  // Total bytes read from storage
     pub write_bytes: u64, // Total bytes written to storage
     // Network I/O metrics from eBPF (if available)
-    pub rx_bytes: u64,    // Total bytes received from network
-    pub tx_bytes: u64,    // Total bytes transmitted to network
+    pub rx_bytes: u64, // Total bytes received from network
+    pub tx_bytes: u64, // Total bytes transmitted to network
     // Previous I/O values for delta calculation
     pub last_read_bytes: u64,
     pub last_write_bytes: u64,

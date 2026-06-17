@@ -34,7 +34,7 @@ fn compile_ebpf_programs() {
     if !vmlinux_h.exists() {
         println!("cargo:warning=Generating vmlinux.h from kernel BTF...");
         let output = Command::new("bpftool")
-            .args(&[
+            .args([
                 "btf",
                 "dump",
                 "file",
@@ -136,7 +136,7 @@ fn compile_ebpf_programs() {
         // Navigate up to target/release/build or target/debug/build
         if let Some(build_dir) = out_path
             .ancestors()
-            .find(|p| p.file_name().map_or(false, |n| n == "build"))
+            .find(|p| p.file_name().is_some_and(|n| n == "build"))
         {
             // Find libbpf-sys-* directory
             if let Ok(entries) = std::fs::read_dir(build_dir) {

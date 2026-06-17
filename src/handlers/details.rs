@@ -13,7 +13,6 @@ use axum::{
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::sync::Arc;
 use tracing::{debug, instrument};
 
 use crate::cache::ProcMem;
@@ -23,13 +22,13 @@ use crate::ringbuffer::RingbufferEntry;
 use crate::state::SharedState;
 
 // Temporal zone thresholds
-const LIVE_PHASE_SECONDS: f64 = 300.0;      // 5 minutes
+const LIVE_PHASE_SECONDS: f64 = 300.0; // 5 minutes
 const STABILIZATION_PHASE_SECONDS: f64 = 3600.0; // 60 minutes
 
 // Anomaly severity thresholds
-const SEVERITY_MINOR: f64 = 1.2;      // ℹ️  Minor deviation
-const SEVERITY_MODERATE: f64 = 1.5;   // ⚠️  Moderate deviation
-const SEVERITY_CRITICAL: f64 = 2.0;   // 🔥 Critical deviation
+const SEVERITY_MINOR: f64 = 1.2; // ℹ️  Minor deviation
+const SEVERITY_MODERATE: f64 = 1.5; // ⚠️  Moderate deviation
+const SEVERITY_CRITICAL: f64 = 2.0; // 🔥 Critical deviation
 
 const MAX_OUTLIERS_DISPLAY: usize = 10;
 
@@ -42,10 +41,10 @@ pub struct DetailsQuery {
 /// Temporal phase classification for a process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TemporalPhase {
-    Newborn,      // uptime < history_window - Don't compare to baseline
-    Live,         // 0-5 minutes
+    Newborn,       // uptime < history_window - Don't compare to baseline
+    Live,          // 0-5 minutes
     Stabilization, // 5-60 minutes
-    Historical,   // >60 minutes
+    Historical,    // >60 minutes
 }
 
 /// Information about a single process with temporal context.
@@ -85,31 +84,30 @@ struct ProcessAnomaly {
     name: String,
     uptime_seconds: f64,
     phase: TemporalPhase,
-    
+
     // Current values
     current_rss: u64,
     current_pss: u64,
     current_uss: u64,
     current_cpu: f32,
-    
+
     // Comparison baseline (5-min rolling avg for Live, longterm for Historical)
     baseline_rss: u64,
     baseline_pss: u64,
     baseline_uss: u64,
-    
+
     // Deviation ratios
     rss_ratio: f64,
     pss_ratio: f64,
     uss_ratio: f64,
-    
+
     // Growth rates (MB/sec over last hour)
     rss_growth_rate: Option<f64>,
-    
+
     // I/O metrics
     read_bytes: u64,
     write_bytes: u64,
-    io_delta_5min: Option<(u64, u64)>, // (read_delta, write_delta)
-    
+
     // Severity
     severity: AnomalySeverity,
 }
@@ -118,9 +116,9 @@ struct ProcessAnomaly {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum AnomalySeverity {
     Normal,
-    Minor,     // 1.2x
-    Moderate,  // 1.5x
-    Critical,  // 2.0x
+    Minor,    // 1.2x
+    Moderate, // 1.5x
+    Critical, // 2.0x
 }
 
 /// Live snapshot data for a single subgroup.
@@ -132,16 +130,6 @@ struct SubgroupSnapshot {
     total_uss: u64,
     oldest_uptime_seconds: f64,
     all_processes: Vec<ProcessInfo>,
-}
-
-/// Historical I/O event (past spike now idle).
-#[derive(Debug, Clone)]
-struct HistoricalIoEvent {
-    pid: u32,
-    name: String,
-    peak_read_bytes: u64,
-    peak_write_bytes: u64,
-    last_active_timestamp: i64,
 }
 
 // ============================================================================
@@ -176,14 +164,14 @@ fn get_5min_rolling_avg(
     if history.is_empty() {
         return None;
     }
-    
+
     // Calculate how many entries cover 5 minutes
     let entries_in_5min = (300 / interval_seconds).max(1) as usize;
-    
+
     // Take the most recent entries up to 5 minutes
     let entries_to_use = history.len().min(entries_in_5min);
     let recent_entries = &history[history.len() - entries_to_use..];
-    
+
     let sum: u64 = recent_entries.iter().map(&extract_value).sum();
     Some(sum / entries_to_use as u64)
 }
@@ -196,15 +184,15 @@ fn extract_min_max_avg_with_timestamps(
     if history.is_empty() {
         return None;
     }
-    
+
     let mut min_entry = &history[0];
     let mut max_entry = &history[0];
     let mut sum: u64 = 0;
-    
+
     for entry in history {
         let value = extract_value(entry);
         sum += value;
-        
+
         if extract_value(entry) < extract_value(min_entry) {
             min_entry = entry;
         }
@@ -212,9 +200,9 @@ fn extract_min_max_avg_with_timestamps(
             max_entry = entry;
         }
     }
-    
+
     let avg = sum / history.len() as u64;
-    
+
     Some(MetricTriplet {
         min: MetricWithTimestamp {
             value: extract_value(min_entry),
@@ -228,23 +216,6 @@ fn extract_min_max_avg_with_timestamps(
     })
 }
 
-/// Calculate I/O delta over the last 5 minutes.
-/// Returns (read_delta, write_delta) or None if insufficient history.
-/// 
-/// TODO: This function is currently a stub because RingbufferEntry doesn't store I/O data.
-/// To implement this properly, we would need to extend RingbufferEntry to track I/O metrics
-/// or maintain a separate I/O history tracking structure.
-fn calculate_io_delta_5min(
-    _current_read: u64,
-    _current_write: u64,
-    _history: &[RingbufferEntry],
-    _interval_seconds: u64,
-) -> Option<(u64, u64)> {
-    // Note: RingbufferEntry doesn't have I/O data, so we can't calculate delta from current structure
-    // This would require adding I/O tracking to the ringbuffer entries
-    None
-}
-
 /// Calculate long-term average (for Historical phase).
 fn calculate_longterm_avg(
     history: &[RingbufferEntry],
@@ -253,7 +224,7 @@ fn calculate_longterm_avg(
     if history.is_empty() {
         return None;
     }
-    
+
     let sum: u64 = history.iter().map(&extract_value).sum();
     Some(sum / history.len() as u64)
 }
@@ -268,22 +239,22 @@ fn calculate_growth_rate(
     if history.is_empty() {
         return None;
     }
-    
+
     // Calculate how many entries cover 1 hour
     let entries_in_hour = (3600 / interval_seconds).max(1) as usize;
-    
+
     if history.len() < entries_in_hour {
         return None; // Not enough history
     }
-    
+
     // Get value from 1 hour ago
     let index_1h_ago = history.len() - entries_in_hour;
     let value_1h_ago = extract_value(&history[index_1h_ago]);
-    
+
     // Calculate growth rate in bytes per second
     let delta_bytes = current_value.saturating_sub(value_1h_ago) as f64;
     let delta_seconds = 3600.0;
-    
+
     Some(delta_bytes / delta_seconds)
 }
 
@@ -328,10 +299,7 @@ async fn compute_live_snapshots(
     for proc in cache.processes.values() {
         let (group, subgroup) = classify_process_raw(&proc.name);
         let key = format!("{}:{}", group, subgroup);
-        subgroup_procs
-            .entry(key)
-            .or_insert_with(Vec::new)
-            .push(proc.clone());
+        subgroup_procs.entry(key).or_default().push(proc.clone());
     }
 
     // Compute snapshot for each subgroup
@@ -362,7 +330,7 @@ async fn compute_live_snapshots(
             .map(|p| {
                 let uptime = calculate_process_uptime(system_uptime, p.start_time_seconds);
                 let phase = classify_temporal_phase(uptime, history_window_seconds);
-                
+
                 ProcessInfo {
                     pid: p.pid,
                     name: p.name.clone(),
@@ -401,30 +369,32 @@ fn analyze_anomalies(
     interval_seconds: u64,
 ) -> Vec<ProcessAnomaly> {
     let mut anomalies = Vec::new();
-    
+
     for proc in &snapshot.all_processes {
         // Skip newborn processes - they don't have enough history
         if proc.phase == TemporalPhase::Newborn {
             continue;
         }
-        
+
         let anomaly = match proc.phase {
             TemporalPhase::Live => analyze_live_phase(proc, history, interval_seconds),
-            TemporalPhase::Stabilization => analyze_stabilization_phase(proc, history, interval_seconds),
+            TemporalPhase::Stabilization => {
+                analyze_stabilization_phase(proc, history, interval_seconds)
+            }
             TemporalPhase::Historical => analyze_historical_phase(proc, history, interval_seconds),
             TemporalPhase::Newborn => continue, // Already checked above
         };
-        
+
         if let Some(a) = anomaly {
             if a.severity > AnomalySeverity::Normal {
                 anomalies.push(a);
             }
         }
     }
-    
+
     // Sort by severity (highest first)
-    anomalies.sort_by(|a, b| b.severity.cmp(&a.severity));
-    
+    anomalies.sort_by_key(|a| std::cmp::Reverse(a.severity));
+
     anomalies
 }
 
@@ -439,15 +409,27 @@ fn analyze_live_phase(
     let baseline_rss = get_5min_rolling_avg(history, interval_seconds, |e| e.rss_kb * 1024)?;
     let baseline_pss = get_5min_rolling_avg(history, interval_seconds, |e| e.pss_kb * 1024)?;
     let baseline_uss = get_5min_rolling_avg(history, interval_seconds, |e| e.uss_kb * 1024)?;
-    
+
     // Calculate ratios
-    let rss_ratio = if baseline_rss > 0 { proc.rss as f64 / baseline_rss as f64 } else { 0.0 };
-    let pss_ratio = if baseline_pss > 0 { proc.pss as f64 / baseline_pss as f64 } else { 0.0 };
-    let uss_ratio = if baseline_uss > 0 { proc.uss as f64 / baseline_uss as f64 } else { 0.0 };
-    
+    let rss_ratio = if baseline_rss > 0 {
+        proc.rss as f64 / baseline_rss as f64
+    } else {
+        0.0
+    };
+    let pss_ratio = if baseline_pss > 0 {
+        proc.pss as f64 / baseline_pss as f64
+    } else {
+        0.0
+    };
+    let uss_ratio = if baseline_uss > 0 {
+        proc.uss as f64 / baseline_uss as f64
+    } else {
+        0.0
+    };
+
     let max_ratio = rss_ratio.max(pss_ratio).max(uss_ratio);
     let severity = detect_anomaly_severity(max_ratio);
-    
+
     Some(ProcessAnomaly {
         pid: proc.pid,
         name: proc.name.clone(),
@@ -466,7 +448,6 @@ fn analyze_live_phase(
         rss_growth_rate: None, // Not applicable for Live phase
         read_bytes: proc.read_bytes,
         write_bytes: proc.write_bytes,
-        io_delta_5min: None, // TODO: Calculate when I/O history is available
         severity,
     })
 }
@@ -482,15 +463,27 @@ fn analyze_stabilization_phase(
     let baseline_rss = calculate_longterm_avg(history, |e| e.rss_kb * 1024)?;
     let baseline_pss = calculate_longterm_avg(history, |e| e.pss_kb * 1024)?;
     let baseline_uss = calculate_longterm_avg(history, |e| e.uss_kb * 1024)?;
-    
+
     // Calculate ratios
-    let rss_ratio = if baseline_rss > 0 { proc.rss as f64 / baseline_rss as f64 } else { 0.0 };
-    let pss_ratio = if baseline_pss > 0 { proc.pss as f64 / baseline_pss as f64 } else { 0.0 };
-    let uss_ratio = if baseline_uss > 0 { proc.uss as f64 / baseline_uss as f64 } else { 0.0 };
-    
+    let rss_ratio = if baseline_rss > 0 {
+        proc.rss as f64 / baseline_rss as f64
+    } else {
+        0.0
+    };
+    let pss_ratio = if baseline_pss > 0 {
+        proc.pss as f64 / baseline_pss as f64
+    } else {
+        0.0
+    };
+    let uss_ratio = if baseline_uss > 0 {
+        proc.uss as f64 / baseline_uss as f64
+    } else {
+        0.0
+    };
+
     let max_ratio = rss_ratio.max(pss_ratio).max(uss_ratio);
     let severity = detect_anomaly_severity(max_ratio);
-    
+
     Some(ProcessAnomaly {
         pid: proc.pid,
         name: proc.name.clone(),
@@ -509,7 +502,6 @@ fn analyze_stabilization_phase(
         rss_growth_rate: None, // Calculate growth rate for this phase
         read_bytes: proc.read_bytes,
         write_bytes: proc.write_bytes,
-        io_delta_5min: None,
         severity,
     })
 }
@@ -525,18 +517,31 @@ fn analyze_historical_phase(
     let baseline_rss = calculate_longterm_avg(history, |e| e.rss_kb * 1024)?;
     let baseline_pss = calculate_longterm_avg(history, |e| e.pss_kb * 1024)?;
     let baseline_uss = calculate_longterm_avg(history, |e| e.uss_kb * 1024)?;
-    
+
     // Calculate ratios
-    let rss_ratio = if baseline_rss > 0 { proc.rss as f64 / baseline_rss as f64 } else { 0.0 };
-    let pss_ratio = if baseline_pss > 0 { proc.pss as f64 / baseline_pss as f64 } else { 0.0 };
-    let uss_ratio = if baseline_uss > 0 { proc.uss as f64 / baseline_uss as f64 } else { 0.0 };
-    
+    let rss_ratio = if baseline_rss > 0 {
+        proc.rss as f64 / baseline_rss as f64
+    } else {
+        0.0
+    };
+    let pss_ratio = if baseline_pss > 0 {
+        proc.pss as f64 / baseline_pss as f64
+    } else {
+        0.0
+    };
+    let uss_ratio = if baseline_uss > 0 {
+        proc.uss as f64 / baseline_uss as f64
+    } else {
+        0.0
+    };
+
     let max_ratio = rss_ratio.max(pss_ratio).max(uss_ratio);
     let severity = detect_anomaly_severity(max_ratio);
-    
+
     // Calculate growth rate (important for detecting memory leaks)
-    let rss_growth_rate = calculate_growth_rate(proc.rss, history, interval_seconds, |e| e.rss_kb * 1024);
-    
+    let rss_growth_rate =
+        calculate_growth_rate(proc.rss, history, interval_seconds, |e| e.rss_kb * 1024);
+
     Some(ProcessAnomaly {
         pid: proc.pid,
         name: proc.name.clone(),
@@ -555,7 +560,6 @@ fn analyze_historical_phase(
         rss_growth_rate,
         read_bytes: proc.read_bytes,
         write_bytes: proc.write_bytes,
-        io_delta_5min: None,
         severity,
     })
 }
@@ -598,7 +602,7 @@ fn format_uptime(seconds: f64) -> String {
 
 /// Format timestamp as HH:MM:SS.
 fn format_timestamp(timestamp: i64) -> String {
-    use chrono::{DateTime, Local, TimeZone};
+    use chrono::{Local, TimeZone};
     let dt = Local.timestamp_opt(timestamp, 0).single();
     match dt {
         Some(dt) => dt.format("%H:%M:%S").to_string(),
@@ -610,7 +614,7 @@ fn format_timestamp(timestamp: i64) -> String {
 fn format_growth_rate(bytes_per_sec: f64) -> String {
     let mb_per_sec = bytes_per_sec / (1024.0 * 1024.0);
     let mb_per_min = mb_per_sec * 60.0;
-    
+
     if mb_per_min.abs() >= 1.0 {
         format!("{:+.1} MB/min", mb_per_min)
     } else if mb_per_sec.abs() >= 0.01 {
@@ -622,27 +626,43 @@ fn format_growth_rate(bytes_per_sec: f64) -> String {
 
 /// Render newborn processes (those with uptime < history_window).
 fn render_newborn_processes(out: &mut String, snapshot: &SubgroupSnapshot) {
-    let newborns: Vec<_> = snapshot.all_processes.iter()
+    let newborns: Vec<_> = snapshot
+        .all_processes
+        .iter()
         .filter(|p| p.phase == TemporalPhase::Newborn)
         .collect();
-    
+
     if newborns.is_empty() {
         return;
     }
-    
+
     writeln!(out).ok();
     writeln!(out, "🆕 NEWBORN PROCESSES").ok();
     writeln!(out, "====================").ok();
-    writeln!(out, "These processes are too young to have reliable baseline comparison.").ok();
+    writeln!(
+        out,
+        "These processes are too young to have reliable baseline comparison."
+    )
+    .ok();
     writeln!(out).ok();
-    
+
     for proc in newborns.iter().take(MAX_OUTLIERS_DISPLAY) {
-        writeln!(out, "  PID {}  |  {}  |  uptime: {}", 
-                 proc.pid, proc.name, format_uptime(proc.uptime_seconds)).ok();
-        writeln!(out, "    RSS: {}  PSS: {}  USS: {}", 
-                 format_bytes(proc.rss), 
-                 format_bytes(proc.pss),
-                 format_bytes(proc.uss)).ok();
+        writeln!(
+            out,
+            "  PID {}  |  {}  |  uptime: {}",
+            proc.pid,
+            proc.name,
+            format_uptime(proc.uptime_seconds)
+        )
+        .ok();
+        writeln!(
+            out,
+            "    RSS: {}  PSS: {}  USS: {}",
+            format_bytes(proc.rss),
+            format_bytes(proc.pss),
+            format_bytes(proc.uss)
+        )
+        .ok();
         writeln!(out).ok();
     }
 }
@@ -654,66 +674,119 @@ fn render_live_phase(
     history: &[RingbufferEntry],
     interval_seconds: u64,
 ) {
-    let live_anomalies: Vec<_> = anomalies.iter()
+    let live_anomalies: Vec<_> = anomalies
+        .iter()
         .filter(|a| a.phase == TemporalPhase::Live)
         .collect();
-    
+
     if live_anomalies.is_empty() {
         return;
     }
-    
+
     writeln!(out).ok();
     writeln!(out, "🔴 LIVE PHASE (0-5 minutes)").ok();
     writeln!(out, "---------------------------").ok();
-    writeln!(out, "{} process(es) with current anomalies detected.", live_anomalies.len()).ok();
+    writeln!(
+        out,
+        "{} process(es) with current anomalies detected.",
+        live_anomalies.len()
+    )
+    .ok();
     writeln!(out).ok();
-    
+
     for anomaly in live_anomalies.iter().take(MAX_OUTLIERS_DISPLAY) {
-        writeln!(out, "Process: {} (PID {}) | Uptime: {}", 
-                 anomaly.name, anomaly.pid, format_uptime(anomaly.uptime_seconds)).ok();
+        writeln!(
+            out,
+            "Process: {} (PID {}) | Uptime: {}",
+            anomaly.name,
+            anomaly.pid,
+            format_uptime(anomaly.uptime_seconds)
+        )
+        .ok();
         writeln!(out).ok();
-        
+
         // RSS comparison
         if anomaly.rss_ratio >= SEVERITY_MINOR {
-            writeln!(out, "  Current RSS:    {}", format_bytes(anomaly.current_rss)).ok();
-            writeln!(out, "  5min avg RSS:   {}  (↑ {:.1}x)  {}", 
-                     format_bytes(anomaly.baseline_rss),
-                     anomaly.rss_ratio,
-                     format_severity(detect_anomaly_severity(anomaly.rss_ratio))).ok();
-            
+            writeln!(
+                out,
+                "  Current RSS:    {}",
+                format_bytes(anomaly.current_rss)
+            )
+            .ok();
+            writeln!(
+                out,
+                "  5min avg RSS:   {}  (↑ {:.1}x)  {}",
+                format_bytes(anomaly.baseline_rss),
+                anomaly.rss_ratio,
+                format_severity(detect_anomaly_severity(anomaly.rss_ratio))
+            )
+            .ok();
+
             // Calculate growth rate
-            if let Some(rate) = calculate_growth_rate(anomaly.current_rss, history, interval_seconds, |e| e.rss_kb * 1024) {
+            if let Some(rate) =
+                calculate_growth_rate(anomaly.current_rss, history, interval_seconds, |e| {
+                    e.rss_kb * 1024
+                })
+            {
                 if rate > 0.0 {
                     writeln!(out, "  Growth rate:    {}", format_growth_rate(rate)).ok();
                 }
             }
             writeln!(out).ok();
         }
-        
+
         // PSS comparison
         if anomaly.pss_ratio >= SEVERITY_MINOR {
-            writeln!(out, "  Current PSS:    {}", format_bytes(anomaly.current_pss)).ok();
-            writeln!(out, "  5min avg PSS:   {}  (↑ {:.1}x)  {}", 
-                     format_bytes(anomaly.baseline_pss),
-                     anomaly.pss_ratio,
-                     format_severity(detect_anomaly_severity(anomaly.pss_ratio))).ok();
+            writeln!(
+                out,
+                "  Current PSS:    {}",
+                format_bytes(anomaly.current_pss)
+            )
+            .ok();
+            writeln!(
+                out,
+                "  5min avg PSS:   {}  (↑ {:.1}x)  {}",
+                format_bytes(anomaly.baseline_pss),
+                anomaly.pss_ratio,
+                format_severity(detect_anomaly_severity(anomaly.pss_ratio))
+            )
+            .ok();
             writeln!(out).ok();
         }
-        
+
         // USS comparison
         if anomaly.uss_ratio >= SEVERITY_MINOR {
-            writeln!(out, "  Current USS:    {}", format_bytes(anomaly.current_uss)).ok();
-            writeln!(out, "  5min avg USS:   {}  (↑ {:.1}x)  {}", 
-                     format_bytes(anomaly.baseline_uss),
-                     anomaly.uss_ratio,
-                     format_severity(detect_anomaly_severity(anomaly.uss_ratio))).ok();
+            writeln!(
+                out,
+                "  Current USS:    {}",
+                format_bytes(anomaly.current_uss)
+            )
+            .ok();
+            writeln!(
+                out,
+                "  5min avg USS:   {}  (↑ {:.1}x)  {}",
+                format_bytes(anomaly.baseline_uss),
+                anomaly.uss_ratio,
+                format_severity(detect_anomaly_severity(anomaly.uss_ratio))
+            )
+            .ok();
             writeln!(out).ok();
         }
-        
+
         // I/O if significant
         if anomaly.read_bytes > 0 || anomaly.write_bytes > 0 {
-            writeln!(out, "  Block I/O read:  {}", format_bytes(anomaly.read_bytes)).ok();
-            writeln!(out, "  Block I/O write: {}", format_bytes(anomaly.write_bytes)).ok();
+            writeln!(
+                out,
+                "  Block I/O read:  {}",
+                format_bytes(anomaly.read_bytes)
+            )
+            .ok();
+            writeln!(
+                out,
+                "  Block I/O write: {}",
+                format_bytes(anomaly.write_bytes)
+            )
+            .ok();
             writeln!(out).ok();
         }
     }
@@ -725,44 +798,68 @@ fn render_stabilization_phase(
     anomalies: &[ProcessAnomaly],
     history: &[RingbufferEntry],
 ) {
-    let stab_anomalies: Vec<_> = anomalies.iter()
+    let stab_anomalies: Vec<_> = anomalies
+        .iter()
         .filter(|a| a.phase == TemporalPhase::Stabilization)
         .collect();
-    
+
     if stab_anomalies.is_empty() {
         return;
     }
-    
+
     writeln!(out).ok();
     writeln!(out, "🟡 STABILIZATION PHASE (5-60 minutes)").ok();
     writeln!(out, "--------------------------------------").ok();
-    writeln!(out, "{} process(es) showing pattern deviation.", stab_anomalies.len()).ok();
+    writeln!(
+        out,
+        "{} process(es) showing pattern deviation.",
+        stab_anomalies.len()
+    )
+    .ok();
     writeln!(out).ok();
-    
+
     for anomaly in stab_anomalies.iter().take(MAX_OUTLIERS_DISPLAY) {
-        writeln!(out, "Process: {} (PID {}) | Uptime: {}", 
-                 anomaly.name, anomaly.pid, format_uptime(anomaly.uptime_seconds)).ok();
+        writeln!(
+            out,
+            "Process: {} (PID {}) | Uptime: {}",
+            anomaly.name,
+            anomaly.pid,
+            format_uptime(anomaly.uptime_seconds)
+        )
+        .ok();
         writeln!(out).ok();
-        
+
         // Show triplets for RSS
         if let Some(triplet) = extract_min_max_avg_with_timestamps(history, |e| e.rss_kb * 1024) {
             writeln!(out, "  RSS:").ok();
-            writeln!(out, "    Min:   {}  (@ {})", 
-                     format_bytes(triplet.min.value),
-                     format_timestamp(triplet.min.timestamp)).ok();
-            writeln!(out, "    Max:   {}  (@ {})  ← Peak moment", 
-                     format_bytes(triplet.max.value),
-                     format_timestamp(triplet.max.timestamp)).ok();
+            writeln!(
+                out,
+                "    Min:   {}  (@ {})",
+                format_bytes(triplet.min.value),
+                format_timestamp(triplet.min.timestamp)
+            )
+            .ok();
+            writeln!(
+                out,
+                "    Max:   {}  (@ {})  ← Peak moment",
+                format_bytes(triplet.max.value),
+                format_timestamp(triplet.max.timestamp)
+            )
+            .ok();
             writeln!(out, "    Avg:   {}", format_bytes(triplet.avg)).ok();
-            
+
             if anomaly.rss_ratio >= SEVERITY_MINOR {
-                writeln!(out, "    Current vs Avg: {:.1}x  {}", 
-                         anomaly.rss_ratio,
-                         format_severity(anomaly.severity)).ok();
+                writeln!(
+                    out,
+                    "    Current vs Avg: {:.1}x  {}",
+                    anomaly.rss_ratio,
+                    format_severity(anomaly.severity)
+                )
+                .ok();
             }
             writeln!(out).ok();
         }
-        
+
         // Show CPU if available (current value only, no historical triplet)
         if anomaly.current_cpu > 0.0 {
             writeln!(out, "  CPU:").ok();
@@ -773,45 +870,68 @@ fn render_stabilization_phase(
 }
 
 /// Render Historical Phase (>60 minutes) anomalies.
-fn render_historical_phase(
-    out: &mut String,
-    anomalies: &[ProcessAnomaly],
-) {
-    let hist_anomalies: Vec<_> = anomalies.iter()
+fn render_historical_phase(out: &mut String, anomalies: &[ProcessAnomaly]) {
+    let hist_anomalies: Vec<_> = anomalies
+        .iter()
         .filter(|a| a.phase == TemporalPhase::Historical)
         .collect();
-    
+
     if hist_anomalies.is_empty() {
         return;
     }
-    
+
     writeln!(out).ok();
     writeln!(out, "🟢 HISTORICAL PHASE (> 60 minutes)").ok();
     writeln!(out, "-----------------------------------").ok();
-    writeln!(out, "{} process(es) with long-term trends.", hist_anomalies.len()).ok();
+    writeln!(
+        out,
+        "{} process(es) with long-term trends.",
+        hist_anomalies.len()
+    )
+    .ok();
     writeln!(out).ok();
-    
+
     for anomaly in hist_anomalies.iter().take(MAX_OUTLIERS_DISPLAY) {
-        writeln!(out, "Process: {} (PID {}) | Uptime: {}", 
-                 anomaly.name, anomaly.pid, format_uptime(anomaly.uptime_seconds)).ok();
+        writeln!(
+            out,
+            "Process: {} (PID {}) | Uptime: {}",
+            anomaly.name,
+            anomaly.pid,
+            format_uptime(anomaly.uptime_seconds)
+        )
+        .ok();
         writeln!(out).ok();
-        
-        writeln!(out, "  Long-term avg RSS:  {}  (history)", 
-                 format_bytes(anomaly.baseline_rss)).ok();
-        writeln!(out, "  Current RSS:        {}  (↑ {:.2}x longterm avg)  {}", 
-                 format_bytes(anomaly.current_rss),
-                 anomaly.rss_ratio,
-                 format_severity(anomaly.severity)).ok();
+
+        writeln!(
+            out,
+            "  Long-term avg RSS:  {}  (history)",
+            format_bytes(anomaly.baseline_rss)
+        )
+        .ok();
+        writeln!(
+            out,
+            "  Current RSS:        {}  (↑ {:.2}x longterm avg)  {}",
+            format_bytes(anomaly.current_rss),
+            anomaly.rss_ratio,
+            format_severity(anomaly.severity)
+        )
+        .ok();
         writeln!(out).ok();
-        
+
         // Show growth rate if significant
         if let Some(rate) = anomaly.rss_growth_rate {
-            if rate > 1024.0 { // More than 1 KB/sec growth
+            if rate > 1024.0 {
+                // More than 1 KB/sec growth
                 writeln!(out, "  Trend analysis:").ok();
-                writeln!(out, "    Growth rate: {}  ← Steady growth pattern", 
-                         format_growth_rate(rate)).ok();
-                
-                if rate > 10240.0 { // More than 10 KB/sec
+                writeln!(
+                    out,
+                    "    Growth rate: {}  ← Steady growth pattern",
+                    format_growth_rate(rate)
+                )
+                .ok();
+
+                if rate > 10240.0 {
+                    // More than 10 KB/sec
                     writeln!(out, "    ⚠️  Possible memory leak candidate").ok();
                 }
                 writeln!(out).ok();
@@ -882,27 +1002,40 @@ pub async fn details_handler(
         match (history_opt.as_ref(), snapshot_opt) {
             (Some(history), Some(snapshot)) if !history.is_empty() => {
                 // Full temporal zone analysis
-                
+
                 // Analyze anomalies by phase
                 let anomalies = analyze_anomalies(snapshot, history, stats.interval_seconds);
-                
+
                 // Show newborn processes first (informational)
                 render_newborn_processes(&mut out, snapshot);
-                
-                if anomalies.is_empty() && snapshot.all_processes.iter().all(|p| p.phase == TemporalPhase::Newborn) {
+
+                if anomalies.is_empty()
+                    && snapshot
+                        .all_processes
+                        .iter()
+                        .all(|p| p.phase == TemporalPhase::Newborn)
+                {
                     // Only newborn processes exist
                     writeln!(out).ok();
                     writeln!(out, "✅ No mature processes yet").ok();
                     writeln!(out, "==========================").ok();
                     writeln!(out, "All processes are too new for baseline comparison.").ok();
-                    writeln!(out, "Check back after {} minutes for temporal analysis.", 
-                             stats.history_seconds / 60).ok();
+                    writeln!(
+                        out,
+                        "Check back after {} minutes for temporal analysis.",
+                        stats.history_seconds / 60
+                    )
+                    .ok();
                 } else if anomalies.is_empty() {
                     // System is normal
                     writeln!(out).ok();
                     writeln!(out, "✅ No exceptional behavior detected").ok();
                     writeln!(out, "====================================").ok();
-                    writeln!(out, "All processes within normal ranges for their age groups.").ok();
+                    writeln!(
+                        out,
+                        "All processes within normal ranges for their age groups."
+                    )
+                    .ok();
                 } else {
                     // Show anomalies by temporal zone
                     render_live_phase(&mut out, &anomalies, history, stats.interval_seconds);
@@ -917,28 +1050,66 @@ pub async fn details_handler(
             (Some(history), Some(snapshot)) if history.is_empty() => {
                 // Empty history, treat as no history
                 writeln!(out, "No baseline available yet (insufficient history).").ok();
-                writeln!(out, "Collecting data... check back in {} minutes.", 
-                         stats.history_seconds / 60).ok();
+                writeln!(
+                    out,
+                    "Collecting data... check back in {} minutes.",
+                    stats.history_seconds / 60
+                )
+                .ok();
                 writeln!(out).ok();
-                
+
                 writeln!(out, "Current state:").ok();
                 writeln!(out, "  Process count:  {}", snapshot.process_count).ok();
-                writeln!(out, "  Total RSS:      {}", format_bytes(snapshot.total_rss)).ok();
-                writeln!(out, "  Total PSS:      {}", format_bytes(snapshot.total_pss)).ok();
-                writeln!(out, "  Total USS:      {}", format_bytes(snapshot.total_uss)).ok();
+                writeln!(
+                    out,
+                    "  Total RSS:      {}",
+                    format_bytes(snapshot.total_rss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total PSS:      {}",
+                    format_bytes(snapshot.total_pss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total USS:      {}",
+                    format_bytes(snapshot.total_uss)
+                )
+                .ok();
             }
             (None, Some(snapshot)) => {
                 // No history yet, show live snapshot only
                 writeln!(out, "No baseline available yet (insufficient history).").ok();
-                writeln!(out, "Collecting data... check back in {} minutes.", 
-                         stats.history_seconds / 60).ok();
+                writeln!(
+                    out,
+                    "Collecting data... check back in {} minutes.",
+                    stats.history_seconds / 60
+                )
+                .ok();
                 writeln!(out).ok();
-                
+
                 writeln!(out, "Current state:").ok();
                 writeln!(out, "  Process count:  {}", snapshot.process_count).ok();
-                writeln!(out, "  Total RSS:      {}", format_bytes(snapshot.total_rss)).ok();
-                writeln!(out, "  Total PSS:      {}", format_bytes(snapshot.total_pss)).ok();
-                writeln!(out, "  Total USS:      {}", format_bytes(snapshot.total_uss)).ok();
+                writeln!(
+                    out,
+                    "  Total RSS:      {}",
+                    format_bytes(snapshot.total_rss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total PSS:      {}",
+                    format_bytes(snapshot.total_pss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total USS:      {}",
+                    format_bytes(snapshot.total_uss)
+                )
+                .ok();
             }
             (Some(_), None) | (None, None) => {
                 // No live processes
@@ -949,9 +1120,24 @@ pub async fn details_handler(
                 // Fallback case
                 writeln!(out, "Current state:").ok();
                 writeln!(out, "  Process count:  {}", snapshot.process_count).ok();
-                writeln!(out, "  Total RSS:      {}", format_bytes(snapshot.total_rss)).ok();
-                writeln!(out, "  Total PSS:      {}", format_bytes(snapshot.total_pss)).ok();
-                writeln!(out, "  Total USS:      {}", format_bytes(snapshot.total_uss)).ok();
+                writeln!(
+                    out,
+                    "  Total RSS:      {}",
+                    format_bytes(snapshot.total_rss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total PSS:      {}",
+                    format_bytes(snapshot.total_pss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total USS:      {}",
+                    format_bytes(snapshot.total_uss)
+                )
+                .ok();
             }
         }
     } else {
@@ -959,8 +1145,16 @@ pub async fn details_handler(
         writeln!(out, "AVAILABLE SUBGROUPS").ok();
         writeln!(out, "===================").ok();
         writeln!(out).ok();
-        writeln!(out, "This endpoint provides time-based forensic analysis with").ok();
-        writeln!(out, "intelligent uptime-aware filtering and three temporal zones:").ok();
+        writeln!(
+            out,
+            "This endpoint provides time-based forensic analysis with"
+        )
+        .ok();
+        writeln!(
+            out,
+            "intelligent uptime-aware filtering and three temporal zones:"
+        )
+        .ok();
         writeln!(out, "  🔴 Live Phase (0-5 min)").ok();
         writeln!(out, "  🟡 Stabilization Phase (5-60 min)").ok();
         writeln!(out, "  🟢 Historical Phase (>60 min)").ok();
@@ -977,28 +1171,77 @@ pub async fn details_handler(
 
             if let Some(snapshot) = snapshots.get(&subgroup_name) {
                 writeln!(out, "  Process count:    {}", snapshot.process_count).ok();
-                writeln!(out, "  Total RSS:        {}", format_bytes(snapshot.total_rss)).ok();
-                writeln!(out, "  Total PSS:        {}", format_bytes(snapshot.total_pss)).ok();
-                writeln!(out, "  Total USS:        {}", format_bytes(snapshot.total_uss)).ok();
-                writeln!(out, "  Oldest uptime:    {}", format_uptime(snapshot.oldest_uptime_seconds)).ok();
-                
+                writeln!(
+                    out,
+                    "  Total RSS:        {}",
+                    format_bytes(snapshot.total_rss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total PSS:        {}",
+                    format_bytes(snapshot.total_pss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Total USS:        {}",
+                    format_bytes(snapshot.total_uss)
+                )
+                .ok();
+                writeln!(
+                    out,
+                    "  Oldest uptime:    {}",
+                    format_uptime(snapshot.oldest_uptime_seconds)
+                )
+                .ok();
+
                 // Show phase distribution
-                let newborn_count = snapshot.all_processes.iter().filter(|p| p.phase == TemporalPhase::Newborn).count();
-                let live_count = snapshot.all_processes.iter().filter(|p| p.phase == TemporalPhase::Live).count();
-                let stab_count = snapshot.all_processes.iter().filter(|p| p.phase == TemporalPhase::Stabilization).count();
-                let hist_count = snapshot.all_processes.iter().filter(|p| p.phase == TemporalPhase::Historical).count();
-                
+                let newborn_count = snapshot
+                    .all_processes
+                    .iter()
+                    .filter(|p| p.phase == TemporalPhase::Newborn)
+                    .count();
+                let live_count = snapshot
+                    .all_processes
+                    .iter()
+                    .filter(|p| p.phase == TemporalPhase::Live)
+                    .count();
+                let stab_count = snapshot
+                    .all_processes
+                    .iter()
+                    .filter(|p| p.phase == TemporalPhase::Stabilization)
+                    .count();
+                let hist_count = snapshot
+                    .all_processes
+                    .iter()
+                    .filter(|p| p.phase == TemporalPhase::Historical)
+                    .count();
+
                 if newborn_count > 0 || live_count > 0 || stab_count > 0 || hist_count > 0 {
                     writeln!(out, "  Phase distribution:").ok();
-                    if newborn_count > 0 { writeln!(out, "    🆕 Newborn: {}", newborn_count).ok(); }
-                    if live_count > 0 { writeln!(out, "    🔴 Live: {}", live_count).ok(); }
-                    if stab_count > 0 { writeln!(out, "    🟡 Stabilization: {}", stab_count).ok(); }
-                    if hist_count > 0 { writeln!(out, "    🟢 Historical: {}", hist_count).ok(); }
+                    if newborn_count > 0 {
+                        writeln!(out, "    🆕 Newborn: {}", newborn_count).ok();
+                    }
+                    if live_count > 0 {
+                        writeln!(out, "    🔴 Live: {}", live_count).ok();
+                    }
+                    if stab_count > 0 {
+                        writeln!(out, "    🟡 Stabilization: {}", stab_count).ok();
+                    }
+                    if hist_count > 0 {
+                        writeln!(out, "    🟢 Historical: {}", hist_count).ok();
+                    }
                 }
             }
 
             writeln!(out).ok();
-            writeln!(out, "  Use ?subgroup={} to view temporal analysis", subgroup_name).ok();
+            writeln!(
+                out,
+                "  Use ?subgroup={} to view temporal analysis",
+                subgroup_name
+            )
+            .ok();
             writeln!(out).ok();
         }
     }
@@ -1040,7 +1283,7 @@ mod tests {
             TemporalPhase::Newborn
         );
 
-        // Live: >= history_window and < 5 minutes (300 seconds) 
+        // Live: >= history_window and < 5 minutes (300 seconds)
         // This case is tricky: if history_window > 300, there's no Live phase
         // Let's use a smaller history_window for this test
         let small_history = 60; // 1 minute
@@ -1105,12 +1348,12 @@ mod tests {
     #[test]
     fn test_get_5min_rolling_avg() {
         let mut history = Vec::new();
-        
+
         // Create 10 entries spanning 5 minutes (30 second intervals)
         for i in 0..10 {
             history.push(RingbufferEntry {
                 timestamp: 1000 + i * 30,
-                rss_kb: 100 + i as u64 * 10,  // Growing RSS
+                rss_kb: 100 + i as u64 * 10, // Growing RSS
                 pss_kb: 90,
                 uss_kb: 80,
                 cpu_percent: 5.0,
@@ -1124,7 +1367,7 @@ mod tests {
 
         let avg = get_5min_rolling_avg(&history, 30, |e| e.rss_kb * 1024);
         assert!(avg.is_some());
-        
+
         // Average of entries 0-9: 100, 110, 120, ... 190
         // Average = (100 + 110 + 120 + 130 + 140 + 150 + 160 + 170 + 180 + 190) / 10 = 145
         let expected_kb = 145u64;
@@ -1135,9 +1378,9 @@ mod tests {
     #[test]
     fn test_extract_min_max_avg_with_timestamps() {
         let mut history = Vec::new();
-        
+
         // Create entries with varying RSS
-        let values = vec![100, 150, 90, 200, 120];
+        let values = [100, 150, 90, 200, 120];
         for (i, val) in values.iter().enumerate() {
             history.push(RingbufferEntry {
                 timestamp: 1000 + i as i64 * 60,
@@ -1155,22 +1398,22 @@ mod tests {
 
         let triplet = extract_min_max_avg_with_timestamps(&history, |e| e.rss_kb * 1024);
         assert!(triplet.is_some());
-        
+
         let t = triplet.unwrap();
-        assert_eq!(t.min.value, 90 * 1024);  // Entry 2
+        assert_eq!(t.min.value, 90 * 1024); // Entry 2
         assert_eq!(t.max.value, 200 * 1024); // Entry 3
-        assert_eq!(t.avg, 132 * 1024);       // (100+150+90+200+120)/5 = 132
+        assert_eq!(t.avg, 132 * 1024); // (100+150+90+200+120)/5 = 132
     }
 
     #[test]
     fn test_calculate_growth_rate() {
         let mut history = Vec::new();
-        
+
         // Create entries spanning 2 hours with steady growth
         for i in 0..120 {
             history.push(RingbufferEntry {
-                timestamp: 1000 + i * 60,  // Every minute
-                rss_kb: 1000 + i as u64 * 10,  // Growing by 10KB/min
+                timestamp: 1000 + i * 60,     // Every minute
+                rss_kb: 1000 + i as u64 * 10, // Growing by 10KB/min
                 pss_kb: 90,
                 uss_kb: 80,
                 cpu_percent: 5.0,
@@ -1186,10 +1429,10 @@ mod tests {
         let current_value = (1000 + 119 * 10) * 1024; // in bytes
         let rate = calculate_growth_rate(current_value, &history, 60, |e| e.rss_kb * 1024);
         assert!(rate.is_some());
-        
+
         // Expected: growth from entry 59 (1590KB) to entry 119 (2190KB) = 600KB over 3600 seconds
         // = 600*1024 / 3600 bytes/sec ≈ 170.67 bytes/sec
         let r = rate.unwrap();
-        assert!(r > 160.0 && r < 180.0);  // Roughly 170 bytes/sec
+        assert!(r > 160.0 && r < 180.0); // Roughly 170 bytes/sec
     }
 }

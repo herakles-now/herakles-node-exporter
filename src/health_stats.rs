@@ -240,12 +240,6 @@ impl HealthStats {
         self.cache_hits.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Records a cache miss. Currently unused but kept for API completeness.
-    #[allow(dead_code)]
-    pub fn record_cache_miss(&self) {
-        self.cache_misses.fetch_add(1, Ordering::Relaxed);
-    }
-
     pub fn record_http_request(&self) {
         self.http_request_timestamps.record();
     }
@@ -346,10 +340,6 @@ impl HealthStats {
 
     pub fn get_uptime_hours(&self) -> f64 {
         self.start_time.elapsed().as_secs_f64() / 3600.0
-    }
-
-    pub fn get_uptime_seconds(&self) -> u64 {
-        self.start_time.elapsed().as_secs()
     }
 
     pub fn get_last_scan_time_str(&self) -> String {

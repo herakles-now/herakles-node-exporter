@@ -24,7 +24,6 @@ const MAX_DROPPED_PACKETS: u64 = 10_000; // 10K dropped packets (typically much 
 const MAX_BLOCK_IO_BYTES: u64 = 50 * GB; // 50 GB
 const MAX_BLOCK_IO_OPS: u64 = 100_000; // 100K operations
 
-
 /// Test process entry for JSON serialization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestProcess {
@@ -59,7 +58,7 @@ pub struct TestData {
 }
 
 /// Converts a TestProcess from JSON test data into ProcMem for metrics.
-/// 
+///
 /// Note: packet/operation count fields (rx_packets, tx_packets, read_ops, write_ops)
 /// are stored in TestProcess for completeness but not mapped to ProcMem, as ProcMem
 /// only tracks byte counts for memory efficiency.
@@ -79,11 +78,11 @@ impl From<TestProcess> for ProcMem {
             write_bytes: tp.write_bytes,
             rx_bytes: tp.rx_bytes,
             tx_bytes: tp.tx_bytes,
-            last_read_bytes: 0,      // No previous data for test
-            last_write_bytes: 0,     // No previous data for test
-            last_rx_bytes: 0,        // No previous data for test
-            last_tx_bytes: 0,        // No previous data for test
-            last_update_time: 0.0,   // No previous timestamp for test
+            last_read_bytes: 0,    // No previous data for test
+            last_write_bytes: 0,   // No previous data for test
+            last_rx_bytes: 0,      // No previous data for test
+            last_tx_bytes: 0,      // No previous data for test
+            last_update_time: 0.0, // No previous timestamp for test
         }
     }
 }

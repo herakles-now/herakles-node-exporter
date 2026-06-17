@@ -7,7 +7,6 @@
 use ahash::AHashMap as HashMap;
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use prometheus::{Encoder, TextEncoder};
-use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, instrument, warn};
 
@@ -43,8 +42,7 @@ struct GroupMetrics {
     pss_sum: u64,
     swap_sum: u64,
     cpu_percent_sum: f64,
-    cpu_time_user_sum: f64,
-    cpu_time_system_sum: f64,
+    cpu_time_total_sum: f64,
 }
 
 /// Handler for the /metrics endpoint.
@@ -100,14 +98,13 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
 
                     let entry = group_aggregations
                         .entry((group.to_string(), subgroup.to_string()))
-                        .or_insert_with(GroupMetrics::default);
+                        .or_default();
 
                     entry.rss_sum += p.rss;
                     entry.pss_sum += p.pss;
                     entry.swap_sum += p.vmswap;
                     entry.cpu_percent_sum += p.cpu_percent as f64;
-                    entry.cpu_time_user_sum += p.cpu_time_seconds as f64;  // TODO: split user/system
-                    entry.cpu_time_system_sum += 0.0;  // TODO: split user/system
+                    entry.cpu_time_total_sum += p.cpu_time_seconds as f64;
                 }
             }
 
@@ -148,22 +145,11 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                         .with_label_values(&[&group, &subgroup])
                         .set(cpu_ratio);
 
-                    // CPU time in seconds (user mode)
-                    // NOTE: Current ProcMem.cpu_time_seconds is total time.
-                    // Splitting into user/system requires parsing /proc/[pid]/stat
-                    // separately. This is a future enhancement.
                     state
                         .metrics
                         .group_cpu_seconds_total
-                        .with_label_values(&[group.as_str(), subgroup.as_str(), "user"])
-                        .set(metrics.cpu_time_user_sum);
-
-                    // CPU time in seconds (system mode) - placeholder
-                    state
-                        .metrics
-                        .group_cpu_seconds_total
-                        .with_label_values(&[group.as_str(), subgroup.as_str(), "system"])
-                        .set(metrics.cpu_time_system_sum);
+                        .with_label_values(&[group.as_str(), subgroup.as_str(), "total"])
+                        .set(metrics.cpu_time_total_sum);
                 }
             }
 
@@ -190,7 +176,9 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                             entry.3 += stat.write_ops;
                         }
 
-                        for ((group, subgroup), (read_bytes, write_bytes, read_ops, write_ops)) in blkio_groups {
+                        for ((group, subgroup), (read_bytes, write_bytes, read_ops, write_ops)) in
+                            blkio_groups
+                        {
                             state
                                 .metrics
                                 .group_blkio_read_bytes_total
@@ -283,9 +271,9 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
 
                     // Calculate swap used ratio
                     if mem_info.swap_total_bytes > 0 {
-                        let swap_used_ratio =
-                            (mem_info.swap_total_bytes - mem_info.swap_free_bytes) as f64
-                                / mem_info.swap_total_bytes as f64;
+                        let swap_used_ratio = (mem_info.swap_total_bytes - mem_info.swap_free_bytes)
+                            as f64
+                            / mem_info.swap_total_bytes as f64;
                         state.metrics.system_swap_used_ratio.set(swap_used_ratio);
                     } else {
                         state.metrics.system_swap_used_ratio.set(0.0);
@@ -416,10 +404,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             // Boot time, context switches, and forks from /proc/stat
             match system::read_stat_counters() {
                 Ok((boot_time, context_switches, forks)) => {
-                    state
-                        .metrics
-                        .system_boot_time_seconds
-                        .set(boot_time as f64);
+                    state.metrics.system_boot_time_seconds.set(boot_time as f64);
                     state
                         .metrics
                         .system_context_switches_total
@@ -471,10 +456,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
 
             // ========== PHASE 9: PSI (Pressure Stall Information) Metrics ==========
             if let Ok(cpu_psi) = system::read_psi_some_total("/proc/pressure/cpu") {
-                state
-                    .metrics
-                    .system_cpu_psi_wait_seconds_total
-                    .set(cpu_psi);
+                state.metrics.system_cpu_psi_wait_seconds_total.set(cpu_psi);
             }
             if let Ok(mem_psi) = system::read_psi_some_total("/proc/pressure/memory") {
                 state
@@ -483,10 +465,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                     .set(mem_psi);
             }
             if let Ok(io_psi) = system::read_psi_some_total("/proc/pressure/io") {
-                state
-                    .metrics
-                    .system_disk_psi_wait_seconds_total
-                    .set(io_psi);
+                state.metrics.system_disk_psi_wait_seconds_total.set(io_psi);
             }
 
             // ========== PHASE 10: eBPF Group Network Metrics (if available) ==========
@@ -495,8 +474,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 match ebpf.read_process_net_stats() {
                     Ok(net_stats) => {
                         // Aggregated per (group, subgroup)
-                        let mut net_groups: HashMap<(String, String), (u64, u64)> =
-                            HashMap::new();
+                        let mut net_groups: HashMap<(String, String), (u64, u64)> = HashMap::new();
 
                         for stat in net_stats {
                             let (group, subgroup) =

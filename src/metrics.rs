@@ -28,10 +28,10 @@ pub struct MemoryMetrics {
     pub system_memory_psi_wait_seconds_total: Gauge,
 
     // ========== Disk System Metrics ==========
-    pub system_disk_read_bytes_total: GaugeVec,      // labels: device
-    pub system_disk_write_bytes_total: GaugeVec,     // labels: device
+    pub system_disk_read_bytes_total: GaugeVec, // labels: device
+    pub system_disk_write_bytes_total: GaugeVec, // labels: device
     pub system_disk_io_time_seconds_total: GaugeVec, // labels: device
-    pub system_disk_queue_depth: GaugeVec,           // labels: device
+    pub system_disk_queue_depth: GaugeVec,      // labels: device
     pub system_disk_psi_wait_seconds_total: Gauge,
 
     // ========== Network System Metrics ==========
@@ -50,28 +50,28 @@ pub struct MemoryMetrics {
     // ========== Kernel/Runtime Metrics ==========
     pub system_context_switches_total: Gauge,
     pub system_forks_total: Gauge,
-    pub system_open_fds: GaugeVec,  // labels: state (allocated/max)
+    pub system_open_fds: GaugeVec, // labels: state (allocated/max)
     pub system_entropy_bits: Gauge,
 
     // ========== CPU Group Metrics ==========
-    pub group_cpu_usage_ratio: GaugeVec,    // labels: group, subgroup
-    pub group_cpu_seconds_total: GaugeVec,  // labels: group, subgroup, mode
+    pub group_cpu_usage_ratio: GaugeVec, // labels: group, subgroup
+    pub group_cpu_seconds_total: GaugeVec, // labels: group, subgroup, mode
 
     // ========== Memory Group Metrics ==========
-    pub group_memory_rss_bytes: GaugeVec,  // labels: group, subgroup
-    pub group_memory_pss_bytes: GaugeVec,  // labels: group, subgroup
+    pub group_memory_rss_bytes: GaugeVec, // labels: group, subgroup
+    pub group_memory_pss_bytes: GaugeVec, // labels: group, subgroup
     pub group_memory_swap_bytes: GaugeVec, // labels: group, subgroup
 
     // ========== Block I/O Group Metrics ==========
-    pub group_blkio_read_bytes_total: GaugeVec,     // labels: group, subgroup
-    pub group_blkio_write_bytes_total: GaugeVec,    // labels: group, subgroup
-    pub group_blkio_read_syscalls_total: GaugeVec,  // labels: group, subgroup
+    pub group_blkio_read_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_blkio_write_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_blkio_read_syscalls_total: GaugeVec, // labels: group, subgroup
     pub group_blkio_write_syscalls_total: GaugeVec, // labels: group, subgroup
 
     // ========== Network Group Metrics ==========
-    pub group_net_rx_bytes_total: GaugeVec,      // labels: group, subgroup
-    pub group_net_tx_bytes_total: GaugeVec,      // labels: group, subgroup
-    pub group_net_connections_total: GaugeVec,   // labels: group, subgroup, proto
+    pub group_net_rx_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_net_tx_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_net_connections_total: GaugeVec, // labels: group, subgroup, proto
 }
 
 impl MemoryMetrics {
@@ -220,10 +220,8 @@ impl MemoryMetrics {
             ),
             &["sensor"],
         )?;
-        let system_uptime_seconds = Gauge::new(
-            "herakles_system_uptime_seconds",
-            "System uptime in seconds",
-        )?;
+        let system_uptime_seconds =
+            Gauge::new("herakles_system_uptime_seconds", "System uptime in seconds")?;
         let system_boot_time_seconds = Gauge::new(
             "herakles_system_boot_time_seconds",
             "System boot time as Unix timestamp",
@@ -252,10 +250,8 @@ impl MemoryMetrics {
             ),
             &["state"],
         )?;
-        let system_entropy_bits = Gauge::new(
-            "herakles_system_entropy_bits",
-            "Available entropy in bits",
-        )?;
+        let system_entropy_bits =
+            Gauge::new("herakles_system_entropy_bits", "Available entropy in bits")?;
 
         // ========== CPU Group Metrics ==========
         let group_cpu_usage_ratio = GaugeVec::new(

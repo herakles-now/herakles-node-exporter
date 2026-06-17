@@ -48,17 +48,17 @@ use config::{
     DEFAULT_CACHE_TTL, DEFAULT_PORT,
 };
 use handlers::{
-    config_handler, details_handler, doc_handler, health_handler,
-    html_config_handler, html_details_handler, html_docs_handler, html_health_handler,
-    html_index_handler, html_subgroups_handler, metrics_handler, root_handler, subgroups_handler,
+    config_handler, details_handler, doc_handler, health_handler, html_config_handler,
+    html_details_handler, html_docs_handler, html_health_handler, html_index_handler,
+    html_subgroups_handler, metrics_handler, root_handler, subgroups_handler,
 };
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
     classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
-    parse_start_time_seconds, read_block_io, read_process_name, read_vmswap, should_include_process,
-    BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
-    SUBGROUPS,
+    parse_start_time_seconds, read_block_io, read_process_name, read_vmswap,
+    should_include_process, BufferConfig, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
+    MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
 };
 use ringbuffer::{RingbufferEntry, TopProcessInfo};
 use ringbuffer_manager::RingbufferManager;
@@ -176,7 +176,7 @@ where
 {
     let mut sorted: Vec<&ProcMem> = procs.to_vec();
     sorted.sort_by(|a, b| compare_fn(a, b));
-    
+
     [
         if !sorted.is_empty() {
             TopProcessInfo::new(sorted[0].pid, value_fn(sorted[0]), &sorted[0].name)
@@ -201,7 +201,7 @@ where
 async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     info!("Starting cache update");
-    
+
     // Get current timestamp for rate calculations
     let current_time = chrono::Utc::now().timestamp() as f64;
 
@@ -219,7 +219,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     use std::sync::atomic::AtomicUsize;
     let included_count = AtomicUsize::new(0);
     let skipped_count = AtomicUsize::new(0);
-    
+
     // Clone previous cache for delta calculation (before collecting new processes)
     let previous_cache = {
         let cache = state.cache.read().await;
@@ -325,13 +325,26 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                         let start_time_seconds = parse_start_time_seconds(&entry.proc_path).unwrap_or(0.0);
 
                         // Read Block I/O from /proc/[pid]/io
-                        let (read_bytes, write_bytes) = read_block_io(&entry.proc_path).unwrap_or((0, 0));
-                        
+                        let (read_bytes, write_bytes) =
+                            read_block_io(&entry.proc_path).unwrap_or((0, 0));
+
                         // Get previous I/O values from cache (if exists)
-                        let (last_read_bytes, last_write_bytes, last_rx_bytes, last_tx_bytes, last_update_time) = 
+                        let (
+                            last_read_bytes,
+                            last_write_bytes,
+                            last_rx_bytes,
+                            last_tx_bytes,
+                            last_update_time,
+                        ) =
                             if let Some(prev) = previous_cache.get(&entry.pid) {
                                 // Use previous values as baseline for rate calculation
-                                (prev.read_bytes, prev.write_bytes, prev.rx_bytes, prev.tx_bytes, prev.last_update_time)
+                                (
+                                    prev.read_bytes,
+                                    prev.write_bytes,
+                                    prev.rx_bytes,
+                                    prev.tx_bytes,
+                                    prev.last_update_time,
+                                )
                             } else {
                                 // First time seeing this process - use current values as baseline
                                 // This means the first rate calculation will show 0 (expected)
@@ -397,25 +410,32 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     if results.is_empty() {
         warn!("No processes matched filters after sorting");
     }
-    
+
     // Convert results to mutable vector for eBPF network stats update
     let mut results = results;
-    
+
     // Update network I/O from eBPF if available
     if let Some(ref ebpf_manager) = state.ebpf {
         match ebpf_manager.read_process_net_stats() {
             Ok(net_stats) => {
                 debug!("Read {} network stats from eBPF", net_stats.len());
+                let process_indices: HashMap<u32, usize> = results
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, proc)| (proc.pid, idx))
+                    .collect();
+
                 for stat in net_stats {
-                    if let Some(proc) = results.iter_mut().find(|p| p.pid == stat.pid) {
+                    if let Some(&idx) = process_indices.get(&stat.pid) {
+                        let proc = &mut results[idx];
                         // Get previous network I/O from cache
-                        let (last_rx, last_tx, last_time) = if let Some(prev) = previous_cache.get(&stat.pid) {
-                            (prev.rx_bytes, prev.tx_bytes, prev.last_update_time)
+                        let (last_rx, last_tx) = if let Some(prev) = previous_cache.get(&stat.pid) {
+                            (prev.rx_bytes, prev.tx_bytes)
                         } else {
                             // First time seeing network stats for this process
-                            (stat.rx_bytes, stat.tx_bytes, current_time)
+                            (stat.rx_bytes, stat.tx_bytes)
                         };
-                        
+
                         proc.rx_bytes = stat.rx_bytes;
                         proc.tx_bytes = stat.tx_bytes;
                         proc.last_rx_bytes = last_rx;
@@ -465,14 +485,16 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         let (group, subgroup) = classify_process_raw(&p.name);
         let key = format!("{}:{}", group, subgroup);
 
-        let agg = aggregated_by_subgroup.entry(key.clone()).or_insert(AggregatedData {
-            rss_sum: 0,
-            pss_sum: 0,
-            uss_sum: 0,
-            cpu_percent_sum: 0.0,
-            cpu_time_sum: 0.0,
-            process_count: 0,
-        });
+        let agg = aggregated_by_subgroup
+            .entry(key.clone())
+            .or_insert(AggregatedData {
+                rss_sum: 0,
+                pss_sum: 0,
+                uss_sum: 0,
+                cpu_percent_sum: 0.0,
+                cpu_time_sum: 0.0,
+                process_count: 0,
+            });
 
         agg.rss_sum += p.rss;
         agg.pss_sum += p.pss;
@@ -482,7 +504,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         agg.process_count += 1;
 
         // Store process reference for top-N calculation
-        processes_by_subgroup.entry(key).or_insert_with(Vec::new).push(p);
+        processes_by_subgroup.entry(key).or_default().push(p);
     }
 
     let subgroups_count = aggregated_by_subgroup.len() as u64;
@@ -491,19 +513,26 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     let timestamp = chrono::Utc::now().timestamp();
     for (key, agg_data) in &aggregated_by_subgroup {
         // Get top-3 processes for this subgroup
-        let procs = processes_by_subgroup.get(key).map(|v| v.as_slice()).unwrap_or(&[]);
-        
+        let procs = processes_by_subgroup
+            .get(key)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[]);
+
         // Calculate average CPU percent
         let avg_cpu_percent = if agg_data.process_count > 0 {
             (agg_data.cpu_percent_sum / agg_data.process_count as f64) as f32
         } else {
             0.0
         };
-        
+
         // Calculate top-3 by CPU, RSS, and PSS using helper function
         let top_cpu = extract_top_3(
             procs,
-            |a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal),
+            |a, b| {
+                b.cpu_percent
+                    .partial_cmp(&a.cpu_percent)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            },
             |p| (p.cpu_percent * CPU_SCALE_FACTOR) as u32,
         );
 
@@ -533,10 +562,13 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
         };
 
         state.ringbuffer_manager.record(key, entry);
-        
+
         debug!(
             "Recorded ringbuffer entry for {}: {} processes, RSS={} KB, CPU={:.1}%",
-            key, agg_data.process_count, agg_data.rss_sum / 1024, avg_cpu_percent
+            key,
+            agg_data.process_count,
+            agg_data.rss_sum / 1024,
+            avg_cpu_percent
         );
     }
 
@@ -601,7 +633,7 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                 .health_stats
                 .ebpf_lost_events
                 .store(perf_stats.lost_events_total, Ordering::Relaxed);
-    }
+        }
     }
 
     // Prune the database once per update cycle and update database metrics

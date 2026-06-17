@@ -23,48 +23,77 @@ pub enum RetentionLimit {
 pub fn parse_retention(s: &str) -> Result<RetentionLimit, String> {
     let s = s.trim().to_lowercase();
     if s.is_empty() {
-        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(24 * 3600)));
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            24 * 3600,
+        )));
     }
 
-    let mut num_str = s.clone();
-    let mut is_size = false;
-    let mut multiplier: u64 = 1;
-
-    if s.ends_with("kb") || s.ends_with("k") {
-        is_size = true;
-        multiplier = 1024;
-        num_str = s.trim_end_matches("kb").trim_end_matches('k').to_string();
+    let (num_str, is_size, multiplier) = if s.ends_with("kb") || s.ends_with("k") {
+        (
+            s.trim_end_matches("kb").trim_end_matches('k').to_string(),
+            true,
+            1024,
+        )
     } else if s.ends_with("mb") || s.ends_with("mg") || s.ends_with("m") {
-        is_size = true;
-        multiplier = 1024 * 1024;
-        num_str = s.trim_end_matches("mb").trim_end_matches("mg").trim_end_matches('m').to_string();
+        (
+            s.trim_end_matches("mb")
+                .trim_end_matches("mg")
+                .trim_end_matches('m')
+                .to_string(),
+            true,
+            1024 * 1024,
+        )
     } else if s.ends_with("gb") || s.ends_with("g") {
-        is_size = true;
-        multiplier = 1024 * 1024 * 1024;
-        num_str = s.trim_end_matches("gb").trim_end_matches('g').to_string();
+        (
+            s.trim_end_matches("gb").trim_end_matches('g').to_string(),
+            true,
+            1024 * 1024 * 1024,
+        )
     } else if s.ends_with("b") {
-        is_size = true;
-        multiplier = 1;
-        num_str = s.trim_end_matches('b').to_string();
+        (s.trim_end_matches('b').to_string(), true, 1)
     } else if s.ends_with("h") {
-        num_str = s.trim_end_matches('h').to_string();
+        (s.trim_end_matches('h').to_string(), false, 1)
     } else if s.ends_with("d") {
-        multiplier = 24;
-        num_str = s.trim_end_matches('d').to_string();
+        (s.trim_end_matches('d').to_string(), false, 24)
     } else if s.ends_with("s") {
-        num_str = s.trim_end_matches('s').to_string();
-        let val: u64 = num_str.trim().parse().map_err(|e| format!("Invalid number: {}", e))?;
-        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(val)));
+        let num_str = s.trim_end_matches('s').to_string();
+        let val: u64 = num_str
+            .trim()
+            .parse()
+            .map_err(|e| format!("Invalid number: {}", e))?;
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            val,
+        )));
     } else {
-        let val: u64 = s.trim().parse().map_err(|e| format!("Invalid retention format: {}", e))?;
-        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(val * 3600)));
-    }
+        let val: u64 = s
+            .trim()
+            .parse()
+            .map_err(|e| format!("Invalid retention format: {}", e))?;
+        let secs = val
+            .checked_mul(3600)
+            .ok_or_else(|| "Retention duration is too large".to_string())?;
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            secs,
+        )));
+    };
 
-    let val: u64 = num_str.trim().parse().map_err(|e| format!("Invalid number: {}", e))?;
+    let val: u64 = num_str
+        .trim()
+        .parse()
+        .map_err(|e| format!("Invalid number: {}", e))?;
     if is_size {
-        Ok(RetentionLimit::Size(val * multiplier))
+        let bytes = val
+            .checked_mul(multiplier)
+            .ok_or_else(|| "Retention size is too large".to_string())?;
+        Ok(RetentionLimit::Size(bytes))
     } else {
-        Ok(RetentionLimit::Duration(std::time::Duration::from_secs(val * multiplier * 3600)))
+        let secs = val
+            .checked_mul(multiplier)
+            .and_then(|v| v.checked_mul(3600))
+            .ok_or_else(|| "Retention duration is too large".to_string())?;
+        Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            secs,
+        )))
     }
 }
 
@@ -135,7 +164,6 @@ impl Default for RingbufferConfig {
         }
     }
 }
-
 
 /// Enhanced configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]

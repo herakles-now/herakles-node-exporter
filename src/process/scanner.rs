@@ -110,8 +110,10 @@ mod tests {
 
     #[test]
     fn test_should_include_process_with_exclude() {
-        let mut cfg = Config::default();
-        cfg.exclude_names = Some(vec!["test".to_string(), "debug".to_string()]);
+        let cfg = Config {
+            exclude_names: Some(vec!["test".to_string(), "debug".to_string()]),
+            ..Default::default()
+        };
 
         assert!(!should_include_process("test_app", &cfg));
         assert!(!should_include_process("debug_server", &cfg));
@@ -121,8 +123,10 @@ mod tests {
 
     #[test]
     fn test_should_include_process_with_include() {
-        let mut cfg = Config::default();
-        cfg.include_names = Some(vec!["nginx".to_string(), "postgres".to_string()]);
+        let cfg = Config {
+            include_names: Some(vec!["nginx".to_string(), "postgres".to_string()]),
+            ..Default::default()
+        };
 
         assert!(should_include_process("nginx", &cfg));
         assert!(should_include_process("nginx-worker", &cfg));
@@ -133,9 +137,11 @@ mod tests {
 
     #[test]
     fn test_should_include_process_exclude_takes_priority() {
-        let mut cfg = Config::default();
-        cfg.include_names = Some(vec!["app".to_string()]);
-        cfg.exclude_names = Some(vec!["test".to_string()]);
+        let cfg = Config {
+            include_names: Some(vec!["app".to_string()]),
+            exclude_names: Some(vec!["test".to_string()]),
+            ..Default::default()
+        };
 
         // "test_app" matches both include ("app") and exclude ("test")
         // Exclude should take priority
