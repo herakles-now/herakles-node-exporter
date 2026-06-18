@@ -86,6 +86,34 @@ pub fn parse_start_time_seconds(proc_path: &Path) -> Result<f64, std::io::Error>
     Ok(start_time_seconds)
 }
 
+/// Returns `true` if the process is a kernel thread (the `PF_KTHREAD` flag is
+/// set in `/proc/<pid>/stat`).
+///
+/// Kernel threads have no userspace address space, so memory parsing
+/// legitimately fails for them. Callers use this to skip them silently
+/// instead of counting them as parsing errors.
+pub fn is_kernel_thread(proc_path: &Path) -> bool {
+    const PF_KTHREAD: u64 = 0x0020_0000;
+
+    let Ok(content) = fs::read_to_string(proc_path.join("stat")) else {
+        return false;
+    };
+
+    // The comm field (field 2) is wrapped in parentheses and may itself
+    // contain spaces or parentheses, so anchor parsing on the last ')'.
+    let Some((_, after_comm)) = content.rsplit_once(')') else {
+        return false;
+    };
+
+    // Fields after comm: state(0) ppid(1) pgrp(2) session(3) tty_nr(4)
+    // tpgid(5) flags(6) ...
+    after_comm
+        .split_whitespace()
+        .nth(6)
+        .and_then(|f| f.parse::<u64>().ok())
+        .is_some_and(|flags| flags & PF_KTHREAD != 0)
+}
+
 /// Returns CPU stats for a PID using delta between samples.
 pub fn get_cpu_stat_for_pid(
     pid: u32,

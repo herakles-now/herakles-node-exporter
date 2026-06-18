@@ -56,9 +56,9 @@ use handlers::{
 use health_stats::HealthStats;
 use metrics::MemoryMetrics;
 use process::{
-    classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, parse_memory_for_process,
-    parse_start_time_seconds, read_block_io, read_process_name, read_vmswap,
-    should_include_process, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
+    classify_process_raw, collect_proc_entries, get_cpu_stat_for_pid, is_kernel_thread,
+    parse_memory_for_process, parse_start_time_seconds, read_block_io, read_process_name,
+    read_vmswap, should_include_process, CLK_TCK, MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES,
     MAX_SMAPS_ROLLUP_BUFFER_BYTES, SUBGROUPS,
 };
 use ringbuffer::{RingbufferEntry, TopProcessInfo};
@@ -376,6 +376,14 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
                         })
                     }
                     Err(e) => {
+                        // Kernel threads have no userspace memory, so memory
+                        // parsing always fails for them — skip silently rather
+                        // than inflating the parsing-error counter.
+                        if is_kernel_thread(&entry.proc_path) {
+                            debug!("Skipping kernel thread {}", entry.pid);
+                            skipped_count.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
                         let err_msg = e.to_string();
                         debug!("Skipping process {}: failed to parse memory: {}", name, err_msg);
                         state.health_stats.record_parsing_error();

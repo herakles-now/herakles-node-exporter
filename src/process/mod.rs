@@ -15,7 +15,9 @@ pub mod scanner;
 pub use classifier::{
     classify_process_raw, classify_process_with_config, reload_subgroups, SUBGROUPS,
 };
-pub use cpu::{get_cpu_stat_for_pid, parse_start_time_seconds, CpuEntry, CpuStat, CLK_TCK};
+pub use cpu::{
+    get_cpu_stat_for_pid, is_kernel_thread, parse_start_time_seconds, CpuEntry, CpuStat, CLK_TCK,
+};
 pub use memory::{
     parse_memory_for_process, read_block_io, read_vmswap, resolve_buffer_config, BufferConfig,
     MAX_IO_BUFFER_BYTES, MAX_SMAPS_BUFFER_BYTES, MAX_SMAPS_ROLLUP_BUFFER_BYTES,
