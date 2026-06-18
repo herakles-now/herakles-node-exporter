@@ -122,7 +122,7 @@ pub fn command_generate_testdata(
         output.display()
     );
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut processes: Vec<TestProcess> = Vec::new();
     let mut current_pid: u32 = 1000;
 
@@ -220,39 +220,39 @@ fn generate_random_process(
     subgroup: &str,
 ) -> TestProcess {
     // RSS: 10 MB - 2 GB (in bytes)
-    let rss = rng.gen_range(10 * 1024 * 1024..2 * 1024 * 1024 * 1024_u64);
+    let rss = rng.random_range(10 * 1024 * 1024..2 * 1024 * 1024 * 1024_u64);
 
     // PSS: 80-95% of RSS
-    let pss_ratio: f64 = rng.gen_range(0.80..0.95);
+    let pss_ratio: f64 = rng.random_range(0.80..0.95);
     let pss = (rss as f64 * pss_ratio) as u64;
 
     // USS: 60-80% of RSS
-    let uss_ratio: f64 = rng.gen_range(0.60..0.80);
+    let uss_ratio: f64 = rng.random_range(0.60..0.80);
     let uss = (rss as f64 * uss_ratio) as u64;
 
     // CPU percent: 0.0 - 100.0
-    let cpu_percent: f64 = rng.gen_range(0.0..100.0);
+    let cpu_percent: f64 = rng.random_range(0.0..100.0);
 
     // CPU time: 0.0 - 10000.0 seconds
-    let cpu_time_seconds: f64 = rng.gen_range(0.0..10000.0);
+    let cpu_time_seconds: f64 = rng.random_range(0.0..10000.0);
 
     // Network I/O metrics
     // rx_bytes, tx_bytes: 0 - 10 GB
-    let rx_bytes: u64 = rng.gen_range(0..MAX_NETWORK_BYTES);
-    let tx_bytes: u64 = rng.gen_range(0..MAX_NETWORK_BYTES);
+    let rx_bytes: u64 = rng.random_range(0..MAX_NETWORK_BYTES);
+    let tx_bytes: u64 = rng.random_range(0..MAX_NETWORK_BYTES);
     // rx_packets, tx_packets: 0 - 1M
-    let rx_packets: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
-    let tx_packets: u64 = rng.gen_range(0..MAX_NETWORK_PACKETS);
+    let rx_packets: u64 = rng.random_range(0..MAX_NETWORK_PACKETS);
+    let tx_packets: u64 = rng.random_range(0..MAX_NETWORK_PACKETS);
     // dropped: 0 - 10K (typically much lower than total packets)
-    let dropped: u64 = rng.gen_range(0..MAX_DROPPED_PACKETS);
+    let dropped: u64 = rng.random_range(0..MAX_DROPPED_PACKETS);
 
     // Block I/O metrics
     // read_bytes, write_bytes: 0 - 50 GB
-    let read_bytes: u64 = rng.gen_range(0..MAX_BLOCK_IO_BYTES);
-    let write_bytes: u64 = rng.gen_range(0..MAX_BLOCK_IO_BYTES);
+    let read_bytes: u64 = rng.random_range(0..MAX_BLOCK_IO_BYTES);
+    let write_bytes: u64 = rng.random_range(0..MAX_BLOCK_IO_BYTES);
     // read_ops, write_ops: 0 - 100K
-    let read_ops: u64 = rng.gen_range(0..MAX_BLOCK_IO_OPS);
-    let write_ops: u64 = rng.gen_range(0..MAX_BLOCK_IO_OPS);
+    let read_ops: u64 = rng.random_range(0..MAX_BLOCK_IO_OPS);
+    let write_ops: u64 = rng.random_range(0..MAX_BLOCK_IO_OPS);
 
     TestProcess {
         pid,
