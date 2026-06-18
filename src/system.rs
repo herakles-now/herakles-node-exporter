@@ -350,57 +350,6 @@ pub fn read_psi_some_total(path: &str) -> Result<f64, String> {
     Err(format!("Failed to parse 'some total' from {}", path))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_load_average() {
-        // Test with valid input
-        let result = parse_load_average_line("0.52 0.58 0.59 2/1190 12345");
-        assert!(result.is_ok());
-        let load = result.unwrap();
-        assert!((load.one_min - 0.52).abs() < 0.001);
-        assert!((load.five_min - 0.58).abs() < 0.001);
-        assert!((load.fifteen_min - 0.59).abs() < 0.001);
-    }
-
-    #[test]
-    fn test_parse_load_average_invalid() {
-        // Test with insufficient fields
-        let result = parse_load_average_line("0.52 0.58");
-        assert!(result.is_err());
-
-        // Test with non-numeric values
-        let result = parse_load_average_line("abc def ghi 1/2 3");
-        assert!(result.is_err());
-    }
-
-    // Helper functions for testing
-    fn parse_load_average_line(line: &str) -> Result<LoadAverage, String> {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 3 {
-            return Err(format!("Invalid format: expected at least 3 fields"));
-        }
-
-        let one_min = parts[0]
-            .parse::<f64>()
-            .map_err(|e| format!("Failed to parse 1min: {}", e))?;
-        let five_min = parts[1]
-            .parse::<f64>()
-            .map_err(|e| format!("Failed to parse 5min: {}", e))?;
-        let fifteen_min = parts[2]
-            .parse::<f64>()
-            .map_err(|e| format!("Failed to parse 15min: {}", e))?;
-
-        Ok(LoadAverage {
-            one_min,
-            five_min,
-            fifteen_min,
-        })
-    }
-}
-
 /// Gets file descriptor usage for the current process.
 ///
 /// Returns (open_fds, max_fds) as a tuple.
@@ -550,5 +499,52 @@ pub fn read_uname_info() -> Result<(String, String, String, String), String> {
         } else {
             Err("Failed to call uname".to_string())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_load_average() {
+        let result = parse_load_average_line("0.52 0.58 0.59 2/1190 12345");
+        assert!(result.is_ok());
+        let load = result.unwrap();
+        assert!((load.one_min - 0.52).abs() < 0.001);
+        assert!((load.five_min - 0.58).abs() < 0.001);
+        assert!((load.fifteen_min - 0.59).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_parse_load_average_invalid() {
+        let result = parse_load_average_line("0.52 0.58");
+        assert!(result.is_err());
+
+        let result = parse_load_average_line("abc def ghi 1/2 3");
+        assert!(result.is_err());
+    }
+
+    fn parse_load_average_line(line: &str) -> Result<LoadAverage, String> {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 3 {
+            return Err("Invalid format: expected at least 3 fields".to_string());
+        }
+
+        let one_min = parts[0]
+            .parse::<f64>()
+            .map_err(|e| format!("Failed to parse 1min: {}", e))?;
+        let five_min = parts[1]
+            .parse::<f64>()
+            .map_err(|e| format!("Failed to parse 5min: {}", e))?;
+        let fifteen_min = parts[2]
+            .parse::<f64>()
+            .map_err(|e| format!("Failed to parse 15min: {}", e))?;
+
+        Ok(LoadAverage {
+            one_min,
+            five_min,
+            fifteen_min,
+        })
     }
 }

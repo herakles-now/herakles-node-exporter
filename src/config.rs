@@ -14,6 +14,89 @@ pub const DEFAULT_BIND_ADDR: &str = "0.0.0.0";
 pub const DEFAULT_PORT: u16 = 9215;
 pub const DEFAULT_CACHE_TTL: u64 = 30;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum RetentionLimit {
+    Duration(std::time::Duration),
+    Size(u64), // bytes
+}
+
+pub fn parse_retention(s: &str) -> Result<RetentionLimit, String> {
+    let s = s.trim().to_lowercase();
+    if s.is_empty() {
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            24 * 3600,
+        )));
+    }
+
+    let (num_str, is_size, multiplier) = if s.ends_with("kb") || s.ends_with("k") {
+        (
+            s.trim_end_matches("kb").trim_end_matches('k').to_string(),
+            true,
+            1024,
+        )
+    } else if s.ends_with("mb") || s.ends_with("mg") || s.ends_with("m") {
+        (
+            s.trim_end_matches("mb")
+                .trim_end_matches("mg")
+                .trim_end_matches('m')
+                .to_string(),
+            true,
+            1024 * 1024,
+        )
+    } else if s.ends_with("gb") || s.ends_with("g") {
+        (
+            s.trim_end_matches("gb").trim_end_matches('g').to_string(),
+            true,
+            1024 * 1024 * 1024,
+        )
+    } else if s.ends_with("b") {
+        (s.trim_end_matches('b').to_string(), true, 1)
+    } else if s.ends_with("h") {
+        (s.trim_end_matches('h').to_string(), false, 1)
+    } else if s.ends_with("d") {
+        (s.trim_end_matches('d').to_string(), false, 24)
+    } else if s.ends_with("s") {
+        let num_str = s.trim_end_matches('s').to_string();
+        let val: u64 = num_str
+            .trim()
+            .parse()
+            .map_err(|e| format!("Invalid number: {}", e))?;
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            val,
+        )));
+    } else {
+        let val: u64 = s
+            .trim()
+            .parse()
+            .map_err(|e| format!("Invalid retention format: {}", e))?;
+        let secs = val
+            .checked_mul(3600)
+            .ok_or_else(|| "Retention duration is too large".to_string())?;
+        return Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            secs,
+        )));
+    };
+
+    let val: u64 = num_str
+        .trim()
+        .parse()
+        .map_err(|e| format!("Invalid number: {}", e))?;
+    if is_size {
+        let bytes = val
+            .checked_mul(multiplier)
+            .ok_or_else(|| "Retention size is too large".to_string())?;
+        Ok(RetentionLimit::Size(bytes))
+    } else {
+        let secs = val
+            .checked_mul(multiplier)
+            .and_then(|v| v.checked_mul(3600))
+            .ok_or_else(|| "Retention duration is too large".to_string())?;
+        Ok(RetentionLimit::Duration(std::time::Duration::from_secs(
+            secs,
+        )))
+    }
+}
+
 /// Ringbuffer configuration for historical metrics tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RingbufferConfig {
@@ -32,6 +115,18 @@ pub struct RingbufferConfig {
     /// Maximum entries per subgroup (default: 120)
     #[serde(default = "default_max_entries")]
     pub max_entries_per_subgroup: usize,
+
+    /// Enable database persistence (default: true)
+    #[serde(default = "default_enable_database")]
+    pub enable_database: bool,
+
+    /// Path to persistent database (default: "/var/lib/herakles/metrics.db")
+    #[serde(default = "default_database_path")]
+    pub database_path: PathBuf,
+
+    /// Retention limit (e.g., "24h", "100MB", "1GB") (default: "24h")
+    #[serde(default = "default_retention")]
+    pub retention: String,
 }
 
 fn default_max_memory_mb() -> usize {
@@ -46,6 +141,15 @@ fn default_min_entries() -> usize {
 fn default_max_entries() -> usize {
     120
 }
+fn default_enable_database() -> bool {
+    true
+}
+fn default_database_path() -> PathBuf {
+    PathBuf::from("/var/lib/herakles/metrics.db")
+}
+fn default_retention() -> String {
+    "24h".to_string()
+}
 
 impl Default for RingbufferConfig {
     fn default() -> Self {
@@ -54,6 +158,9 @@ impl Default for RingbufferConfig {
             interval_seconds: default_interval_seconds(),
             min_entries_per_subgroup: default_min_entries(),
             max_entries_per_subgroup: default_max_entries(),
+            enable_database: default_enable_database(),
+            database_path: default_database_path(),
+            retention: default_retention(),
         }
     }
 }
@@ -83,6 +190,10 @@ pub struct Config {
     pub enable_telemetry: Option<bool>,
     pub enable_default_collectors: Option<bool>,
     pub enable_pprof: Option<bool>,
+    #[serde(alias = "enable-filesystem-collector")]
+    pub enable_filesystem_collector: Option<bool>,
+    #[serde(alias = "enable-thermal-collector")]
+    pub enable_thermal_collector: Option<bool>,
 
     // Logging
     pub log_level: Option<String>,
@@ -144,14 +255,6 @@ pub struct Config {
     #[serde(alias = "enable-tcp-tracking")]
     pub enable_tcp_tracking: Option<bool>,
 
-    // Collector enable flags
-    #[serde(alias = "enable-filesystem-collector")]
-    pub enable_filesystem_collector: Option<bool>,
-    #[serde(alias = "enable-thermal-collector")]
-    pub enable_thermal_collector: Option<bool>,
-    #[serde(alias = "enable-psi-collector")]
-    pub enable_psi_collector: Option<bool>,
-
     // Ringbuffer Configuration
     #[serde(default)]
     pub ringbuffer: RingbufferConfig,
@@ -175,6 +278,8 @@ impl Default for Config {
             enable_telemetry: Some(true),
             enable_default_collectors: Some(true),
             enable_pprof: Some(false),
+            enable_filesystem_collector: Some(true),
+            enable_thermal_collector: Some(true),
             log_level: Some("info".into()),
             enable_file_logging: Some(false),
             log_file: None,
@@ -197,9 +302,6 @@ impl Default for Config {
             enable_ebpf_network: Some(true),
             enable_ebpf_disk: Some(true),
             enable_tcp_tracking: Some(true),
-            enable_filesystem_collector: Some(true),
-            enable_thermal_collector: Some(true),
-            enable_psi_collector: Some(true),
             ringbuffer: RingbufferConfig::default(),
         }
     }
@@ -421,6 +523,20 @@ pub fn resolve_config(args: &Args) -> Result<Config, Box<dyn std::error::Error>>
     }
     if args.disable_tcp_tracking {
         config.enable_tcp_tracking = Some(false);
+    }
+
+    // Database configuration: CLI wins if provided
+    if args.enable_database {
+        config.ringbuffer.enable_database = true;
+    }
+    if args.disable_database {
+        config.ringbuffer.enable_database = false;
+    }
+    if let Some(db_path) = &args.database_path {
+        config.ringbuffer.database_path = db_path.clone();
+    }
+    if let Some(retention) = &args.database_retention {
+        config.ringbuffer.retention = retention.clone();
     }
 
     Ok(config)

@@ -31,7 +31,6 @@ const SEVERITY_MODERATE: f64 = 1.5; // ⚠️  Moderate deviation
 const SEVERITY_CRITICAL: f64 = 2.0; // 🔥 Critical deviation
 
 const MAX_OUTLIERS_DISPLAY: usize = 10;
-const MAX_DISPLAYED_SUBGROUPS: usize = 20;
 
 /// Query parameters for the details endpoint.
 #[derive(Deserialize, Debug)]
@@ -108,8 +107,6 @@ struct ProcessAnomaly {
     // I/O metrics
     read_bytes: u64,
     write_bytes: u64,
-    #[allow(dead_code)] // Future enhancement for 5-minute delta tracking
-    io_delta_5min: Option<(u64, u64)>, // (read_delta, write_delta)
 
     // Severity
     severity: AnomalySeverity,
@@ -133,17 +130,6 @@ struct SubgroupSnapshot {
     total_uss: u64,
     oldest_uptime_seconds: f64,
     all_processes: Vec<ProcessInfo>,
-}
-
-/// Historical I/O event (past spike now idle).
-#[allow(dead_code)] // Future enhancement for historical I/O event tracking
-#[derive(Debug, Clone)]
-struct HistoricalIoEvent {
-    pid: u32,
-    name: String,
-    peak_read_bytes: u64,
-    peak_write_bytes: u64,
-    last_active_timestamp: i64,
 }
 
 // ============================================================================
@@ -230,24 +216,6 @@ fn extract_min_max_avg_with_timestamps(
     })
 }
 
-/// Calculate I/O delta over the last 5 minutes.
-/// Returns (read_delta, write_delta) or None if insufficient history.
-///
-/// TODO: This function is currently a stub because RingbufferEntry doesn't store I/O data.
-/// To implement this properly, we would need to extend RingbufferEntry to track I/O metrics
-/// or maintain a separate I/O history tracking structure.
-#[allow(dead_code)] // Future enhancement for 5-minute I/O delta calculation
-fn calculate_io_delta_5min(
-    _current_read: u64,
-    _current_write: u64,
-    _history: &[RingbufferEntry],
-    _interval_seconds: u64,
-) -> Option<(u64, u64)> {
-    // Note: RingbufferEntry doesn't have I/O data, so we can't calculate delta from current structure
-    // This would require adding I/O tracking to the ringbuffer entries
-    None
-}
-
 /// Calculate long-term average (for Historical phase).
 fn calculate_longterm_avg(
     history: &[RingbufferEntry],
@@ -331,10 +299,7 @@ async fn compute_live_snapshots(
     for proc in cache.processes.values() {
         let (group, subgroup) = classify_process_raw(&proc.name);
         let key = format!("{}:{}", group, subgroup);
-        subgroup_procs
-            .entry(key)
-            .or_insert_with(Vec::new)
-            .push(proc.clone());
+        subgroup_procs.entry(key).or_default().push(proc.clone());
     }
 
     // Compute snapshot for each subgroup
@@ -428,7 +393,7 @@ fn analyze_anomalies(
     }
 
     // Sort by severity (highest first)
-    anomalies.sort_by(|a, b| b.severity.cmp(&a.severity));
+    anomalies.sort_by_key(|a| std::cmp::Reverse(a.severity));
 
     anomalies
 }
@@ -483,7 +448,6 @@ fn analyze_live_phase(
         rss_growth_rate: None, // Not applicable for Live phase
         read_bytes: proc.read_bytes,
         write_bytes: proc.write_bytes,
-        io_delta_5min: None, // TODO: Calculate when I/O history is available
         severity,
     })
 }
@@ -538,7 +502,6 @@ fn analyze_stabilization_phase(
         rss_growth_rate: None, // Calculate growth rate for this phase
         read_bytes: proc.read_bytes,
         write_bytes: proc.write_bytes,
-        io_delta_5min: None,
         severity,
     })
 }
@@ -597,7 +560,6 @@ fn analyze_historical_phase(
         rss_growth_rate,
         read_bytes: proc.read_bytes,
         write_bytes: proc.write_bytes,
-        io_delta_5min: None,
         severity,
     })
 }
@@ -1020,49 +982,6 @@ pub async fn details_handler(
     .ok();
     writeln!(out).ok();
 
-    // Ringbuffer memory usage statistics
-    writeln!(out, "RINGBUFFER MEMORY USAGE").ok();
-    writeln!(out, "=======================").ok();
-
-    // Get all subgroup names and their ringbuffer stats
-    let subgroups = _state.ringbuffer_manager.get_all_subgroups();
-    if !subgroups.is_empty() {
-        writeln!(
-            out,
-            "{:<30} | {:>10} | {:>10} | {:>10}",
-            "Subgroup", "Entries", "Capacity", "Fill %"
-        )
-        .ok();
-        writeln!(out, "{}", "-".repeat(66)).ok();
-
-        for subgroup_name in subgroups.iter().take(MAX_DISPLAYED_SUBGROUPS) {
-            if let Some(buffer) = _state.ringbuffer_manager.get_subgroup_buffer(subgroup_name) {
-                let len = buffer.len();
-                let capacity = buffer.capacity();
-                let fill_percent = if capacity > 0 {
-                    (len as f64 / capacity as f64) * 100.0
-                } else {
-                    0.0
-                };
-
-                writeln!(
-                    out,
-                    "{:<30} | {:>10} | {:>10} | {:>9.1}%",
-                    subgroup_name, len, capacity, fill_percent
-                )
-                .ok();
-            }
-        }
-
-        if subgroups.len() > MAX_DISPLAYED_SUBGROUPS {
-            writeln!(out, "... and {} more subgroups", subgroups.len() - MAX_DISPLAYED_SUBGROUPS).ok();
-        }
-    } else {
-        writeln!(out, "No subgroups tracked yet").ok();
-    }
-
-    writeln!(out).ok();
-
     // Compute live snapshots for all subgroups
     let snapshots = compute_live_snapshots(&_state, stats.history_seconds).await;
 
@@ -1461,7 +1380,7 @@ mod tests {
         let mut history = Vec::new();
 
         // Create entries with varying RSS
-        let values = vec![100, 150, 90, 200, 120];
+        let values = [100, 150, 90, 200, 120];
         for (i, val) in values.iter().enumerate() {
             history.push(RingbufferEntry {
                 timestamp: 1000 + i as i64 * 60,

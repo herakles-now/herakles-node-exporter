@@ -96,12 +96,6 @@ fn add_config_comments(yaml: String) -> String {
 # enable_uss: true             # Export USS metrics
 # enable_cpu: true             # Export CPU metrics
 #
-# Collector Enable Flags
-# ----------------------
-# enable_filesystem_collector: true  # Enable filesystem metrics collection
-# enable_thermal_collector: true     # Enable CPU/thermal sensors
-# enable_psi_collector: true         # Enable PSI (Pressure Stall Information)
-#
 # TLS/SSL Configuration
 # ---------------------
 # enable_tls: false            # Enable HTTPS (default: false)

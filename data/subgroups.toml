@@ -1,6 +1,6 @@
 # data/subgroups.toml
-# Herakles – The Ultimate Subgroup List 2025
-# 140+ entries – sorted, commented, production-ready
+# Herakles – Die ultimative Subgroup-Liste 2025
+# 140+ Einträge – sortiert, kommentiert, produktionsreif
 
 subgroups = [
   # === Backup Solutions ===
@@ -297,6 +297,45 @@ subgroups = [
     "zeromq",
   ] },
 
+  # === Mail Servers ===
+  { group = "mail", subgroup = "stalwart", matches = [
+    "stalwart",
+    "stalwart-mail",
+    "stalwart-mail-server",
+    "stalwart-imap",
+    "stalwart-smtp",
+  ] },
+  { group = "mail", subgroup = "postfix", matches = [
+    "postfix",
+    "smtpd",
+  ] },
+  { group = "mail", subgroup = "dovecot", matches = [
+    "dovecot",
+    "imap-login",
+    "pop3-login",
+  ] },
+  { group = "mail", subgroup = "sendmail", matches = [
+    "sendmail",
+  ] },
+  { group = "mail", subgroup = "exim", matches = [
+    "exim",
+    "exim4",
+  ] },
+  { group = "mail", subgroup = "rspamd", matches = [
+    "rspamd",
+  ] },
+  { group = "mail", subgroup = "spamassassin", matches = [
+    "spamd",
+    "spamassassin",
+  ] },
+  { group = "mail", subgroup = "dkim_dmarc", matches = [
+    "opendkim",
+    "opendmarc",
+  ] },
+  { group = "mail", subgroup = "haraka", matches = [
+    "haraka",
+  ] },
+
   # === Monitoring & Observability ===
   { group = "monitoring", subgroup = "alertmanager", matches = [
     "alertmanager",
@@ -372,6 +411,10 @@ subgroups = [
   { group = "network", subgroup = "vpn", matches = [
     "openvpn",
     "strongswan",
+    "tailscale",
+    "tailscaled",
+    "wireguard-go",
+    "wg-quick",
   ] },
 
   # === Programming Language Runtimes ===
@@ -504,22 +547,15 @@ subgroups = [
     "kworker",
     "migration",
   ] },
-  { group = "system", subgroup = "postfix", matches = [
-    "postfix",
-    "smtpd",
-  ] },
   { group = "system", subgroup = "rsyslog", matches = [
     "rsyslogd",
   ] },
-  { group = "system", subgroup = "sendmail", matches = [
-    "sendmail",
-  ] },
   { group = "system", subgroup = "ssh", matches = [
     "sshd",
-    "sshd-session", # Modern OpenSSH session process (post-privilege separation)
-    "sftp-server",  # SFTP subsystem process
-    "ssh-agent",    # SSH agent
-    "ssh-keysign",  # SSH key signing
+    "sshd-session",    # Modern OpenSSH session process (post-privilege separation)
+    "sftp-server",     # SFTP subsystem process
+    "ssh-agent",       # SSH agent
+    "ssh-keysign",     # SSH key signing
   ] },
   { group = "system", subgroup = "systemd", matches = [
     "systemd",
@@ -537,6 +573,108 @@ subgroups = [
   { group = "virtualization", subgroup = "vbox", matches = [
     "VirtualBox",
     "VBoxHeadless",
+  ] },
+
+  # === Workstation & Desktop ===
+  { group = "desktop", subgroup = "hyprland", matches = [
+    "Hyprland",
+    "hyprland",
+    "hyprctl",
+    "hyprpaper",
+    "hypridle",
+    "hyprlock",
+    "omarchy-hyprlan",
+    "xdg-desktop-por",
+  ] },
+  { group = "desktop", subgroup = "waybar", matches = [
+    "waybar",
+  ] },
+  { group = "desktop", subgroup = "launcher", matches = [
+    "walker",
+    "rofi",
+    "wofi",
+    "fuzzel",
+    "ulauncher",
+  ] },
+  { group = "desktop", subgroup = "notifications", matches = [
+    "mako",
+    "dunst",
+  ] },
+  { group = "desktop", subgroup = "session", matches = [
+    "uwsm",
+    "dbus-daemon",
+    "dbus-broker",
+    "gnome-keyring-d",
+    "polkitd",
+    "gvfsd",
+    "gvfsd-fuse",
+    "gvfs-udisks2-vo",
+    "upowerd",
+    "accounts-daemon",
+    "xdg-document-po",
+    "xdg-permission-",
+  ] },
+  { group = "desktop", subgroup = "display", matches = [
+    "Xwayland",
+    "xwayland",
+  ] },
+  { group = "audio", subgroup = "pipewire", matches = [
+    "pipewire",
+    "pipewire-pulse",
+    "wireplumber",
+  ] },
+  { group = "browser", subgroup = "firefox", matches = [
+    "firefox",
+    "firefox-bin",
+    "Web Content",
+    "Isolated Web Co",
+    "Privileged Cont",
+  ] },
+  { group = "browser", subgroup = "chromium", matches = [
+    "chromium",
+    "chrome",
+    "chrome_crashpad",
+    "brave",
+    "brave-browser",
+  ] },
+  { group = "devtools", subgroup = "editors", matches = [
+    "code",
+    "codium",
+    "cursor",
+    "zed",
+    "nvim",
+    "vim",
+    "emacs",
+  ] },
+  { group = "devtools", subgroup = "rust", matches = [
+    "cargo",
+    "rustc",
+    "rust-analyzer",
+  ] },
+  { group = "devtools", subgroup = "js_tooling", matches = [
+    "npm",
+    "pnpm",
+    "yarn",
+    "bun",
+    "tsserver",
+    "eslint",
+  ] },
+  { group = "ai", subgroup = "coding_agents", matches = [
+    "codex",
+    "claude",
+    "aider",
+  ] },
+  { group = "ai", subgroup = "local_llm", matches = [
+    "ollama",
+    "ollama_llama_se",
+    "llama-server",
+    "lmstudio",
+  ] },
+  { group = "sync", subgroup = "file_sync", matches = [
+    "dropbox",
+    "nextcloud",
+    "syncthing",
+    "rclone",
   ] },
 
   # === Web & Application Servers ===

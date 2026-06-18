@@ -10,11 +10,6 @@ use tracing::{debug, instrument};
 
 use crate::state::SharedState;
 
-// Time conversion constants
-const SECONDS_PER_HOUR: f64 = 3600.0;
-const MINUTES_PER_HOUR: f64 = 60.0;
-const HOURS_PER_DAY: f64 = 24.0;
-
 /// Footer text for human-readable HTTP endpoints.
 pub const FOOTER_TEXT: &str = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now";
 
@@ -44,17 +39,6 @@ pub async fn health_handler(State(state): State<SharedState>) -> impl IntoRespon
         "Cache update failed"
     };
 
-    // Calculate uptime
-    let uptime_seconds = state.health_stats.get_uptime_seconds();
-    let uptime_hours = uptime_seconds as f64 / SECONDS_PER_HOUR;
-    let uptime_str = if uptime_hours < 1.0 {
-        format!("{:.1} minutes", uptime_hours * MINUTES_PER_HOUR)
-    } else if uptime_hours < HOURS_PER_DAY {
-        format!("{:.1} hours", uptime_hours)
-    } else {
-        format!("{:.1} days", uptime_hours / HOURS_PER_DAY)
-    };
-
     // Render plain-text table from HealthStats
     let table = state.health_stats.render_table();
 
@@ -66,9 +50,7 @@ pub async fn health_handler(State(state): State<SharedState>) -> impl IntoRespon
     (
         status,
         [("Content-Type", "text/plain; charset=utf-8")],
-        format!(
-            "{message}\n\nUptime: {uptime_str}\n\n{table}\n{buffer_section}\n{FOOTER_TEXT}"
-        ),
+        format!("{message}\n\n{table}\n{buffer_section}\n{FOOTER_TEXT}"),
     )
 }
 

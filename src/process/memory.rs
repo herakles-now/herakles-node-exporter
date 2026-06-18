@@ -8,6 +8,9 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::config::Config;
+use crate::cli::Args;
+
 /// Static atomics for tracking maximum buffer usage across parse operations.
 /// These track the actual bytes read through each buffer type.
 pub static MAX_IO_BUFFER_BYTES: AtomicU64 = AtomicU64::new(0);
@@ -20,6 +23,25 @@ pub struct BufferConfig {
     pub io_kb: usize,
     pub smaps_kb: usize,
     pub smaps_rollup_kb: usize,
+}
+
+/// Resolve effective buffer sizes (CLI > config > defaults).
+pub fn resolve_buffer_config(cfg: &Config, args: &Args) -> BufferConfig {
+    let io_kb = args
+        .io_buffer_kb
+        .unwrap_or_else(|| cfg.io_buffer_kb.unwrap_or(256));
+    let smaps_kb = args
+        .smaps_buffer_kb
+        .unwrap_or_else(|| cfg.smaps_buffer_kb.unwrap_or(512));
+    let smaps_rollup_kb = args
+        .smaps_rollup_buffer_kb
+        .unwrap_or_else(|| cfg.smaps_rollup_buffer_kb.unwrap_or(256));
+
+    BufferConfig {
+        io_kb,
+        smaps_kb,
+        smaps_rollup_kb,
+    }
 }
 
 /// Helper to update maximum buffer usage atomically.

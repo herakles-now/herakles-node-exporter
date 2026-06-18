@@ -23,7 +23,9 @@ pub async fn subgroups_handler(State(state): State<SharedState>) -> impl IntoRes
     // Collect unique (group, subgroup) pairs with their associated process name matches
     let mut subgroup_data: HashMap<(String, String), Vec<String>> = HashMap::new();
 
-    for (process_name, (group, subgroup)) in SUBGROUPS.iter() {
+    let subgroups_guard = SUBGROUPS.read().unwrap();
+
+    for (process_name, (group, subgroup)) in subgroups_guard.iter() {
         let key = (group.to_string(), subgroup.to_string());
         subgroup_data
             .entry(key)
@@ -53,7 +55,7 @@ pub async fn subgroups_handler(State(state): State<SharedState>) -> impl IntoRes
     writeln!(
         out,
         "Total patterns: {} | Unique subgroups: {}",
-        SUBGROUPS.len(),
+        subgroups_guard.len(),
         unique_subgroups_count
     )
     .ok();

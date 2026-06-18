@@ -1,11 +1,11 @@
 //! Prometheus metrics definitions for herakles-node-exporter.
 //!
-//! This module defines all the Prometheus metrics according to the system specification.
+//! This module defines all the Prometheus metrics according to the German specification.
 //! Only system-level and group-level metrics are exposed. No per-process or Top-N metrics.
 
-use prometheus::{Counter, CounterVec, Gauge, GaugeVec, Opts, Registry};
+use prometheus::{Gauge, GaugeVec, Opts, Registry};
 
-/// Collection of Prometheus metrics according to system specification.
+/// Collection of Prometheus metrics according to German specification.
 #[derive(Clone)]
 pub struct MemoryMetrics {
     // ========== CPU System Metrics ==========
@@ -16,7 +16,7 @@ pub struct MemoryMetrics {
     pub system_cpu_load_1: Gauge,
     pub system_cpu_load_5: Gauge,
     pub system_cpu_load_15: Gauge,
-    pub system_cpu_psi_wait_seconds_total: Counter,
+    pub system_cpu_psi_wait_seconds_total: Gauge,
 
     // ========== Memory System Metrics ==========
     pub system_memory_total_bytes: Gauge,
@@ -25,21 +25,21 @@ pub struct MemoryMetrics {
     pub system_memory_cached_bytes: Gauge,
     pub system_memory_buffers_bytes: Gauge,
     pub system_swap_used_ratio: Gauge,
-    pub system_memory_psi_wait_seconds_total: Counter,
+    pub system_memory_psi_wait_seconds_total: Gauge,
 
     // ========== Disk System Metrics ==========
-    pub system_disk_read_bytes_total: CounterVec, // labels: device
-    pub system_disk_write_bytes_total: CounterVec, // labels: device
-    pub system_disk_io_time_seconds_total: CounterVec, // labels: device
+    pub system_disk_read_bytes_total: GaugeVec, // labels: device
+    pub system_disk_write_bytes_total: GaugeVec, // labels: device
+    pub system_disk_io_time_seconds_total: GaugeVec, // labels: device
     pub system_disk_queue_depth: GaugeVec,      // labels: device
-    pub system_disk_psi_wait_seconds_total: Counter,
+    pub system_disk_psi_wait_seconds_total: Gauge,
 
     // ========== Network System Metrics ==========
-    pub system_net_rx_bytes_total: CounterVec,  // labels: iface
-    pub system_net_tx_bytes_total: CounterVec,  // labels: iface
-    pub system_net_rx_errors_total: CounterVec, // labels: iface
-    pub system_net_tx_errors_total: CounterVec, // labels: iface
-    pub system_net_drops_total: CounterVec,     // labels: iface, direction
+    pub system_net_rx_bytes_total: GaugeVec,  // labels: iface
+    pub system_net_tx_bytes_total: GaugeVec,  // labels: iface
+    pub system_net_rx_errors_total: GaugeVec, // labels: iface
+    pub system_net_tx_errors_total: GaugeVec, // labels: iface
+    pub system_net_drops_total: GaugeVec,     // labels: iface, direction
 
     // ========== Filesystem System Metrics ==========
     pub system_filesystem_avail_bytes: GaugeVec,  // labels: device, mountpoint, fstype
@@ -78,14 +78,14 @@ pub struct MemoryMetrics {
     pub system_uname_info: GaugeVec, // labels: sysname, release, version, machine
 
     // ========== Kernel/Runtime Metrics ==========
-    pub system_context_switches_total: Counter,
-    pub system_forks_total: Counter,
+    pub system_context_switches_total: Gauge,
+    pub system_forks_total: Gauge,
     pub system_open_fds: GaugeVec, // labels: state (allocated/max)
     pub system_entropy_bits: Gauge,
 
     // ========== CPU Group Metrics ==========
     pub group_cpu_usage_ratio: GaugeVec, // labels: group, subgroup
-    pub group_cpu_seconds_total: CounterVec, // labels: group, subgroup, mode
+    pub group_cpu_seconds_total: GaugeVec, // labels: group, subgroup, mode
 
     // ========== Memory Group Metrics ==========
     pub group_memory_rss_bytes: GaugeVec, // labels: group, subgroup
@@ -93,21 +93,15 @@ pub struct MemoryMetrics {
     pub group_memory_swap_bytes: GaugeVec, // labels: group, subgroup
 
     // ========== Block I/O Group Metrics ==========
-    pub group_blkio_read_bytes_total: CounterVec, // labels: group, subgroup
-    pub group_blkio_write_bytes_total: CounterVec, // labels: group, subgroup
-    pub group_blkio_read_syscalls_total: CounterVec, // labels: group, subgroup
-    pub group_blkio_write_syscalls_total: CounterVec, // labels: group, subgroup
+    pub group_blkio_read_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_blkio_write_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_blkio_read_syscalls_total: GaugeVec, // labels: group, subgroup
+    pub group_blkio_write_syscalls_total: GaugeVec, // labels: group, subgroup
 
     // ========== Network Group Metrics ==========
-    pub group_net_rx_bytes_total: CounterVec, // labels: group, subgroup
-    pub group_net_tx_bytes_total: CounterVec, // labels: group, subgroup
+    pub group_net_rx_bytes_total: GaugeVec, // labels: group, subgroup
+    pub group_net_tx_bytes_total: GaugeVec, // labels: group, subgroup
     pub group_net_connections_total: GaugeVec, // labels: group, subgroup, proto
-
-    // ========== eBPF Performance Metrics ==========
-    pub ebpf_events_processed_total: Counter,
-    pub ebpf_events_dropped_total: Counter,
-    pub ebpf_maps_count: Gauge,
-    pub ebpf_cpu_seconds_total: Counter,
 }
 
 impl MemoryMetrics {
@@ -142,7 +136,7 @@ impl MemoryMetrics {
             "herakles_system_cpu_load_15",
             "System load average over 15 minutes",
         )?;
-        let system_cpu_psi_wait_seconds_total = Counter::new(
+        let system_cpu_psi_wait_seconds_total = Gauge::new(
             "herakles_system_cpu_psi_wait_seconds_total",
             "Total CPU pressure stall time in seconds",
         )?;
@@ -172,27 +166,27 @@ impl MemoryMetrics {
             "herakles_system_swap_used_ratio",
             "System swap memory used ratio (0.0-1.0)",
         )?;
-        let system_memory_psi_wait_seconds_total = Counter::new(
+        let system_memory_psi_wait_seconds_total = Gauge::new(
             "herakles_system_memory_psi_wait_seconds_total",
             "Total memory pressure stall time in seconds",
         )?;
 
         // ========== Disk System Metrics ==========
-        let system_disk_read_bytes_total = CounterVec::new(
+        let system_disk_read_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_disk_read_bytes_total",
                 "Total bytes read from disk device",
             ),
             &["device"],
         )?;
-        let system_disk_write_bytes_total = CounterVec::new(
+        let system_disk_write_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_disk_write_bytes_total",
                 "Total bytes written to disk device",
             ),
             &["device"],
         )?;
-        let system_disk_io_time_seconds_total = CounterVec::new(
+        let system_disk_io_time_seconds_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_disk_io_time_seconds_total",
                 "Total time spent doing I/Os in seconds",
@@ -206,41 +200,41 @@ impl MemoryMetrics {
             ),
             &["device"],
         )?;
-        let system_disk_psi_wait_seconds_total = Counter::new(
+        let system_disk_psi_wait_seconds_total = Gauge::new(
             "herakles_system_disk_psi_wait_seconds_total",
             "Total I/O pressure stall time in seconds",
         )?;
 
         // ========== Network System Metrics ==========
-        let system_net_rx_bytes_total = CounterVec::new(
+        let system_net_rx_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_net_rx_bytes_total",
                 "Total bytes received per network interface",
             ),
             &["iface"],
         )?;
-        let system_net_tx_bytes_total = CounterVec::new(
+        let system_net_tx_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_net_tx_bytes_total",
                 "Total bytes transmitted per network interface",
             ),
             &["iface"],
         )?;
-        let system_net_rx_errors_total = CounterVec::new(
+        let system_net_rx_errors_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_net_rx_errors_total",
                 "Total receive errors per network interface",
             ),
             &["iface"],
         )?;
-        let system_net_tx_errors_total = CounterVec::new(
+        let system_net_tx_errors_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_net_tx_errors_total",
                 "Total transmit errors per network interface",
             ),
             &["iface"],
         )?;
-        let system_net_drops_total = CounterVec::new(
+        let system_net_drops_total = GaugeVec::new(
             Opts::new(
                 "herakles_system_net_drops_total",
                 "Total dropped packets per network interface and direction",
@@ -347,11 +341,11 @@ impl MemoryMetrics {
         )?;
 
         // ========== Kernel/Runtime Metrics ==========
-        let system_context_switches_total = Counter::new(
+        let system_context_switches_total = Gauge::new(
             "herakles_system_context_switches_total",
             "Total number of context switches",
         )?;
-        let system_forks_total = Counter::new(
+        let system_forks_total = Gauge::new(
             "herakles_system_forks_total",
             "Total number of forks since boot",
         )?;
@@ -373,7 +367,7 @@ impl MemoryMetrics {
             ),
             &["group", "subgroup"],
         )?;
-        let group_cpu_seconds_total = CounterVec::new(
+        let group_cpu_seconds_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_cpu_seconds_total",
                 "Total CPU time in seconds per group, subgroup, and mode",
@@ -405,28 +399,28 @@ impl MemoryMetrics {
         )?;
 
         // ========== Block I/O Group Metrics ==========
-        let group_blkio_read_bytes_total = CounterVec::new(
+        let group_blkio_read_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_blkio_read_bytes_total",
                 "Total bytes read per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
-        let group_blkio_write_bytes_total = CounterVec::new(
+        let group_blkio_write_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_blkio_write_bytes_total",
                 "Total bytes written per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
-        let group_blkio_read_syscalls_total = CounterVec::new(
+        let group_blkio_read_syscalls_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_blkio_read_syscalls_total",
                 "Total read syscalls per group and subgroup",
             ),
             &["group", "subgroup"],
         )?;
-        let group_blkio_write_syscalls_total = CounterVec::new(
+        let group_blkio_write_syscalls_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_blkio_write_syscalls_total",
                 "Total write syscalls per group and subgroup",
@@ -435,14 +429,14 @@ impl MemoryMetrics {
         )?;
 
         // ========== Network Group Metrics ==========
-        let group_net_rx_bytes_total = CounterVec::new(
+        let group_net_rx_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_net_rx_bytes_total",
                 "Total bytes received per group and subgroup (eBPF)",
             ),
             &["group", "subgroup"],
         )?;
-        let group_net_tx_bytes_total = CounterVec::new(
+        let group_net_tx_bytes_total = GaugeVec::new(
             Opts::new(
                 "herakles_group_net_tx_bytes_total",
                 "Total bytes transmitted per group and subgroup (eBPF)",
@@ -455,24 +449,6 @@ impl MemoryMetrics {
                 "Total network connections per group, subgroup, and protocol",
             ),
             &["group", "subgroup", "proto"],
-        )?;
-
-        // ========== eBPF Performance Metrics ==========
-        let ebpf_events_processed_total = Counter::new(
-            "herakles_ebpf_events_processed_total",
-            "Total number of eBPF events processed",
-        )?;
-        let ebpf_events_dropped_total = Counter::new(
-            "herakles_ebpf_events_dropped_total",
-            "Total number of eBPF events dropped",
-        )?;
-        let ebpf_maps_count = Gauge::new(
-            "herakles_ebpf_maps_count",
-            "Number of eBPF programs currently loaded",
-        )?;
-        let ebpf_cpu_seconds_total = Counter::new(
-            "herakles_ebpf_cpu_seconds_total",
-            "Total CPU time used by eBPF programs in seconds",
         )?;
 
         // ========== Register All Metrics ==========
@@ -560,12 +536,6 @@ impl MemoryMetrics {
         registry.register(Box::new(group_net_tx_bytes_total.clone()))?;
         registry.register(Box::new(group_net_connections_total.clone()))?;
 
-        // eBPF Performance Metrics
-        registry.register(Box::new(ebpf_events_processed_total.clone()))?;
-        registry.register(Box::new(ebpf_events_dropped_total.clone()))?;
-        registry.register(Box::new(ebpf_maps_count.clone()))?;
-        registry.register(Box::new(ebpf_cpu_seconds_total.clone()))?;
-
         Ok(Self {
             system_cpu_usage_ratio,
             system_cpu_idle_ratio,
@@ -627,34 +597,55 @@ impl MemoryMetrics {
             group_net_rx_bytes_total,
             group_net_tx_bytes_total,
             group_net_connections_total,
-            ebpf_events_processed_total,
-            ebpf_events_dropped_total,
-            ebpf_maps_count,
-            ebpf_cpu_seconds_total,
         })
     }
 
-    /// Resets only group-level metrics (not system-level metrics).
-    /// 
-    /// This is more efficient than `reset()` because it only resets metrics that
-    /// change frequently based on process aggregation. System-level metrics like
-    /// disk stats, network stats, and hardware info are queried fresh on every
-    /// scrape and don't need to be reset.
-    /// 
-    /// Use this method in the metrics handler to reduce unnecessary work and
-    /// improve scrape performance.
-    /// 
-    /// Note: Counter metrics are never reset as they are monotonically increasing.
-    pub fn reset_group_metrics(&self) {
-        // CPU Group - only reset usage ratio (gauge), not cpu_seconds_total (counter)
+    /// Resets all GaugeVec metrics to zero (used before updating with fresh data).
+    pub fn reset(&self) {
+        // Disk System
+        self.system_disk_read_bytes_total.reset();
+        self.system_disk_write_bytes_total.reset();
+        self.system_disk_io_time_seconds_total.reset();
+        self.system_disk_queue_depth.reset();
+
+        // Network System
+        self.system_net_rx_bytes_total.reset();
+        self.system_net_tx_bytes_total.reset();
+        self.system_net_rx_errors_total.reset();
+        self.system_net_tx_errors_total.reset();
+        self.system_net_drops_total.reset();
+
+        // Filesystem System
+        self.system_filesystem_avail_bytes.reset();
+        self.system_filesystem_size_bytes.reset();
+        self.system_filesystem_files.reset();
+        self.system_filesystem_files_free.reset();
+
+        // Hardware/Host
+        self.system_cpu_temp_celsius.reset();
+        self.system_uname_info.reset();
+
+        // Kernel/Runtime
+        self.system_open_fds.reset();
+
+        // CPU Group
         self.group_cpu_usage_ratio.reset();
+        self.group_cpu_seconds_total.reset();
 
         // Memory Group
         self.group_memory_rss_bytes.reset();
         self.group_memory_pss_bytes.reset();
         self.group_memory_swap_bytes.reset();
 
-        // Network Group - only reset connections (gauge)
+        // Block I/O Group
+        self.group_blkio_read_bytes_total.reset();
+        self.group_blkio_write_bytes_total.reset();
+        self.group_blkio_read_syscalls_total.reset();
+        self.group_blkio_write_syscalls_total.reset();
+
+        // Network Group
+        self.group_net_rx_bytes_total.reset();
+        self.group_net_tx_bytes_total.reset();
         self.group_net_connections_total.reset();
     }
 }

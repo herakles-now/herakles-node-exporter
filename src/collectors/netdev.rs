@@ -10,13 +10,9 @@ use std::fs;
 #[derive(Debug, Clone)]
 pub struct NetDevStats {
     pub receive_bytes: u64,
-    #[allow(dead_code)] // Collected but not yet exposed as metric
-    pub receive_packets: u64,
     pub receive_errs: u64,
     pub receive_drop: u64,
     pub transmit_bytes: u64,
-    #[allow(dead_code)] // Collected but not yet exposed as metric
-    pub transmit_packets: u64,
     pub transmit_errs: u64,
     pub transmit_drop: u64,
 }
@@ -52,11 +48,9 @@ pub fn read_netdev_stats() -> Result<HashMap<String, NetDevStats>, String> {
 
         let net_stat = NetDevStats {
             receive_bytes: values[0].parse().unwrap_or(0),
-            receive_packets: values[1].parse().unwrap_or(0),
             receive_errs: values[2].parse().unwrap_or(0),
             receive_drop: values[3].parse().unwrap_or(0),
             transmit_bytes: values[8].parse().unwrap_or(0),
-            transmit_packets: values[9].parse().unwrap_or(0),
             transmit_errs: values[10].parse().unwrap_or(0),
             transmit_drop: values[11].parse().unwrap_or(0),
         };

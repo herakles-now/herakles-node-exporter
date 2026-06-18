@@ -18,7 +18,7 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 
 #[cfg(feature = "health-actix")]
-use herakles_proc_mem_exporter::{AppConfig, BufferHealthConfig, HealthState};
+use herakles_node_exporter::{AppConfig, BufferHealthConfig, HealthState};
 
 #[cfg(feature = "health-actix")]
 use std::sync::Arc;

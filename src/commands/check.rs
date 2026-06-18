@@ -89,12 +89,59 @@ pub fn command_check(
         }
     }
 
+    // Check database configuration and access
+    if all || config.ringbuffer.enable_database {
+        println!("\n🗄️  Checking sled database persistence...");
+        if config.ringbuffer.enable_database {
+            println!(
+                "   ⚙️  Database path: {}",
+                config.ringbuffer.database_path.display()
+            );
+            println!("   ⚙️  Retention limit: {}", config.ringbuffer.retention);
+
+            // 1. Try to create the parent directory if it does not exist
+            if let Some(parent) = config.ringbuffer.database_path.parent() {
+                match std::fs::create_dir_all(parent) {
+                    Ok(_) => {
+                        println!(
+                            "   ✅ Database directory is accessible/created: {}",
+                            parent.display()
+                        );
+                    }
+                    Err(e) => {
+                        println!(
+                            "   ❌ Failed to create/access database directory {}: {}",
+                            parent.display(),
+                            e
+                        );
+                        all_ok = false;
+                    }
+                }
+            }
+
+            // 2. Try to open the database to check if it's writeable and not locked by another process
+            match sled::open(&config.ringbuffer.database_path) {
+                Ok(_db) => {
+                    println!("   ✅ Sled database opened successfully (write check passed, no lock contention)");
+                }
+                Err(e) => {
+                    println!("   ❌ Failed to open sled database: {}", e);
+                    println!("      ⚠️  Note: Sled requires exclusive file locks. If another instance of herakles-node-exporter is running, it will fail to open.");
+                    all_ok = false;
+                }
+            }
+        } else {
+            println!("   ℹ️  Database persistence is disabled in configuration.");
+        }
+    }
+
     // Check subgroups configuration
     println!("\n📊 Checking subgroups configuration...");
-    if SUBGROUPS.is_empty() {
+    let subgroups_guard = SUBGROUPS.read().unwrap();
+    if subgroups_guard.is_empty() {
         println!("   ⚠️  No subgroups configured");
     } else {
-        println!("   ✅ {} subgroups loaded", SUBGROUPS.len());
+        println!("   ✅ {} subgroups loaded", subgroups_guard.len());
     }
 
     println!("\n📋 Summary:");

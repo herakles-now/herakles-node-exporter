@@ -12,7 +12,7 @@ fn test_health_stats_new_fields_initialize() {
     let stats = HealthStats::new();
 
     // Test eBPF Performance fields
-    let (ep_cur, ep_avg, ep_max, ep_min, ep_count) = stats.ebpf_events_per_sec.snapshot();
+    let (ep_cur, ep_avg, _ep_max, _ep_min, ep_count) = stats.ebpf_events_per_sec.snapshot();
     assert_eq!(ep_count, 0);
     assert_eq!(ep_cur, 0.0);
     assert_eq!(ep_avg, 0.0);
@@ -345,10 +345,7 @@ fn test_thread_safety_of_new_fields() {
 
     // FD usage should be the last value written
     let open_fds = stats.open_fds.load(std::sync::atomic::Ordering::Relaxed);
-    assert!(
-        open_fds >= 10 && open_fds <= 19,
-        "Open FDs should be in range"
-    );
+    assert!((10..=19).contains(&open_fds), "Open FDs should be in range");
 
     let max_fds = stats.max_fds.load(std::sync::atomic::Ordering::Relaxed);
     assert_eq!(max_fds, 1000, "Max FDs should be 1000");

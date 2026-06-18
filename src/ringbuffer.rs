@@ -3,26 +3,18 @@
 //! This module provides a fixed-size ringbuffer for storing historical
 //! metrics entries with predictable memory usage.
 
+use serde::{Deserialize, Serialize};
+
 /// Size of a single ringbuffer entry in bytes (256 bytes with extended top-N data).
 pub const ENTRY_SIZE_BYTES: usize = 256;
 
 /// Top process information stored in ringbuffer (24 bytes per entry).
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct TopProcessInfo {
     pub pid: u32,       // 4 bytes - Process ID
     pub value: u32,     // 4 bytes - Value in KB (for memory) or scaled (for CPU)
     pub name: [u8; 16], // 16 bytes - Null-terminated process name
-}
-
-impl Default for TopProcessInfo {
-    fn default() -> Self {
-        Self {
-            pid: 0,
-            value: 0,
-            name: [0; 16],
-        }
-    }
 }
 
 impl TopProcessInfo {
@@ -54,7 +46,7 @@ impl TopProcessInfo {
 
 /// Fixed-size entry for ringbuffer storage (256 bytes with extended data).
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct RingbufferEntry {
     // Existing aggregated metrics (40 bytes)
     pub timestamp: i64,        // 8 bytes - Unix timestamp
@@ -127,22 +119,6 @@ impl Ringbuffer {
 
         result
     }
-
-    /// Returns the current number of entries in the buffer.
-    pub fn len(&self) -> usize {
-        self.count
-    }
-
-    /// Returns the maximum capacity of the buffer.
-    pub fn capacity(&self) -> usize {
-        self.capacity
-    }
-
-    /// Returns true if the buffer is empty.
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.count == 0
-    }
 }
 
 #[cfg(test)]
@@ -159,8 +135,7 @@ mod tests {
     fn test_ringbuffer_push_and_read() {
         let mut rb = Ringbuffer::new(3);
 
-        assert_eq!(rb.len(), 0);
-        assert_eq!(rb.capacity(), 3);
+        assert!(rb.get_history().is_empty());
 
         // Push first entry
         rb.push(RingbufferEntry {
@@ -176,7 +151,6 @@ mod tests {
             _padding: [],
         });
 
-        assert_eq!(rb.len(), 1);
         let history = rb.get_history();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].timestamp, 1000);
@@ -240,9 +214,6 @@ mod tests {
     #[test]
     fn test_ringbuffer_empty() {
         let rb = Ringbuffer::new(10);
-        assert_eq!(rb.len(), 0);
-        assert!(rb.is_empty());
-
         let history = rb.get_history();
         assert_eq!(history.len(), 0);
     }

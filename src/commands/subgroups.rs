@@ -16,7 +16,9 @@ pub fn command_subgroups(
 
     let mut groups_map: HashMap<&str, Vec<(&str, &str)>> = HashMap::new();
 
-    for (process_name, (group, subgroup)) in SUBGROUPS.iter() {
+    let subgroups_guard = SUBGROUPS.read().unwrap();
+
+    for (process_name, (group, subgroup)) in subgroups_guard.iter() {
         groups_map
             .entry(group)
             .or_default()
@@ -58,7 +60,7 @@ pub fn command_subgroups(
 
     println!(
         "\n📋 Total: {} process patterns in {} groups",
-        SUBGROUPS.len(),
+        subgroups_guard.len(),
         groups_map.len()
     );
 

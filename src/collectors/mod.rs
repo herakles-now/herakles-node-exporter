@@ -4,6 +4,6 @@
 //! disk I/O, filesystem usage, network interface statistics, and thermal sensors.
 
 pub mod diskstats;
-pub mod filesystem;
 pub mod netdev;
 pub mod thermal;
+pub mod filesystem;

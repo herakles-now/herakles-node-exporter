@@ -5,7 +5,9 @@
 //! - Installed binary from /opt/herakles/bin
 //! - Configuration file from /etc/herakles
 //! - Directory structure with proper safety checks
-//! - Note: System user 'herakles' is intentionally NOT removed for safety
+//!
+//! Note: The installer does not create a dedicated system user (the service
+//! runs as root for eBPF), so there is no user to remove.
 
 use std::fs;
 use std::io::{self, Write};
@@ -40,7 +42,6 @@ pub fn command_uninstall(skip_confirm: bool) -> Result<(), Box<dyn std::error::E
         println!("   • Directories: /opt/herakles/, /var/lib/herakles/, /run/herakles/");
         println!("   • BPF maps: /sys/fs/bpf/herakles/");
         println!("   • Kernel parameter config: /etc/sysctl.d/99-herakles-ebpf.conf");
-        println!("\n   Note: System user 'herakles' will NOT be removed (intentional)");
         println!("\nAre you sure you want to continue? (yes/no): ");
         
         io::stdout().flush()?;
@@ -88,12 +89,6 @@ pub fn command_uninstall(skip_confirm: bool) -> Result<(), Box<dyn std::error::E
     // 8. Remove kernel parameter configuration
     println!("🗑️  Removing kernel parameter configuration...");
     remove_sysctl_config()?;
-
-    // 9. Note about user/group
-    println!("\nℹ️  Note: System user and group 'herakles' were NOT removed.");
-    println!("   This is intentional for safety. To remove manually:");
-    println!("   • sudo userdel herakles");
-    println!("   • sudo groupdel herakles");
 
     println!("\n✅ Uninstallation complete!");
     println!("   System has been returned to pre-installation state.");

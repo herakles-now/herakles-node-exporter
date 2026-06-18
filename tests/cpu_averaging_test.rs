@@ -9,7 +9,7 @@ fn test_cpu_percent_averaging_logic() {
     // If we have 3 processes with CPU percentages: 10%, 20%, 30%
     // The sum is 60%, but the average should be 20%
 
-    let cpu_percentages = vec![10.0_f32, 20.0_f32, 30.0_f32];
+    let cpu_percentages = [10.0_f32, 20.0_f32, 30.0_f32];
     let process_count = cpu_percentages.len();
 
     // Simulate the aggregation logic
@@ -30,7 +30,7 @@ fn test_cpu_percent_averaging_logic() {
 #[test]
 fn test_cpu_percent_averaging_single_process() {
     // Edge case: single process should have average equal to its own value
-    let cpu_percentages = vec![15.5_f32];
+    let cpu_percentages = [15.5_f32];
     let process_count = cpu_percentages.len();
 
     let cpu_percent_sum: f64 = cpu_percentages.iter().map(|&x| x as f64).sum();
@@ -61,7 +61,7 @@ fn test_cpu_percent_averaging_zero_processes() {
 #[test]
 fn test_cpu_percent_averaging_high_values() {
     // Test with high CPU values to ensure no overflow issues
-    let cpu_percentages = vec![95.0_f32, 98.0_f32, 100.0_f32];
+    let cpu_percentages = [95.0_f32, 98.0_f32, 100.0_f32];
     let process_count = cpu_percentages.len();
 
     let cpu_percent_sum: f64 = cpu_percentages.iter().map(|&x| x as f64).sum();

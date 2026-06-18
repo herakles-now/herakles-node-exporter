@@ -8,14 +8,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-/// Temperature reading with sensor name.
-#[allow(dead_code)] // Struct defined for internal use, used via collect_temperatures
-#[derive(Debug, Clone)]
-pub struct ThermalReading {
-    pub sensor_name: String,
-    pub temperature_celsius: f64,
-}
-
 /// Reads temperature from all thermal zones.
 /// Returns a HashMap mapping sensor name to temperature in Celsius.
 pub fn read_thermal_zones() -> Result<HashMap<String, f64>, String> {

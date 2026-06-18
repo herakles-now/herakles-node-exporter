@@ -24,8 +24,8 @@ pub use details::details_handler;
 pub use doc::doc_handler;
 pub use health::health_handler;
 pub use html::{
-    html_config_handler, html_details_handler, html_docs_handler, html_health_handler,
-    html_index_handler, html_subgroups_handler,
+    html_config_handler, html_dashboard_handler, html_details_handler, html_docs_handler,
+    html_health_handler, html_index_handler, html_subgroups_handler,
 };
 pub use metrics::metrics_handler;
 pub use root::root_handler;

@@ -27,7 +27,7 @@ pub enum ConfigFormat {
 }
 
 /// Main CLI arguments structure
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(
     name = "herakles-node-exporter",
     about = "Prometheus exporter for per-process RSS/PSS/USS and CPU metrics",
@@ -183,10 +183,26 @@ pub struct Args {
     /// Disable TCP connection state tracking via eBPF
     #[arg(long, conflicts_with = "enable_tcp_tracking")]
     pub disable_tcp_tracking: bool,
+
+    /// Enable persistent metrics history via sled database
+    #[arg(long, conflicts_with = "disable_database")]
+    pub enable_database: bool,
+
+    /// Disable persistent metrics history via sled database
+    #[arg(long, conflicts_with = "enable_database")]
+    pub disable_database: bool,
+
+    /// Path to persistent database (defaults to /var/lib/herakles/metrics.db)
+    #[arg(long)]
+    pub database_path: Option<PathBuf>,
+
+    /// Database retention limit (e.g., "24h", "100MB", "1GB")
+    #[arg(long)]
+    pub database_retention: Option<String>,
 }
 
 /// Subcommands for additional functionality
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
     /// Validate configuration and system requirements
     Check {
@@ -275,12 +291,5 @@ pub enum Commands {
         /// Skip confirmation prompt
         #[arg(long)]
         yes: bool,
-    },
-
-    /// Check runtime requirements and permissions
-    CheckRequirements {
-        /// Also check eBPF requirements
-        #[arg(long)]
-        ebpf: bool,
     },
 }

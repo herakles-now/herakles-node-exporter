@@ -1,12 +1,14 @@
 //! System-wide installation command for herakles-node-exporter.
 //!
 //! This module implements the `install` subcommand which sets up:
-//! - System user and group (herakles)
 //! - Directory structure with proper permissions
 //! - Binary installation to /opt/herakles/bin
 //! - Default configuration file
 //! - systemd service with eBPF capabilities
 //! - Automatic service enablement and start
+//!
+//! Note: The service runs as root (required for full /proc access and eBPF),
+//! so no dedicated system user is created.
 
 use crate::config::Config;
 use nix::unistd::{chown, Gid, Uid};
@@ -23,14 +25,22 @@ use std::process::Command;
 /// This allows monitoring of all processes (including root-owned) and proper
 /// eBPF program loading.
 ///
-/// CRITICAL FIX: SystemCallFilter and SeccompProfile are explicitly disabled
-/// to prevent SIGSYS (Signal 31) crashes when loading eBPF programs. The bpf()
-/// syscall is essential for eBPF functionality and was previously blocked by
-/// implicit seccomp filters activated by ReadWritePaths=.
+/// Security hardening for eBPF:
+/// Instead of disabling all sandboxing (which leaves the root service fully
+/// unconfined), the unit applies systemd hardening selectively and explicitly
+/// allows the eBPF-relevant syscalls. The previous SIGSYS (Signal 31) crashes
+/// were caused by a SystemCallFilter that did not include bpf()/perf_event_open();
+/// these are now allow-listed, and SystemCallErrorNumber=EPERM ensures any future
+/// violation returns an error instead of killing the process.
 ///
-/// Security note: Since eBPF requires elevated privileges, security should be
-/// enforced at the deployment level through network isolation, host hardening,
-/// and proper access controls rather than systemd restrictions.
+/// Directives deliberately omitted because they break eBPF or the sysctl
+/// ExecStartPre steps:
+///   - ProtectKernelTunables=true  -> would mount /proc/sys read-only (blocks sysctl)
+///   - MemoryDenyWriteExecute=true -> risky with the BPF JIT / libbpf
+///   - RestrictNamespaces=true     -> enable only after verification on target kernel
+///
+/// On kernels older than 5.8 (no CAP_BPF / CAP_PERFMON), reduce
+/// CapabilityBoundingSet to just CAP_SYS_ADMIN.
 const SYSTEMD_UNIT: &str = r#"[Unit]
 Description=Herakles Node Exporter
 After=network-online.target
@@ -41,11 +51,22 @@ Type=simple
 User=root
 Group=root
 
-# CRITICAL: Disable SystemCallFilter to allow bpf() syscall for eBPF
-# Without these settings, the process crashes with SIGSYS (Signal 31)
-SystemCallFilter=
-SeccompProfile=
-NoNewPrivileges=no
+# Security hardening — eBPF-compatible.
+# bpf() and perf_event_open() are explicitly added to the @system-service
+# allow-list; without them the process would be killed with SIGSYS (Signal 31).
+SystemCallFilter=@system-service bpf perf_event_open
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_SYS_ADMIN CAP_SYS_RESOURCE CAP_DAC_READ_SEARCH CAP_SYS_PTRACE
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+ProtectSystem=strict
+ReadWritePaths=/var/lib/herakles /run/herakles /sys/fs/bpf/herakles
+# Read access for kprobe/tracepoint attachment
+ReadOnlyPaths=/sys/kernel/debug /sys/kernel/tracing
+ProtectHome=true
+ProtectKernelModules=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
 
 # Verify and re-apply kernel parameters before starting
 # The -q flag makes sysctl quiet, but it still sets the parameters and will
@@ -86,22 +107,19 @@ pub fn command_install(no_service: bool, force: bool) -> Result<(), Box<dyn std:
         std::process::exit(1);
     }
 
-    // 3. Skip user & group creation - not needed for root operation
-    println!("👤 Skipping user creation - will run as root for full /proc access");
-
-    // 4. Create directory structure
+    // 3. Create directory structure
     println!("📁 Creating directory structure...");
     create_directories()?;
 
-    // 5. Copy binary
+    // 4. Copy binary
     println!("📦 Installing binary...");
     install_binary()?;
 
-    // 6. Generate default config
+    // 5. Generate default config
     println!("⚙️  Generating default configuration...");
     generate_default_config()?;
 
-    // 7. Install systemd service
+    // 6. Install systemd service
     if !no_service {
         println!("🔧 Installing systemd service...");
         install_systemd_service()?;
@@ -116,7 +134,7 @@ pub fn command_install(no_service: bool, force: bool) -> Result<(), Box<dyn std:
         systemd_start_service()?;
     }
 
-    // 8. Configure kernel parameters
+    // 7. Configure kernel parameters
     configure_kernel_parameters()?;
 
     println!("\n✅ Installation complete!");
@@ -242,13 +260,11 @@ fn configure_kernel_parameters() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Persist to /etc/sysctl.d/99-herakles-ebpf.conf
-    let sysctl_config = format!(
-        "# Kernel parameters for Herakles Node Exporter eBPF\n\
+    let sysctl_config = "# Kernel parameters for Herakles Node Exporter eBPF\n\
          # Generated by herakles-node-exporter installer\n\
          \n\
          kernel.unprivileged_bpf_disabled = 1\n\
-         kernel.perf_event_paranoid = 2\n"
-    );
+         kernel.perf_event_paranoid = 2\n";
 
     match fs::write("/etc/sysctl.d/99-herakles-ebpf.conf", sysctl_config) {
         Ok(_) => println!("   ✅ Persistent configuration written to /etc/sysctl.d/99-herakles-ebpf.conf"),
@@ -315,16 +331,23 @@ mod tests {
         assert!(SYSTEMD_UNIT.contains("Group=root"));
         assert!(SYSTEMD_UNIT.contains("/opt/herakles/bin/herakles-node-exporter"));
         assert!(SYSTEMD_UNIT.contains("/sys/fs/bpf/herakles"));
-        
-        // CRITICAL: Ensure SystemCallFilter is explicitly disabled for eBPF
-        // Verify that these directives are set to empty values (which disables them)
-        assert!(SYSTEMD_UNIT.contains("SystemCallFilter=\n"));
-        assert!(SYSTEMD_UNIT.contains("SeccompProfile=\n"));
-        assert!(SYSTEMD_UNIT.contains("NoNewPrivileges=no"));
-        
-        // Ensure ReadWritePaths is removed (it triggers implicit seccomp filters)
-        assert!(!SYSTEMD_UNIT.contains("ReadWritePaths"));
-        
+
+        // CRITICAL: The SystemCallFilter must allow-list the eBPF syscalls,
+        // otherwise the process is killed with SIGSYS (Signal 31).
+        assert!(SYSTEMD_UNIT.contains("SystemCallFilter=@system-service bpf perf_event_open"));
+        // Violations should return an error, not kill the process.
+        assert!(SYSTEMD_UNIT.contains("SystemCallErrorNumber=EPERM"));
+        // The all-permissive escape hatches must no longer be present.
+        assert!(!SYSTEMD_UNIT.contains("SystemCallFilter=\n"));
+        assert!(!SYSTEMD_UNIT.contains("NoNewPrivileges=no"));
+
+        // Hardening directives must be present for the root service.
+        assert!(SYSTEMD_UNIT.contains("CapabilityBoundingSet=CAP_BPF"));
+        assert!(SYSTEMD_UNIT.contains("ProtectSystem=strict"));
+        // Writable state dirs must be carved out, including the BPF pin path.
+        assert!(SYSTEMD_UNIT.contains("ReadWritePaths="));
+        assert!(SYSTEMD_UNIT.contains("/sys/fs/bpf/herakles"));
+
         // Ensure kernel parameter verification is present
         assert!(SYSTEMD_UNIT.contains("kernel.unprivileged_bpf_disabled=1"));
         assert!(SYSTEMD_UNIT.contains("kernel.perf_event_paranoid=2"));

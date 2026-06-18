@@ -89,99 +89,312 @@ fn html_header(title: &str) -> String {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title} - Herakles Node Exporter</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
-        .container {{ max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-        h1 {{ color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }}
-        h2 {{ color: #555; margin-top: 30px; }}
-        h3 {{ color: #666; }}
-        h4 {{ color: #777; margin-top: 20px; }}
-        h5 {{ color: #888; }}
-        nav {{ background: #007bff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }}
-        nav a {{ color: white; text-decoration: none; margin-right: 20px; font-weight: 500; }}
-        nav a:hover {{ text-decoration: underline; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-        th {{ background: #007bff; color: white; padding: 12px; text-align: left; font-weight: 600; }}
-        td {{ padding: 10px; border-bottom: 1px solid #ddd; }}
-        tr:hover {{ background: #f8f9fa; }}
-        .metric {{ display: inline-block; margin: 10px 20px 10px 0; padding: 10px 15px; background: #e9ecef; border-radius: 4px; }}
-        .metric-label {{ font-weight: 600; color: #555; }}
-        .metric-value {{ font-size: 1.2em; color: #007bff; }}
-        .footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9em; }}
-        .status-ok {{ color: #28a745; font-weight: 600; }}
-        .status-warn {{ color: #ffc107; font-weight: 600; }}
-        .status-error {{ color: #dc3545; font-weight: 600; }}
-        a {{ color: #007bff; text-decoration: none; }}
-        a:hover {{ text-decoration: underline; }}
-        .info-box {{ background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; padding: 15px; margin: 20px 0; }}
-        code {{ background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }}
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }}
+        h1 {{
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            border-bottom: none;
+            padding-bottom: 0;
+        }}
+        h2 {{
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+        }}
+        h3 {{
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #cbd5e1;
+        }}
+        h4 {{ color: #94a3b8; margin-top: 20px; }}
+        h5 {{ color: #64748b; }}
+        p {{
+            color: #94a3b8;
+            line-height: 1.6;
+        }}
+        nav {{
+            background: #1e293b;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }}
+        nav a {{
+            color: #94a3b8;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }}
+        nav a:hover {{
+            color: #f8fafc;
+            background: #334155;
+            text-decoration: none;
+        }}
+        table {{
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            margin: 20px 0;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }}
+        th {{
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-bottom: 2px solid #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        td {{
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 0.925rem;
+        }}
+        tr:last-child td {{
+            border-bottom: none;
+        }}
+        tr:hover td {{
+            background: #24334a;
+            color: #f8fafc;
+        }}
+        .metric {{
+            display: inline-block;
+            margin: 10px 20px 10px 0;
+            padding: 16px 20px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            vertical-align: top;
+        }}
+        .metric:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            border-color: #475569;
+        }}
+        .metric-label {{
+            font-weight: 500;
+            color: #94a3b8;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }}
+        .metric-value {{
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #38bdf8;
+        }}
+        .quick-links {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }}
+        .link-card {{
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid #334155;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: block;
+        }}
+        .link-card:hover {{
+            border-color: #6366f1;
+            background: #24334a;
+            text-decoration: none;
+        }}
+        .link-card h3 {{
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .link-card p {{
+            margin: 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }}
+        .footer {{
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #334155;
+            color: #64748b;
+            font-size: 0.875rem;
+            text-align: center;
+        }}
+        .status-badge {{
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        .status-ok {{
+            background: #065f46;
+            color: #34d399;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+        .status-warn {{
+            background: #78350f;
+            color: #fbbf24;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+        .status-error {{
+            background: #7f1d1d;
+            color: #f87171;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+        a {{
+            color: #60a5fa;
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }}
+        a:hover {{
+            color: #93c5fd;
+            text-decoration: underline;
+        }}
+        .info-box {{
+            background: #1e293b;
+            border-left: 4px solid #3b82f6;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            color: #cbd5e1;
+        }}
+        code {{
+            background: #0f172a;
+            color: #f472b6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.875rem;
+            border: 1px solid #334155;
+        }}
         
         /* Collapsible sections styling */
-        details {{ 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
-            margin: 10px 0; 
-            padding: 0;
-            background: #f9f9f9; 
+        details {{
+            border: 1px solid #334155;
+            border-radius: 12px;
+            margin: 16px 0;
+            overflow: hidden;
+            background: #1e293b;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }}
-        summary {{ 
-            cursor: pointer; 
-            font-weight: 600; 
-            padding: 15px; 
-            background: #007bff; 
-            color: white; 
-            border-radius: 4px;
+        summary {{
+            cursor: pointer;
+            font-weight: 600;
+            padding: 16px 20px;
+            background: #1e293b;
+            color: #f8fafc;
             user-select: none;
+            border-bottom: 1px solid transparent;
+            transition: all 0.2s ease;
         }}
-        summary:hover {{ 
-            background: #0056b3; 
+        details[open] summary {{
+            background: #24334a;
+            border-bottom-color: #334155;
         }}
-        .subgroup-content {{ 
-            padding: 20px; 
-            margin-top: 0;
-            background: white;
+        summary:hover {{
+            background: #24334a;
+        }}
+        .subgroup-content {{
+            padding: 24px;
+            background: #0f172a;
         }}
         
         /* Sortable process table styling */
         .sortable-process-table {{
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             margin: 20px 0;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
         }}
         
         .sortable-process-table th {{
-            background: #007bff;
-            color: white;
-            padding: 12px;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 14px 16px;
             text-align: left;
             cursor: pointer;
             user-select: none;
             position: relative;
             font-weight: 600;
+            border-bottom: 2px solid #334155;
         }}
         
         .sortable-process-table th:hover {{
-            background: #0056b3;
+            background: #24334a;
         }}
         
         .sortable-process-table th.sorted-desc::after {{
-            content: ' ▼';
-            position: absolute;
-            right: 8px;
+            content: ' ↓';
+            font-weight: bold;
         }}
         
         .sortable-process-table th.sorted-asc::after {{
-            content: ' ▲';
-            position: absolute;
-            right: 8px;
+            content: ' ↑';
+            font-weight: bold;
         }}
         
         .sortable-process-table td {{
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            color: #cbd5e1;
         }}
         
         .sortable-process-table tr:hover {{
-            background: #f8f9fa;
+            background: #24334a;
         }}
         
         .rank {{
@@ -192,21 +405,225 @@ fn html_header(title: &str) -> String {
         
         /* CPU heatmap colors */
         .cpu-critical {{
-            background: #ff4444 !important;
-            color: white !important;
-            font-weight: bold !important;
+            background: #991b1b !important;
+            color: #fca5a5 !important;
+            font-weight: 600 !important;
         }}
         
         .cpu-high {{
-            background: #ffaa44 !important;
+            background: #78350f !important;
+            color: #fde047 !important;
+            font-weight: 600 !important;
         }}
         
         .cpu-medium {{
-            background: #ffff88 !important;
+            background: #1e293b !important;
+            color: #fbbf24 !important;
         }}
         
         .cpu-low {{
             background: transparent;
+        }}
+        .dashboard-shell {{
+            display: grid;
+            gap: 20px;
+        }}
+        .dashboard-toolbar {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 18px 20px;
+            background: #182235;
+            border: 1px solid #334155;
+            border-radius: 8px;
+        }}
+        .dashboard-toolbar h1 {{
+            margin: 0 0 6px 0;
+        }}
+        .dashboard-toolbar p {{
+            margin: 0;
+        }}
+        .dashboard-actions {{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }}
+        .dashboard-button {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-weight: 600;
+            text-decoration: none;
+        }}
+        .dashboard-button.primary {{
+            background: #0f766e;
+            border-color: #14b8a6;
+            color: #ecfeff;
+        }}
+        .dashboard-kpis {{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }}
+        .dashboard-card {{
+            background: #182235;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 18px;
+            min-width: 0;
+        }}
+        .dashboard-card h2,
+        .dashboard-card h3 {{
+            margin: 0 0 14px 0;
+            border: 0;
+            padding: 0;
+        }}
+        .kpi-label {{
+            display: block;
+            color: #94a3b8;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }}
+        .kpi-value {{
+            color: #f8fafc;
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }}
+        .kpi-detail {{
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }}
+        .trend-up {{ color: #34d399; }}
+        .trend-warn {{ color: #fbbf24; }}
+        .trend-down {{ color: #fb7185; }}
+        .dashboard-main {{
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+            gap: 20px;
+            align-items: start;
+        }}
+        .chart {{
+            height: 260px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding: 18px 8px 8px 8px;
+            border-radius: 8px;
+            background:
+                linear-gradient(to top, rgba(148, 163, 184, 0.14) 1px, transparent 1px) 0 0 / 100% 25%,
+                #0f172a;
+            border: 1px solid #263449;
+        }}
+        .chart-bar {{
+            flex: 1;
+            min-width: 18px;
+            border-radius: 6px 6px 0 0;
+            background: linear-gradient(180deg, #38bdf8, #0f766e);
+            position: relative;
+        }}
+        .chart-bar.warn {{
+            background: linear-gradient(180deg, #f59e0b, #b45309);
+        }}
+        .chart-bar.hot {{
+            background: linear-gradient(180deg, #fb7185, #be123c);
+        }}
+        .chart-labels {{
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 10px;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 10px;
+            text-align: center;
+        }}
+        .split-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }}
+        .group-row {{
+            display: grid;
+            grid-template-columns: minmax(96px, 1fr) 64px 76px;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #263449;
+        }}
+        .group-row:last-child {{
+            border-bottom: 0;
+        }}
+        .bar-track {{
+            height: 8px;
+            border-radius: 999px;
+            background: #0f172a;
+            overflow: hidden;
+            border: 1px solid #263449;
+        }}
+        .bar-fill {{
+            height: 100%;
+            background: #38bdf8;
+        }}
+        .bar-fill.green {{ background: #34d399; }}
+        .bar-fill.amber {{ background: #fbbf24; }}
+        .bar-fill.red {{ background: #fb7185; }}
+        .event-list {{
+            display: grid;
+            gap: 12px;
+        }}
+        .event {{
+            display: grid;
+            grid-template-columns: 86px minmax(0, 1fr);
+            gap: 12px;
+            color: #cbd5e1;
+        }}
+        .event-time {{
+            color: #64748b;
+            font-size: 0.85rem;
+        }}
+        .mini-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }}
+        .mini-stat {{
+            background: #0f172a;
+            border: 1px solid #263449;
+            border-radius: 8px;
+            padding: 14px;
+        }}
+        .mini-stat strong {{
+            display: block;
+            color: #f8fafc;
+            font-size: 1.25rem;
+            margin-bottom: 4px;
+        }}
+        @media (max-width: 980px) {{
+            .dashboard-kpis,
+            .dashboard-main,
+            .split-grid,
+            .mini-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .chart {{
+                gap: 6px;
+            }}
+            .chart-labels {{
+                gap: 6px;
+                font-size: 0.68rem;
+            }}
         }}
     </style>
 </head>
@@ -214,6 +631,7 @@ fn html_header(title: &str) -> String {
 <div class="container">
 <nav>
     <a href="/html/">Home</a>
+    <a href="/html/dashboard">Dashboard</a>
     <a href="/html/details">Details</a>
     <a href="/html/subgroups">Subgroups</a>
     <a href="/html/health">Health</a>
@@ -250,6 +668,22 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Escape text for HTML output.
+fn escape_html(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
 /// Render interactive HTML table for a specific subgroup.
 async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Html<String> {
     use chrono::{Local, TimeZone};
@@ -260,9 +694,10 @@ async fn render_interactive_table(state: SharedState, subgroup_name: &str) -> Ht
     // Parse subgroup_name once (format: "group:subgroup")
     let subgroup_parts: Vec<&str> = subgroup_name.split(':').collect();
     if subgroup_parts.len() != 2 {
-        return Html(format!(
+        return Html(
             r#"<!DOCTYPE html><html><body><h1>Error</h1><p>Invalid subgroup format. Expected "group:subgroup"</p></body></html>"#
-        ));
+                .to_string(),
+        );
     }
     let expected_group = subgroup_parts[0];
     let expected_subgroup = subgroup_parts[1];
@@ -606,6 +1041,7 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
     html.push_str("<p>Human-friendly HTML views for inspection and debugging</p>\n");
 
     html.push_str("<h2>Overview</h2>\n");
+    html.push_str(r#"<div class="metric-grid">"#);
     html.push_str(r#"<div class="metric"><span class="metric-label">Version:</span> <span class="metric-value">0.1.0</span></div>"#);
     html.push_str(&format!(
         r#"<div class="metric"><span class="metric-label">Hostname:</span> <span class="metric-value">{}</span></div>"#,
@@ -625,18 +1061,311 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
         stats.max_memory_mb
     ));
 
+    // Database info card(s)
+    if stats.db_enabled {
+        html.push_str(r#"<div class="metric"><span class="metric-label">Database Persistence:</span> <span class="metric-value"><span class="status-badge status-ok">Enabled</span></span></div>"#);
+        html.push_str(&format!(
+            r#"<div class="metric"><span class="metric-label">Database Size:</span> <span class="metric-value">{}</span></div>"#,
+            format_bytes(stats.db_size_bytes)
+        ));
+        html.push_str(&format!(
+            r#"<div class="metric"><span class="metric-label">Database Entries:</span> <span class="metric-value">{}</span></div>"#,
+            stats.db_entries
+        ));
+        html.push_str(&format!(
+            r#"<div class="metric"><span class="metric-label">Retention Policy:</span> <span class="metric-value" style="font-size: 1.1rem; line-height: 1.5;">{}</span></div>"#,
+            state.config().ringbuffer.retention
+        ));
+    } else {
+        html.push_str(r#"<div class="metric"><span class="metric-label">Database Persistence:</span> <span class="metric-value"><span class="status-badge status-error">Disabled</span></span></div>"#);
+    }
+    html.push_str(r#"</div>"#);
+
     html.push_str("<h2>Quick Links</h2>\n");
-    html.push_str("<ul>\n");
-    html.push_str(r#"<li><a href="/html/details">Details</a> - Ringbuffer statistics and subgroup history</li>"#);
-    html.push_str(
-        r#"<li><a href="/html/subgroups">Subgroups</a> - All subgroups with current metrics</li>"#,
-    );
-    html.push_str(
-        r#"<li><a href="/html/health">Health</a> - Exporter health and buffer status</li>"#,
-    );
-    html.push_str(r#"<li><a href="/html/config">Config</a> - Current configuration</li>"#);
-    html.push_str(r#"<li><a href="/html/docs">Docs</a> - Documentation and FAQ</li>"#);
-    html.push_str("</ul>\n");
+    html.push_str(r#"<div class="quick-links">"#);
+    html.push_str(r#"<a href="/html/dashboard" class="link-card"><h3>Dashboard</h3><p>Visual mockup with example system, subgroup, process, and exporter health data.</p></a>"#);
+    html.push_str(r#"<a href="/html/details" class="link-card"><h3>📈 Details</h3><p>Persistent database stats, ringbuffer info, and per-subgroup historical charts/tables.</p></a>"#);
+    html.push_str(r#"<a href="/html/subgroups" class="link-card"><h3>📊 Subgroups</h3><p>Real-time overview of all classified subgroups and their aggregated CPU & memory usage.</p></a>"#);
+    html.push_str(r#"<a href="/html/health" class="link-card"><h3>❤️ Health</h3><p>Check the exporter daemon's health metrics, event rate, buffer safety, and internal performance stats.</p></a>"#);
+    html.push_str(r#"<a href="/html/config" class="link-card"><h3>⚙️ Configuration</h3><p>Inspect the running configuration including resource limits, eBPF flags, and server bindings.</p></a>"#);
+    html.push_str(r#"<a href="/html/docs" class="link-card"><h3>📖 Documentation</h3><p>Read the built-in user guide, API references, FAQ, and Prometheus integration walkthrough.</p></a>"#);
+    html.push_str(r#"</div>"#);
+
+    html.push_str(&html_footer());
+    Html(html)
+}
+
+/// Handler for /html/dashboard with live overview data.
+#[instrument(skip(state))]
+pub async fn html_dashboard_handler(State(state): State<SharedState>) -> impl IntoResponse {
+    debug!("Processing /html/dashboard request");
+    state.health_stats.record_http_request();
+
+    let cache = state.cache.read().await;
+    let ringbuffer_stats = state.ringbuffer_manager.get_stats();
+    let cache_ttl = state.config().cache_ttl.unwrap_or(0);
+    let current_time = chrono::Utc::now().timestamp() as f64;
+
+    let mut processes: Vec<&ProcMem> = cache.processes.values().collect();
+    processes.sort_by(|a, b| {
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let tracked_processes = processes.len();
+    let tracked_rss: u64 = processes.iter().map(|proc| proc.rss).sum();
+    let tracked_cpu: f32 = processes.iter().map(|proc| proc.cpu_percent).sum();
+    let high_cpu_count = processes
+        .iter()
+        .filter(|proc| proc.cpu_percent >= CPU_MEDIUM_THRESHOLD)
+        .count();
+
+    let mut subgroup_data: std::collections::HashMap<String, (u64, f32, usize)> =
+        std::collections::HashMap::new();
+    for proc in &processes {
+        let (group, subgroup) = classify_process_raw(&proc.name);
+        let key = format!("{}:{}", group, subgroup);
+        let entry = subgroup_data.entry(key).or_insert((0, 0.0, 0));
+        entry.0 += proc.rss;
+        entry.1 += proc.cpu_percent;
+        entry.2 += 1;
+    }
+
+    let mut subgroups: Vec<_> = subgroup_data.into_iter().collect();
+    subgroups.sort_by_key(|entry| std::cmp::Reverse(entry.1 .0));
+    let max_subgroup_rss = subgroups.first().map(|entry| entry.1 .0).unwrap_or(0);
+
+    let mut chart_bars = String::new();
+    for proc in processes.iter().take(12) {
+        let height = proc.cpu_percent.clamp(3.0, 100.0);
+        let class = if proc.cpu_percent >= CPU_CRITICAL_THRESHOLD {
+            " hot"
+        } else if proc.cpu_percent >= CPU_HIGH_THRESHOLD {
+            " warn"
+        } else {
+            ""
+        };
+        chart_bars.push_str(&format!(
+            r#"<div class="chart-bar{}" style="height: {:.1}%" title="{}: {:.2}% CPU"></div>"#,
+            class,
+            height,
+            escape_html(&proc.name),
+            proc.cpu_percent
+        ));
+    }
+    if chart_bars.is_empty() {
+        chart_bars.push_str(
+            r#"<div class="chart-bar" style="height: 3%" title="No process data"></div>"#,
+        );
+    }
+
+    let mut chart_labels = String::new();
+    for proc in processes.iter().take(12) {
+        chart_labels.push_str(&format!("<span>{}</span>", proc.pid));
+    }
+    if chart_labels.is_empty() {
+        chart_labels.push_str("<span>none</span>");
+    }
+
+    let mut subgroup_rows = String::new();
+    for (subgroup_key, (rss, cpu, count)) in subgroups.iter().take(5) {
+        let width = if max_subgroup_rss > 0 {
+            ((*rss as f64 / max_subgroup_rss as f64) * 100.0).clamp(3.0, 100.0)
+        } else {
+            3.0
+        };
+        let fill_class = if *cpu >= CPU_HIGH_THRESHOLD {
+            "red"
+        } else if *cpu >= CPU_MEDIUM_THRESHOLD {
+            "amber"
+        } else {
+            "green"
+        };
+        subgroup_rows.push_str(&format!(
+            r#"<div class="group-row">
+                <strong><a href="/html/details?subgroup={}">{}</a></strong>
+                <div class="bar-track"><div class="bar-fill {}" style="width: {:.1}%"></div></div>
+                <span>{}</span>
+            </div>"#,
+            escape_html(subgroup_key),
+            escape_html(subgroup_key),
+            fill_class,
+            width,
+            format_bytes(*rss)
+        ));
+        subgroup_rows.push_str(&format!(
+            r#"<div class="kpi-detail" style="margin: -8px 0 8px 0;">{} processes, {:.2}% CPU</div>"#,
+            count, cpu
+        ));
+    }
+    if subgroup_rows.is_empty() {
+        subgroup_rows.push_str("<p>No subgroup data available yet.</p>");
+    }
+
+    let mut hot_process_rows = String::new();
+    for proc in processes.iter().take(6) {
+        let rates = calculate_io_rates(proc, current_time);
+        let io_rate = rates.read_bytes_per_sec
+            + rates.write_bytes_per_sec
+            + rates.rx_bytes_per_sec
+            + rates.tx_bytes_per_sec;
+        hot_process_rows.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td>{:.2}%</td><td>{}</td><td>{}/s</td></tr>\n",
+            escape_html(&proc.name),
+            proc.pid,
+            proc.cpu_percent,
+            format_bytes(proc.rss),
+            format_bytes(io_rate.max(0.0) as u64)
+        ));
+    }
+    if hot_process_rows.is_empty() {
+        hot_process_rows.push_str(
+            r#"<tr><td colspan="5"><em>No process data available yet.</em></td></tr>"#,
+        );
+    }
+
+    let success_rate = state.health_stats.get_scan_success_rate();
+    let (last_scan_duration, avg_scan_duration, _, _, scan_count) =
+        state.health_stats.scan_duration_seconds.snapshot();
+    let last_scan_time = state.health_stats.get_last_scan_time_str();
+    let exporter_status = if cache.update_success && cache.last_updated.is_some() {
+        "OK"
+    } else {
+        "ERROR"
+    };
+    let status_class = if exporter_status == "OK" {
+        "trend-up"
+    } else {
+        "trend-down"
+    };
+    let scan_detail = if scan_count > 0 {
+        format!("Last scan {:.2} ms at {}", last_scan_duration * 1000.0, last_scan_time)
+    } else {
+        "No scan completed yet".to_string()
+    };
+    let cache_age = cache
+        .last_updated
+        .map(|updated| format!("{:.2}s ago", updated.elapsed().as_secs_f64()))
+        .unwrap_or_else(|| "never".to_string());
+    let ebpf_status = if state.ebpf.is_some() {
+        "eBPF manager active"
+    } else {
+        "eBPF metrics unavailable"
+    };
+    let database_status = if ringbuffer_stats.db_enabled {
+        format!(
+            "Sled database: {}, {} entries",
+            format_bytes(ringbuffer_stats.db_size_bytes),
+            ringbuffer_stats.db_entries
+        )
+    } else {
+        "Sled database disabled".to_string()
+    };
+
+    let mut html = html_header("Dashboard Preview");
+    html.push_str(&format!(
+        r#"<div class="dashboard-shell">
+    <div class="dashboard-toolbar">
+        <div>
+            <h1>Dashboard</h1>
+            <p>Live overview from the current exporter cache and health statistics.</p>
+        </div>
+        <div class="dashboard-actions">
+            <a class="dashboard-button" href="/metrics">Metrics</a>
+            <a class="dashboard-button" href="/html/subgroups">Subgroups</a>
+            <a class="dashboard-button primary" href="/html/details">Details</a>
+        </div>
+    </div>
+
+    <section class="dashboard-kpis" aria-label="Key metrics">
+        <div class="dashboard-card">
+            <span class="kpi-label">Tracked CPU</span>
+            <div class="kpi-value">{tracked_cpu:.1}%</div>
+            <div class="kpi-detail">{high_cpu_count} processes above {cpu_medium_threshold:.0}% CPU</div>
+        </div>
+        <div class="dashboard-card">
+            <span class="kpi-label">Tracked RSS</span>
+            <div class="kpi-value">{tracked_rss}</div>
+            <div class="kpi-detail">Sum of cached process RSS</div>
+        </div>
+        <div class="dashboard-card">
+            <span class="kpi-label">Tracked Processes</span>
+            <div class="kpi-value">{tracked_processes}</div>
+            <div class="kpi-detail">{subgroup_count} active subgroups</div>
+        </div>
+        <div class="dashboard-card">
+            <span class="kpi-label">Exporter Health</span>
+            <div class="kpi-value">{exporter_status}</div>
+            <div class="kpi-detail {status_class}">Avg scan {avg_scan_ms:.2} ms</div>
+        </div>
+    </section>
+
+    <section class="dashboard-main">
+        <div class="dashboard-card">
+            <h2>Top CPU Processes</h2>
+            <div class="chart" role="img" aria-label="Current top CPU processes">
+                {chart_bars}
+            </div>
+            <div class="chart-labels">
+                {chart_labels}
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <h2>Top Subgroups</h2>
+            {subgroup_rows}
+        </div>
+    </section>
+
+    <section class="split-grid">
+        <div class="dashboard-card">
+            <h2>Hot Processes</h2>
+            <table>
+                <tr><th>Process</th><th>PID</th><th>CPU</th><th>RSS</th><th>I/O</th></tr>
+                {hot_process_rows}
+            </table>
+        </div>
+
+        <div class="dashboard-card">
+            <h2>Exporter Activity</h2>
+            <div class="mini-grid">
+                <div class="mini-stat"><strong>{success_rate:.2}%</strong><span>scan success</span></div>
+                <div class="mini-stat"><strong>{ringbuffer_ram}</strong><span>ringbuffer RAM</span></div>
+                <div class="mini-stat"><strong>{cache_ttl}s</strong><span>cache interval</span></div>
+            </div>
+            <h3 style="margin-top: 22px;">Live Activity</h3>
+            <div class="event-list">
+                <div class="event"><span class="event-time">{last_scan_time}</span><span>{scan_detail}</span></div>
+                <div class="event"><span class="event-time">{cache_age}</span><span>Cache contains {tracked_processes} processes and {subgroup_count} subgroups.</span></div>
+                <div class="event"><span class="event-time">storage</span><span>{database_status}</span></div>
+                <div class="event"><span class="event-time">io</span><span>{ebpf_status}</span></div>
+            </div>
+        </div>
+    </section>
+</div>"#,
+        tracked_cpu = tracked_cpu,
+        high_cpu_count = high_cpu_count,
+        cpu_medium_threshold = CPU_MEDIUM_THRESHOLD,
+        tracked_rss = format_bytes(tracked_rss),
+        tracked_processes = tracked_processes,
+        subgroup_count = subgroups.len(),
+        exporter_status = exporter_status,
+        status_class = status_class,
+        avg_scan_ms = avg_scan_duration * 1000.0,
+        chart_bars = chart_bars,
+        chart_labels = chart_labels,
+        subgroup_rows = subgroup_rows,
+        hot_process_rows = hot_process_rows,
+        success_rate = success_rate,
+        ringbuffer_ram = format_bytes(ringbuffer_stats.estimated_ram_bytes as u64),
+        cache_ttl = cache_ttl,
+        last_scan_time = last_scan_time,
+        scan_detail = escape_html(&scan_detail),
+        cache_age = escape_html(&cache_age),
+        database_status = escape_html(&database_status),
+        ebpf_status = escape_html(ebpf_status),
+    ));
 
     html.push_str(&html_footer());
     Html(html)
@@ -695,13 +1424,39 @@ pub async fn html_details_handler(
         stats.history_seconds,
         stats.history_seconds / 60
     ));
+    html.push_str(&format!(
+        "<tr><td>Database Persistence</td><td>{}</td></tr>\n",
+        if stats.db_enabled {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
+    ));
+    if stats.db_enabled {
+        html.push_str(&format!(
+            "<tr><td>Database Path</td><td><code>{}</code></td></tr>\n",
+            stats.db_path.as_deref().unwrap_or("")
+        ));
+        html.push_str(&format!(
+            "<tr><td>Database Size on Disk</td><td>{}</td></tr>\n",
+            format_bytes(stats.db_size_bytes)
+        ));
+        html.push_str(&format!(
+            "<tr><td>Database Total Entries</td><td>{}</td></tr>\n",
+            stats.db_entries
+        ));
+        html.push_str(&format!(
+            "<tr><td>Database Retention Limit</td><td>{}</td></tr>\n",
+            state.config().ringbuffer.retention
+        ));
+    }
     html.push_str("</table>\n");
 
     // Add expand/collapse all buttons
     html.push_str(r#"
 <div style="margin: 20px 0;">
-    <button onclick="expandAll()" style="padding: 10px 20px; margin-right: 10px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;">Expand All</button>
-    <button onclick="collapseAll()" style="padding: 10px 20px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px;">Collapse All</button>
+    <button onclick="expandAll()" style="padding: 10px 20px; margin-right: 10px; cursor: pointer; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 500;">Expand All</button>
+    <button onclick="collapseAll()" style="padding: 10px 20px; cursor: pointer; background: #4b5563; color: white; border: none; border-radius: 8px; font-weight: 500;">Collapse All</button>
 </div>
 <script>
 function expandAll() {
@@ -744,7 +1499,7 @@ function collapseAll() {
         html.push_str("<details>\n");
         html.push_str(&format!("<summary>{}</summary>\n", subgroup_name));
         html.push_str(r#"<div class="subgroup-content">"#);
-        html.push_str("\n");
+        html.push('\n');
 
         if !subgroup_processes.is_empty() {
             html.push_str("<h3>Current Live Snapshot</h3>\n");
@@ -807,7 +1562,7 @@ function collapseAll() {
                 r#"<table id="table-{}" class="sortable-process-table">"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
 
             // Table header
             html.push_str("<thead>\n<tr>\n");
@@ -815,62 +1570,62 @@ function collapseAll() {
                 r#"  <th onclick="sortSubgroupTable('{}', 'rank')">#</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'pid')">PID</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'name')">Name</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'timestamp')">Timestamp</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'cpu')" class="sorted-desc">CPU%</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'rss')">RSS</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'pss')">PSS</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'uss')">USS</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'blkio-read')">Blk Read</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'blkio-write')">Blk Write</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'net-rx')">Net RX</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str(&format!(
                 r#"  <th onclick="sortSubgroupTable('{}', 'net-tx')">Net TX</th>"#,
                 table_id
             ));
-            html.push_str("\n");
+            html.push('\n');
             html.push_str("</tr>\n</thead>\n");
 
             // Table body with all processes
@@ -938,11 +1693,11 @@ function collapseAll() {
                     current_timestamp,
                     proc.name
                 ));
-                html.push_str("\n");
+                html.push('\n');
 
                 // Rank column (will be populated by JavaScript)
                 html.push_str(r#"  <td class="rank"></td>"#);
-                html.push_str("\n");
+                html.push('\n');
 
                 // PID
                 html.push_str(&format!("  <td>{}</td>\n", proc.pid));
@@ -958,7 +1713,7 @@ function collapseAll() {
                     r#"  <td class="{}">{:.2}%</td>"#,
                     cpu_class, proc.cpu_percent
                 ));
-                html.push_str("\n");
+                html.push('\n');
 
                 // RSS
                 html.push_str(&format!(
@@ -1267,7 +2022,7 @@ pub async fn html_subgroups_handler(
 
     // Sort based on query parameter
     match params.sort.as_deref() {
-        Some("rss") => subgroups.sort_by(|a, b| b.1 .0.cmp(&a.1 .0)),
+        Some("rss") => subgroups.sort_by_key(|entry| std::cmp::Reverse(entry.1 .0)),
         Some("cpu") => subgroups.sort_by(|a, b| b.1 .3.partial_cmp(&a.1 .3).unwrap()),
         _ => subgroups.sort_by(|a, b| a.0.cmp(&b.0)), // Default: alphabetical
     }
@@ -1300,7 +2055,7 @@ pub async fn html_subgroups_handler(
             format_bytes(uss),
             cpu
         ));
-        html.push_str("\n");
+        html.push('\n');
     }
 
     html.push_str("</table>\n");
@@ -1316,6 +2071,7 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
 
     let cache = state.cache.read().await;
     let buffer_health = state.health_state.get_health();
+    let ringbuffer_stats = state.ringbuffer_manager.get_stats();
 
     let status = if cache.update_success && cache.last_updated.is_some() {
         "OK"
@@ -1350,8 +2106,10 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
         .health_stats
         .scan_failure_count
         .load(Ordering::Relaxed);
-    let (_, avg_duration, _, _, _) = state.health_stats.scan_duration_seconds.snapshot();
+    let (last_duration, avg_duration, max_duration, min_duration, duration_count) =
+        state.health_stats.scan_duration_seconds.snapshot();
     let (_, avg_processes, _, _, _) = state.health_stats.scanned_processes.snapshot();
+    let last_scan_time = state.health_stats.get_last_scan_time_str();
 
     html.push_str(&format!(
         "<tr><td>Total Scans</td><td>{}</td></tr>\n",
@@ -1368,6 +2126,30 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
     html.push_str(&format!(
         "<tr><td>Avg Duration</td><td>{:.2}ms</td></tr>\n",
         avg_duration * 1000.0
+    ));
+    html.push_str(&format!(
+        "<tr><td>Fastest Scan</td><td>{}</td></tr>\n",
+        if duration_count > 0 {
+            format!("{:.2}ms", min_duration * 1000.0)
+        } else {
+            "Never".to_string()
+        }
+    ));
+    html.push_str(&format!(
+        "<tr><td>Longest Scan</td><td>{}</td></tr>\n",
+        if duration_count > 0 {
+            format!("{:.2}ms", max_duration * 1000.0)
+        } else {
+            "Never".to_string()
+        }
+    ));
+    html.push_str(&format!(
+        "<tr><td>Last Scan</td><td>{}</td></tr>\n",
+        if duration_count > 0 {
+            format!("{:.2}ms at {}", last_duration * 1000.0, last_scan_time)
+        } else {
+            "Never".to_string()
+        }
     ));
     html.push_str(&format!(
         "<tr><td>Avg Processes Scanned</td><td>{:.0}</td></tr>\n",
@@ -1396,6 +2178,34 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
     ));
     html.push_str("</table>\n");
 
+    // Persistent Database Stats
+    html.push_str("<h2>Persistent Storage</h2>\n");
+    html.push_str("<table>\n");
+    html.push_str("<tr><th>Metric</th><th>Value</th></tr>\n");
+    html.push_str(&format!(
+        "<tr><td>Sled Database</td><td>{}</td></tr>\n",
+        if ringbuffer_stats.db_enabled {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
+    ));
+    if let Some(db_path) = &ringbuffer_stats.db_path {
+        html.push_str(&format!(
+            "<tr><td>Sled Path</td><td><code>{}</code></td></tr>\n",
+            db_path
+        ));
+    }
+    html.push_str(&format!(
+        "<tr><td>Sled Size on Disk</td><td>{}</td></tr>\n",
+        format_bytes(ringbuffer_stats.db_size_bytes)
+    ));
+    html.push_str(&format!(
+        "<tr><td>Sled Entries</td><td>{}</td></tr>\n",
+        ringbuffer_stats.db_entries
+    ));
+    html.push_str("</table>\n");
+
     // Buffer Health
     html.push_str("<h2>Buffer Health</h2>\n");
     html.push_str("<table>\n");
@@ -1414,7 +2224,7 @@ pub async fn html_health_handler(State(state): State<SharedState>) -> impl IntoR
             r#"<tr><td>{}</td><td>{}</td><td>{}</td><td class="{}">{}</td></tr>"#,
             buffer.name, buffer.current_kb, buffer.capacity_kb, status_class, buffer.status
         ));
-        html.push_str("\n");
+        html.push('\n');
     }
 
     html.push_str("</table>\n");
@@ -1492,7 +2302,8 @@ pub async fn html_config_handler(State(state): State<SharedState>) -> impl IntoR
     debug!("Processing /html/config request");
     state.health_stats.record_http_request();
 
-    let cfg = &state.config;
+    let config_guard = state.config();
+    let cfg = &*config_guard;
 
     let mut html = html_header("Configuration");
     html.push_str("<h1>Configuration</h1>\n");
@@ -1537,6 +2348,18 @@ pub async fn html_config_handler(State(state): State<SharedState>) -> impl IntoR
     html.push_str(&format!(
         "<tr><td>Max Entries per Subgroup</td><td>{}</td></tr>\n",
         cfg.ringbuffer.max_entries_per_subgroup
+    ));
+    html.push_str(&format!(
+        "<tr><td>Enable Database</td><td>{}</td></tr>\n",
+        cfg.ringbuffer.enable_database
+    ));
+    html.push_str(&format!(
+        "<tr><td>Database Path</td><td><code>{}</code></td></tr>\n",
+        cfg.ringbuffer.database_path.display()
+    ));
+    html.push_str(&format!(
+        "<tr><td>Database Retention Limit</td><td>{}</td></tr>\n",
+        cfg.ringbuffer.retention
     ));
     html.push_str("</table>\n");
 
