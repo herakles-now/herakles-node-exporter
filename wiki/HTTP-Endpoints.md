@@ -9,19 +9,19 @@ By default, the exporter listens on **port `9215`** and binds to **`0.0.0.0`**.
 
 | Endpoint | Method | Format | Description |
 |----------|--------|--------|-------------|
-| [`/`](#-root) | GET | HTML | Landing page with uptime info and endpoint list |
-| [`/metrics`](#-metrics) | GET | Text (Prometheus) | Prometheus metrics scrape endpoint |
-| [`/health`](#-health) | GET | Plain text | Exporter health statistics and buffer status |
-| [`/config`](#-config) | GET | Plain text | Active runtime configuration (read-only) |
-| [`/subgroups`](#-subgroups) | GET | Plain text / JSON | Detected process groups and subgroups |
-| [`/doc`](#-doc) | GET | Plain text | Full text documentation for metrics and concepts |
-| [`/docs`](#-docs--htmldocs) | GET | HTML | HTML documentation page |
-| [`/details`](#-details) | GET | Plain text | Ring buffer statistics and scrape history |
-| [`/html`](#-html--html) | GET | HTML | HTML index / navigation page |
-| [`/html/details`](#-htmldetails) | GET | HTML | Interactive view of subgroup history and ring buffer |
-| [`/html/subgroups`](#-htmlsubgroups) | GET | HTML | HTML view of detected groups and subgroups |
-| [`/html/health`](#-htmlhealth) | GET | HTML | HTML view of exporter health |
-| [`/html/config`](#-htmlconfig) | GET | HTML | HTML view of active runtime configuration |
+| [`/`](#--root) | GET | HTML | Landing page with uptime info and endpoint list |
+| [`/metrics`](#metrics--metrics) | GET | Text (Prometheus) | Prometheus metrics scrape endpoint |
+| [`/health`](#health--health) | GET | Plain text | Exporter health statistics and buffer status |
+| [`/config`](#config--configuration) | GET | Plain text | Active runtime configuration (read-only) |
+| [`/subgroups`](#subgroups--subgroups) | GET | Plain text / JSON | Detected process groups and subgroups |
+| [`/doc`](#doc--documentation-text) | GET | Plain text | Full text documentation for metrics and concepts |
+| [`/docs`](#docs--htmldocs--documentation-html) | GET | HTML | HTML documentation page |
+| [`/details`](#details--ring-buffer-details-text) | GET | Plain text | Ring buffer statistics and scrape history |
+| [`/html`](#html--html--html-index) | GET | HTML | HTML index / navigation page |
+| [`/html/details`](#htmldetails--ring-buffer-details-html) | GET | HTML | Interactive view of subgroup history and ring buffer |
+| [`/html/subgroups`](#htmlsubgroups--subgroups-html) | GET | HTML | HTML view of detected groups and subgroups |
+| [`/html/health`](#htmlhealth--health-html) | GET | HTML | HTML view of exporter health |
+| [`/html/config`](#htmlconfig--configuration-html) | GET | HTML | HTML view of active runtime configuration |
 
 > **Note:** The `/health` endpoint can be disabled via `enable_health: false` in the configuration.
 
@@ -108,7 +108,7 @@ Returns human-readable health and performance statistics of the exporter itself,
 curl http://localhost:9215/health
 ```
 
-> For a visual HTML version, use [`/html/health`](#-htmlhealth).
+> For a visual HTML version, use [`/html/health`](#htmlhealth--health-html).
 
 ---
 
@@ -118,7 +118,8 @@ curl http://localhost:9215/health
 - **Format:** Plain text
 - **Authentication:** None
 
-Displays the **active runtime configuration** of the exporter as a formatted text table. This is a read-only view — no configuration changes can be made via this endpoint.
+Displays the **active runtime configuration** of the exporter as a formatted text table. This is a read-only view — no
+configuration changes can be made via this endpoint.
 
 Shows all resolved configuration values including:
 - Server settings (bind address, port)
@@ -133,7 +134,7 @@ Shows all resolved configuration values including:
 curl http://localhost:9215/config
 ```
 
-> For a visual HTML version, use [`/html/config`](#-htmlconfig).
+> For a visual HTML version, use [`/html/config`](#htmlconfig--configuration-html).
 
 ---
 
@@ -143,7 +144,8 @@ curl http://localhost:9215/config
 - **Format:** Plain text (optionally JSON)
 - **Authentication:** None
 
-Lists all process **groups** and **subgroups** currently detected by the exporter's classification engine. Useful for verifying that your process filter configuration (`search_groups`, `search_subgroups`) is working as expected.
+Lists all process **groups** and **subgroups** currently detected by the exporter's classification engine. Useful for
+verifying that your process filter configuration (`search_groups`, `search_subgroups`) is working as expected.
 
 **Example:**
 
@@ -176,7 +178,7 @@ curl http://localhost:9215/doc
 curl http://localhost:9215/doc | less
 ```
 
-> For the rendered HTML version, use [`/docs`](#-docs--htmldocs).
+> For the rendered HTML version, use [`/docs`](#docs--htmldocs--documentation-html).
 
 ---
 
@@ -213,7 +215,7 @@ Exposes internal ring buffer statistics and scrape history data. Useful for:
 curl http://localhost:9215/details
 ```
 
-> For the interactive HTML view, use [`/html/details`](#-htmldetails).
+> For the interactive HTML view, use [`/html/details`](#htmldetails--ring-buffer-details-html).
 
 ---
 
@@ -239,7 +241,8 @@ curl http://localhost:9215/html
 - **Format:** HTML
 - **Authentication:** None
 
-An interactive HTML view of subgroup history and ring buffer data. Allows visual inspection of scrape timings, per-group trends, and internal buffer usage in the browser.
+An interactive HTML view of subgroup history and ring buffer data. Allows visual inspection of scrape timings,
+per-group trends, and internal buffer usage in the browser.
 
 **Example:**
 
@@ -282,7 +285,8 @@ HTML-rendered view of the active runtime configuration (same data as `/config`),
 
 ## TLS / HTTPS
 
-When TLS is enabled (`enable_tls: true`), **all endpoints** above are served over HTTPS instead of HTTP. The port does not change automatically — configure it explicitly via `port` if needed.
+When TLS is enabled (`enable_tls: true`), **all endpoints** above are served over HTTPS instead of HTTP. The port does
+not change automatically — configure it explicitly via `port` if needed.
 
 ```bash
 # With TLS enabled
@@ -340,4 +344,4 @@ curl http://localhost:9215/details
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now
+Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>

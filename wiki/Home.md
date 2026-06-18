@@ -1,6 +1,7 @@
 # Herakles Process Memory Exporter - Wiki
 
-Welcome to the Herakles Process Memory Exporter documentation! This wiki provides comprehensive information about installation, configuration, and usage of the exporter.
+Welcome to the Herakles Process Memory Exporter documentation! This wiki provides comprehensive information about
+installation, configuration, and usage of the exporter.
 
 ## 🚀 Quick Navigation
 
@@ -114,8 +115,8 @@ herakles_mem_group_rss_bytes{group="web",subgroup="nginx"} 419430400
 
 - Check the [Troubleshooting](Troubleshooting.md) guide
 - Open an issue on [GitHub](https://github.com/cansp-dev/herakles-node-exporter/issues)
-- Contact: exporter@herakles.now
+- Contact: <exporter@herakles.now>
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now
+Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>

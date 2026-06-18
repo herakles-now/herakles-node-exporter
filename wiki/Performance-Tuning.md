@@ -204,7 +204,7 @@ Typical scan times on different system sizes:
 | 500 | smaps_rollup | ~100ms | ~25MB |
 | 1000 | smaps_rollup | ~200ms | ~45MB |
 
-*Benchmarks on AMD Ryzen 7 3700X, NVMe SSD*
+Benchmarks measured on an AMD Ryzen 7 3700X with an NVMe SSD.
 
 ### Running Your Own Benchmark
 

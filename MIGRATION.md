@@ -221,7 +221,8 @@ If you encounter any issues during migration:
 
 ## Rollback
 
-If you need to rollback to the old metric names temporarily, use a previous version of the exporter until your queries and dashboards are updated.
+If you need to rollback to the old metric names temporarily, use a previous version of the exporter until your queries
+and dashboards are updated.
 
 ## New eBPF-Based Metrics (Optional Feature)
 

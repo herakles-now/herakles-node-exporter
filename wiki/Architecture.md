@@ -287,7 +287,7 @@ if let Err(e) = update_cache(&state).await {
 
 ## Memory Management
 
-### Shared Strings (Arc<str>)
+### Shared Strings (`Arc<str>`)
 
 Process names and classification labels use `Arc<str>` for:
 - Reduced memory allocation
@@ -357,4 +357,4 @@ Benefits:
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now
+Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>

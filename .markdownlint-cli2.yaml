@@ -1,7 +1,9 @@
 config:
-  # MD013 - Line length
+  # MD013 - Line length (line length is not meaningful inside tables or code blocks)
   MD013:
     line_length: 120
+    tables: false
+    code_blocks: false
   # MD022 - Headings should be surrounded by blank lines
   MD022: false
   # MD031 - Fenced code blocks should be surrounded by blank lines

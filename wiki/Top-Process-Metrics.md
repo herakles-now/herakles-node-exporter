@@ -1,10 +1,14 @@
 # Top Process Metrics
 
-This document describes the top-N process metrics exported by the Herakles Node Exporter. These metrics track the highest resource-consuming processes within each group/subgroup combination, providing visibility into the most impactful processes in your system.
+This document describes the top-N process metrics exported by the Herakles Node Exporter. These metrics track the
+highest resource-consuming processes within each group/subgroup combination, providing visibility into the most
+impactful processes in your system.
 
 ## Overview
 
-The top process metrics system identifies and tracks the top-3 processes by resource consumption within each group/subgroup. These metrics help you quickly identify resource bottlenecks and monitor the most significant processes in your infrastructure.
+The top process metrics system identifies and tracks the top-3 processes by resource consumption within each
+group/subgroup. These metrics help you quickly identify resource bottlenecks and monitor the most significant
+processes in your infrastructure.
 
 **Key Features:**
 - Tracks top-3 processes per group/subgroup by different resource dimensions (CPU, Memory, Disk I/O, Network I/O)
@@ -20,7 +24,8 @@ The top process metrics system identifies and tracks the top-3 processes by reso
 **Description:** Top-3 processes by CPU usage within each group/subgroup, expressed as a ratio (0.0 to 1.0)  
 **Data Source:** `/proc/[pid]/stat`
 
-This metric shows the CPU usage percentage of the most CPU-intensive processes. A value of 0.5 means the process is using 50% of a single CPU core. Values can exceed 1.0 on multi-core systems.
+This metric shows the CPU usage percentage of the most CPU-intensive processes. A value of 0.5 means the process is
+using 50% of a single CPU core. Values can exceed 1.0 on multi-core systems.
 
 **Labels:**
 - `group` - Classification group (e.g., "db", "web", "container")
@@ -57,7 +62,8 @@ herakles_top_cpu_process_usage_ratio{group="db"}
 **Description:** Cumulative CPU time (in seconds) for the top-3 CPU-consuming processes within each group/subgroup  
 **Data Source:** `/proc/[pid]/stat`
 
-This counter metric tracks the total CPU time consumed by top processes since they started. Useful for identifying long-running processes and analyzing CPU consumption trends over time.
+This counter metric tracks the total CPU time consumed by top processes since they started. Useful for identifying
+long-running processes and analyzing CPU consumption trends over time.
 
 **Labels:**
 - `group` - Classification group
@@ -97,7 +103,8 @@ herakles_top_cpu_process_seconds_total{subgroup="nginx",rank="1"}
 **Description:** Resident Set Size (RSS) in bytes for the top-3 memory-consuming processes within each group/subgroup  
 **Data Source:** `/proc/[pid]/statm`
 
-RSS represents the portion of a process's memory that is held in RAM. This includes all stack and heap memory, shared libraries that are currently in RAM, and memory-mapped files.
+RSS represents the portion of a process's memory that is held in RAM. This includes all stack and heap memory, shared
+libraries that are currently in RAM, and memory-mapped files.
 
 **Labels:**
 - `group` - Classification group
@@ -131,10 +138,12 @@ herakles_top_mem_process_rss_bytes > 1073741824
 ### herakles_top_mem_process_pss_bytes
 
 **Type:** Gauge  
-**Description:** Proportional Set Size (PSS) in bytes for the top-3 memory-consuming processes within each group/subgroup  
+**Description:** Proportional Set Size (PSS) in bytes for the top-3 memory-consuming processes within each
+group/subgroup
 **Data Source:** `/proc/[pid]/smaps_rollup`
 
-PSS is a more accurate memory accounting metric than RSS. It divides the size of shared memory pages proportionally among the processes sharing them. PSS provides a better estimate of a process's actual memory footprint.
+PSS is a more accurate memory accounting metric than RSS. It divides the size of shared memory pages proportionally
+among the processes sharing them. PSS provides a better estimate of a process's actual memory footprint.
 
 **Labels:**
 - `group` - Classification group
@@ -169,10 +178,12 @@ herakles_top_mem_process_pss_bytes{rank="1"} / 1024 / 1024
 ### herakles_top_blkio_process_read_bytes_total
 
 **Type:** Counter  
-**Description:** Cumulative bytes read from block devices by the top-3 I/O-intensive processes within each group/subgroup  
+**Description:** Cumulative bytes read from block devices by the top-3 I/O-intensive processes within each
+group/subgroup
 **Data Source:** `/proc/[pid]/io`
 
-Tracks the total number of bytes read from block storage devices (disks, SSDs) by processes. This counter includes all read operations regardless of caching.
+Tracks the total number of bytes read from block storage devices (disks, SSDs) by processes. This counter includes all
+read operations regardless of caching.
 
 **Labels:**
 - `group` - Classification group
@@ -208,10 +219,12 @@ rate(herakles_top_blkio_process_read_bytes_total[1m]) > 104857600
 ### herakles_top_blkio_process_write_bytes_total
 
 **Type:** Counter  
-**Description:** Cumulative bytes written to block devices by the top-3 I/O-intensive processes within each group/subgroup  
+**Description:** Cumulative bytes written to block devices by the top-3 I/O-intensive processes within each
+group/subgroup
 **Data Source:** `/proc/[pid]/io`
 
-Tracks the total number of bytes written to block storage devices. This is crucial for monitoring write-heavy workloads and identifying processes causing disk wear on SSDs.
+Tracks the total number of bytes written to block storage devices. This is crucial for monitoring write-heavy
+workloads and identifying processes causing disk wear on SSDs.
 
 **Labels:**
 - `group` - Classification group
@@ -246,15 +259,18 @@ rate(herakles_top_blkio_process_write_bytes_total[5m]) / rate(herakles_top_blkio
 
 ## Network Metrics
 
-These metrics require **eBPF support** to be enabled. See the [eBPF Configuration](../README.md#-ebpf-configuration-optional-advanced-feature) section for setup requirements.
+These metrics require **eBPF support** to be enabled. See the [eBPF
+Configuration](../README.md#-ebpf-configuration-optional-advanced-feature) section for setup requirements.
 
 ### herakles_top_net_process_rx_bytes_total
 
 **Type:** Counter  
-**Description:** Cumulative bytes received over the network by the top-3 network-intensive processes within each group/subgroup  
+**Description:** Cumulative bytes received over the network by the top-3 network-intensive processes within each
+group/subgroup
 **Data Source:** eBPF packet capture
 
-Tracks network receive (RX) traffic at the process level using eBPF tracing. This provides visibility into which processes are consuming network bandwidth for incoming data.
+Tracks network receive (RX) traffic at the process level using eBPF tracing. This provides visibility into which
+processes are consuming network bandwidth for incoming data.
 
 **Labels:**
 - `group` - Classification group
@@ -290,10 +306,12 @@ rate(herakles_top_net_process_rx_bytes_total[1m]) * 8 > 100000000
 ### herakles_top_net_process_tx_bytes_total
 
 **Type:** Counter  
-**Description:** Cumulative bytes transmitted over the network by the top-3 network-intensive processes within each group/subgroup  
+**Description:** Cumulative bytes transmitted over the network by the top-3 network-intensive processes within each
+group/subgroup
 **Data Source:** eBPF packet capture
 
-Tracks network transmit (TX) traffic at the process level. Essential for monitoring data egress, identifying bandwidth-heavy applications, and understanding network usage patterns.
+Tracks network transmit (TX) traffic at the process level. Essential for monitoring data egress, identifying
+bandwidth-heavy applications, and understanding network usage patterns.
 
 **Labels:**
 - `group` - Classification group

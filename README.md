@@ -4,16 +4,20 @@
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-MIT)
 [![Prometheus](https://img.shields.io/badge/prometheus-compatible-red)](https://prometheus.io/)
 
-A Prometheus exporter for Linux system metrics that aggregates per-process resource usage into named process groups — exposing stable, cardinality-safe time series at `/metrics` and full per-process forensic detail at `/html/details`.
+A Prometheus exporter for Linux system metrics that aggregates per-process resource usage into named process groups —
+exposing stable, cardinality-safe time series at `/metrics` and full per-process forensic detail at `/html/details`.
 
 ---
 
 ## What it does
 
-Herakles scrapes `/proc` on every request, classifies each running process into a `(group, subgroup)` pair using a static lookup table, and exposes two fundamentally different views of that data:
+Herakles scrapes `/proc` on every request, classifies each running process into a `(group, subgroup)` pair using a
+static lookup table, and exposes two fundamentally different views of that data:
 
-- **`/metrics`** — Prometheus scrape endpoint. All process data is aggregated into `(group, subgroup)` pairs before encoding. No PID labels, no process name labels. Safe to scrape continuously at any interval.
-- **`/html/details`** — Operator inspection endpoint. Full per-process breakdown with PIDs, USS, CPU%, I/O rates, and temporal anomaly classification. Intentionally not scraped by Prometheus.
+- **`/metrics`** — Prometheus scrape endpoint. All process data is aggregated into `(group, subgroup)` pairs before
+  encoding. No PID labels, no process name labels. Safe to scrape continuously at any interval.
+- **`/html/details`** — Operator inspection endpoint. Full per-process breakdown with PIDs, USS, CPU%, I/O rates, and
+  temporal anomaly classification. Intentionally not scraped by Prometheus.
 
 The separation is architectural and deliberate. See [Why this architecture?](#why-this-architecture) for the reasoning.
 
@@ -50,31 +54,52 @@ scrape_configs:
 
 ## Why this architecture?
 
-Most process-aware exporters expose per-PID label dimensions. This causes two well-understood problems: label cardinality explodes as processes restart and accumulate new PIDs, and the resulting time series are too fine-grained to be actionable in alert rules. An alert that fires on `process{pid="12345"}` is operationally useless — the PID changes every restart and the label set varies across hosts.
+Most process-aware exporters expose per-PID label dimensions. This causes two well-understood problems: label
+cardinality explodes as processes restart and accumulate new PIDs, and the resulting time series are too fine-grained
+to be actionable in alert rules. An alert that fires on `process{pid="12345"}` is operationally useless — the PID
+changes every restart and the label set varies across hosts.
 
-Herakles solves this by classifying every running process into a named `(group, subgroup)` pair at scrape time. `herakles_group_memory_rss_bytes{group="db",subgroup="postgres"}` means the same thing on every host and survives any number of postgres restarts without stale series accumulation. This makes it safe to write recording rules and multi-host federation queries over group metrics without cardinality concerns.
+Herakles solves this by classifying every running process into a named `(group, subgroup)` pair at scrape time.
+`herakles_group_memory_rss_bytes{group="db",subgroup="postgres"}` means the same thing on every host and survives any
+number of postgres restarts without stale series accumulation. This makes it safe to write recording rules and
+multi-host federation queries over group metrics without cardinality concerns.
 
-The human operator, however, needs the opposite: when an alert fires on `herakles_group_memory_rss_bytes`, they want to know *which* postgres process is responsible. For this, `/html/details` intentionally exposes high-cardinality data — PIDs, USS per process, CPU percentages — that would be unsafe in Prometheus but are perfectly appropriate for a forensic endpoint read by humans or automation on demand, never scraped continuously.
+The human operator, however, needs the opposite: when an alert fires on `herakles_group_memory_rss_bytes`, they want
+to know *which* postgres process is responsible. For this, `/html/details` intentionally exposes high-cardinality data
+— PIDs, USS per process, CPU percentages — that would be unsafe in Prometheus but are perfectly appropriate for a
+forensic endpoint read by humans or automation on demand, never scraped continuously.
 
-**The cache model follows from the same reasoning.** `/metrics` serves data from an in-memory cache refreshed at most every 5 seconds (`CACHE_UPDATE_THROTTLE_SECS`). A Prometheus scrape never blocks on `/proc` I/O: the scrape handler reads from cache while a background tokio task asynchronously updates it. Staleness on the order of seconds is irrelevant for a monitoring system.
+**The cache model follows from the same reasoning.** `/metrics` serves data from an in-memory cache refreshed at most
+every 5 seconds (`CACHE_UPDATE_THROTTLE_SECS`). A Prometheus scrape never blocks on `/proc` I/O: the scrape handler
+reads from cache while a background tokio task asynchronously updates it. Staleness on the order of seconds is
+irrelevant for a monitoring system.
 
 ---
 
 ## The Endpoints
 
-Every capability in Herakles is exposed twice: once as plain text or Prometheus format for machines and automation, and once as HTML for human operators. The split is intentional — the same underlying data, rendered appropriately for each consumer.
+Every capability in Herakles is exposed twice: once as plain text or Prometheus format for machines and automation,
+and once as HTML for human operators. The split is intentional — the same underlying data, rendered appropriately for
+each consumer.
 
 ### `/metrics` — Prometheus scrape target
 
-Returns the full metric set in Prometheus text exposition format. No per-PID labels anywhere. All process-level data has been aggregated into `(group, subgroup)` pairs before encoding. Scrape latency is bounded by lock acquisition time, not `/proc` scan time.
+Returns the full metric set in Prometheus text exposition format. No per-PID labels anywhere. All process-level data
+has been aggregated into `(group, subgroup)` pairs before encoding. Scrape latency is bounded by lock acquisition
+time, not `/proc` scan time.
 
-This is the only endpoint Prometheus should scrape. When an alert fires — e.g. `herakles_group_memory_rss_bytes{group="db",subgroup="postgres"} > 8e9` — open `/html/details?subgroup=postgres` on the affected host to identify the responsible process.
+This is the only endpoint Prometheus should scrape. When an alert fires — e.g.
+`herakles_group_memory_rss_bytes{group="db",subgroup="postgres"} > 8e9` — open `/html/details?subgroup=postgres` on
+the affected host to identify the responsible process.
 
 ### Process detail — `/details` and `/html/details`
 
-Full per-process breakdown from the in-memory cache. Both variants accept a `?subgroup=<n>` query parameter to filter to a specific subgroup. `/details` returns plain text suitable for `curl` and scripts; `/html/details` returns a sortable, filterable HTML table for the browser.
+Full per-process breakdown from the in-memory cache. Both variants accept a `?subgroup=<n>` query parameter to filter
+to a specific subgroup. `/details` returns plain text suitable for `curl` and scripts; `/html/details` returns a
+sortable, filterable HTML table for the browser.
 
-Beyond a simple process list, both endpoints implement **temporal zone classification**: each process is assigned to one of three phases based on age.
+Beyond a simple process list, both endpoints implement **temporal zone classification**: each process is assigned to
+one of three phases based on age.
 
 | Phase | Age | What it means |
 |---|---|---|
@@ -82,15 +107,22 @@ Beyond a simple process list, both endpoints implement **temporal zone classific
 | Stabilization | 5–60 min | Settling; compared against short-term baseline |
 | Historical | > 60 min | Stable; anomalies here are genuinely unexpected |
 
-Within each phase, anomaly severity is computed from deviation against a rolling baseline stored in the ring buffer. A postgres process in the Historical phase consuming 3× its normal RSS is flagged. A freshly started process consuming the same amount is not.
+Within each phase, anomaly severity is computed from deviation against a rolling baseline stored in the ring buffer. A
+postgres process in the Historical phase consuming 3× its normal RSS is flagged. A freshly started process consuming
+the same amount is not.
 
-**This is where you go after an alert fires.** `curl http://host:9215/details?subgroup=postgres` from a runbook, or open `/html/details?subgroup=postgres` in a browser.
+**This is where you go after an alert fires.** `curl http://host:9215/details?subgroup=postgres` from a runbook, or
+open `/html/details?subgroup=postgres` in a browser.
 
 ### Health — `/health` and `/html/health`
 
-`/health` returns plain text with HTTP 200 if the cache is valid, 503 otherwise. Suitable for load balancer health checks and monitoring probes.
+`/health` returns plain text with HTTP 200 if the cache is valid, 503 otherwise. Suitable for load balancer health
+checks and monitoring probes.
 
-`/html/health` renders the same data as HTML with additional detail: cache age, last update duration, buffer fill levels for `/proc` I/O buffers (`smaps`, `smaps_rollup`, generic I/O), and eBPF subsystem status — whether eBPF initialized successfully, events processed, and events dropped. This is the right place to look when diagnosing unexpected metric gaps or eBPF initialization failures.
+`/html/health` renders the same data as HTML with additional detail: cache age, last update duration, buffer fill
+levels for `/proc` I/O buffers (`smaps`, `smaps_rollup`, generic I/O), and eBPF subsystem status — whether eBPF
+initialized successfully, events processed, and events dropped. This is the right place to look when diagnosing
+unexpected metric gaps or eBPF initialization failures.
 
 ```bash
 curl http://localhost:9215/health
@@ -99,7 +131,9 @@ curl http://localhost:9215/health
 
 ### Configuration — `/config` and `/html/config`
 
-`/config` returns the effective merged configuration as plain text — the result of merging the config file with any CLI overrides. Use this to verify that the right config file was loaded and that CLI flags took effect. Equivalent to running `herakles-node-exporter --show-config` against the live process.
+`/config` returns the effective merged configuration as plain text — the result of merging the config file with any
+CLI overrides. Use this to verify that the right config file was loaded and that CLI flags took effect. Equivalent to
+running `herakles-node-exporter --show-config` against the live process.
 
 `/html/config` renders the same data as HTML with field descriptions inline.
 
@@ -109,9 +143,12 @@ curl http://localhost:9215/config
 
 ### Subgroups — `/subgroups` and `/html/subgroups`
 
-`/subgroups` returns all loaded `(group, subgroup)` pairs with their process name patterns and command-line match rules as plain text. Use this to verify that custom entries in `subgroups.toml` were parsed correctly, or to check which pattern a specific process name would match.
+`/subgroups` returns all loaded `(group, subgroup)` pairs with their process name patterns and command-line match
+rules as plain text. Use this to verify that custom entries in `subgroups.toml` were parsed correctly, or to check
+which pattern a specific process name would match.
 
-`/html/subgroups` renders the same data as a searchable HTML table, useful for browsing the full 140+ entry classification table.
+`/html/subgroups` renders the same data as a searchable HTML table, useful for browsing the full 140+ entry
+classification table.
 
 ```bash
 curl http://localhost:9215/subgroups | grep postgres
@@ -120,7 +157,9 @@ curl http://localhost:9215/subgroups | grep postgres
 
 ### Documentation — `/doc` and `/html/docs`
 
-`/doc` returns a plain-text inline manual: all endpoints, all metrics, configuration fields, and example PromQL queries. Intended as a self-contained reference accessible without network access to external documentation — a manpage served over HTTP.
+`/doc` returns a plain-text inline manual: all endpoints, all metrics, configuration fields, and example PromQL
+queries. Intended as a self-contained reference accessible without network access to external documentation — a
+manpage served over HTTP.
 
 ```bash
 curl http://localhost:9215/doc | less
@@ -130,7 +169,8 @@ curl http://localhost:9215/doc | less
 
 ### Landing page — `/` and `/html`
 
-HTML landing page listing all available endpoints with links, exporter version, uptime, and current cache status. The entry point for any operator who opens the exporter in a browser for the first time.
+HTML landing page listing all available endpoints with links, exporter version, uptime, and current cache status. The
+entry point for any operator who opens the exporter in a browser for the first time.
 
 ### Complete endpoint reference
 
@@ -155,7 +195,10 @@ HTML landing page listing all available endpoints with links, exporter version, 
 
 ## Process Classification
 
-Every process in `/proc` is classified into a `(group, subgroup)` pair by matching its executable name against `data/subgroups.toml`. The matching logic checks `matches` (process name prefixes against `/proc/<pid>/comm`) and `cmdline_matches` (substrings against the full command line, useful for JVM processes where `comm` is always `java`). A process matching no entry is assigned `{group="other", subgroup="unknown"}`.
+Every process in `/proc` is classified into a `(group, subgroup)` pair by matching its executable name against
+`data/subgroups.toml`. The matching logic checks `matches` (process name prefixes against `/proc/<pid>/comm`) and
+`cmdline_matches` (substrings against the full command line, useful for JVM processes where `comm` is always `java`).
+A process matching no entry is assigned `{group="other", subgroup="unknown"}`.
 
 ### Built-in groups
 
@@ -198,7 +241,8 @@ subgroups = [
 ]
 ```
 
-`cmdline_matches` is the right tool for JVM-based services where `/proc/<pid>/comm` is always `java` — match on the main class or startup script instead.
+`cmdline_matches` is the right tool for JVM-based services where `/proc/<pid>/comm` is always `java` — match on the
+main class or startup script instead.
 
 File search order: `./subgroups.toml` → `/etc/herakles/subgroups.toml`.
 
@@ -344,7 +388,8 @@ Always registered. Only updated when the `ebpf` feature is compiled in and eBPF 
 
 ### Build
 
-The `ebpf` feature is enabled by default. Building with eBPF requires `clang`, `bpftool`, and a kernel with BTF support (`/sys/kernel/btf/vmlinux`).
+The `ebpf` feature is enabled by default. Building with eBPF requires `clang`, `bpftool`, and a kernel with BTF
+support (`/sys/kernel/btf/vmlinux`).
 
 ```bash
 # Install build dependencies (Debian/Ubuntu)
@@ -379,7 +424,8 @@ Installation places the binary at `/opt/herakles/bin/`, configuration at `/etc/h
 
 ### Docker
 
-The image expects a pre-built statically linked musl binary and runs as the `herakles` user (uid=1000). `--pid=host` and a `/proc` bind-mount are required for full host monitoring.
+The image expects a pre-built statically linked musl binary and runs as the `herakles` user (uid=1000). `--pid=host`
+and a `/proc` bind-mount are required for full host monitoring.
 
 ```bash
 docker build -t herakles-node-exporter:latest .
@@ -539,7 +585,8 @@ The `ebpf` feature is compiled in by default and provides:
 
 ### Graceful degradation
 
-eBPF initialization failure is non-fatal. If `EbpfManager::new()` returns an error, the exporter logs a warning and continues. All non-eBPF metrics remain fully functional. Check `/health` to see whether eBPF initialized successfully.
+eBPF initialization failure is non-fatal. If `EbpfManager::new()` returns an error, the exporter logs a warning and
+continues. All non-eBPF metrics remain fully functional. Check `/health` to see whether eBPF initialized successfully.
 
 ```
 INFO  ✅ eBPF programs loaded and attached successfully
@@ -673,9 +720,13 @@ Commands:
 
 ## Running as Root
 
-Reading `/proc/<pid>/smaps_rollup` for processes owned by other users requires root privileges. This file provides accurate USS (Unique Set Size) figures. Without root, USS data for root-owned processes is unavailable and those processes are silently excluded from group memory metrics.
+Reading `/proc/<pid>/smaps_rollup` for processes owned by other users requires root privileges. This file provides
+accurate USS (Unique Set Size) figures. Without root, USS data for root-owned processes is unavailable and those
+processes are silently excluded from group memory metrics.
 
-After eBPF programs are loaded and pinned, the process attempts to drop to the `herakles` system user if it exists (`drop_privileges()` in `src/main.rs`). If the `herakles` user does not exist, the process continues as root — which is the recommended production configuration for complete multi-user system monitoring.
+After eBPF programs are loaded and pinned, the process attempts to drop to the `herakles` system user if it exists
+(`drop_privileges()` in `src/main.rs`). If the `herakles` user does not exist, the process continues as root — which
+is the recommended production configuration for complete multi-user system monitoring.
 
 Check effective user before debugging missing processes:
 

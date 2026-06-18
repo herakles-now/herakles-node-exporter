@@ -147,7 +147,7 @@ subgroups = [
 
 ## Adding New Metrics
 
-### Location
+### Metric Location
 
 Metrics are defined in `src/main.rs` in the `MemoryMetrics` struct.
 
@@ -163,7 +163,7 @@ struct MemoryMetrics {
 }
 ```
 
-2. **Create and register in `new()`**:
+1. **Create and register in `new()`**:
 ```rust
 fn new(registry: &Registry) -> Result<Self, Box<dyn std::error::Error>> {
     // Existing metrics...
@@ -185,7 +185,7 @@ fn new(registry: &Registry) -> Result<Self, Box<dyn std::error::Error>> {
 }
 ```
 
-3. **Add to `reset()`**:
+1. **Add to `reset()`**:
 ```rust
 fn reset(&self) {
     // Existing resets...
@@ -193,7 +193,7 @@ fn reset(&self) {
 }
 ```
 
-4. **Update in handler**:
+1. **Update in handler**:
 ```rust
 // In metrics_handler
 state.metrics.new_metric
@@ -368,7 +368,7 @@ Brief description of the changes.
 - **Questions**: Open a GitHub issue with `[Question]` prefix
 - **Bugs**: Open a GitHub issue with reproduction steps
 - **Feature requests**: Open a GitHub issue with `[Feature]` prefix
-- **Contact**: exporter@herakles.now
+- **Contact**: <exporter@herakles.now>
 
 ## Code of Conduct
 
@@ -389,4 +389,4 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now
+Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>

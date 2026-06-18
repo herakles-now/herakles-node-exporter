@@ -1,6 +1,7 @@
 # Subgroups System
 
-The Herakles Process Memory Exporter uses a classification system to organize processes into groups and subgroups. This enables better analysis and filtering of process metrics.
+The Herakles Process Memory Exporter uses a classification system to organize processes into groups and subgroups.
+This enables better analysis and filtering of process metrics.
 
 ## How Process Classification Works
 
@@ -397,4 +398,4 @@ search_groups:
 
 ## 🔗 Project & Support
 
-Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now
+Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>
