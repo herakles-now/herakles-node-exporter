@@ -41,8 +41,8 @@ use tracing::{debug, error, info, instrument, warn, Level};
 use cache::{MetricsCache, ProcMem};
 use cli::{Args, Commands, LogLevel};
 use commands::{
-    command_check, command_config, command_generate_testdata, command_subgroups, command_test,
-    command_install, command_uninstall,
+    command_check, command_config, command_generate_testdata, command_install, command_subgroups,
+    command_test, command_uninstall,
 };
 use config::{
     resolve_config, show_config, validate_effective_config, Config, DEFAULT_BIND_ADDR,
@@ -92,8 +92,6 @@ fn setup_logging(_config: &Config, args: &Args) {
 
     info!("Logging initialized with level: {:?}", args.log_level);
 }
-
-
 
 /// Reads the exporter's own memory and CPU usage from /proc/self.
 fn read_self_resources() -> (f64, f64) {
@@ -201,7 +199,13 @@ async fn update_cache(state: &SharedState) -> Result<(), Box<dyn std::error::Err
     let (test_data_file, max_processes, min_uss_bytes, config_snapshot, buffer_config_snapshot) = {
         let cfg = state.config();
         let buf_cfg = state.buffer_config();
-        (cfg.test_data_file.clone(), cfg.max_processes, cfg.min_uss_kb.unwrap_or(0) * 1024, cfg.clone(), *buf_cfg)
+        (
+            cfg.test_data_file.clone(),
+            cfg.max_processes,
+            cfg.min_uss_kb.unwrap_or(0) * 1024,
+            cfg.clone(),
+            *buf_cfg,
+        )
     };
 
     use std::sync::atomic::AtomicUsize;
@@ -981,10 +985,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("SIGHUP signal handler installed (for config/subgroup reloading)");
             while stream.recv().await.is_some() {
                 info!("SIGHUP received, reloading configuration and subgroups...");
-                
+
                 // 1. Reload subgroups
                 crate::process::reload_subgroups();
-                
+
                 // 2. Reload general config
                 match state_clone.reload_config() {
                     Ok(_) => info!("Configuration and subgroups reloaded successfully."),

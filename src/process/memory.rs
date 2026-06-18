@@ -8,8 +8,8 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::config::Config;
 use crate::cli::Args;
+use crate::config::Config;
 
 /// Static atomics for tracking maximum buffer usage across parse operations.
 /// These track the actual bytes read through each buffer type.

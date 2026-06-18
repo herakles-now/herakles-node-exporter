@@ -42,10 +42,10 @@ pub struct MemoryMetrics {
     pub system_net_drops_total: GaugeVec,     // labels: iface, direction
 
     // ========== Filesystem System Metrics ==========
-    pub system_filesystem_avail_bytes: GaugeVec,  // labels: device, mountpoint, fstype
-    pub system_filesystem_size_bytes: GaugeVec,   // labels: device, mountpoint, fstype
-    pub system_filesystem_files: GaugeVec,        // labels: device, mountpoint, fstype
-    pub system_filesystem_files_free: GaugeVec,   // labels: device, mountpoint, fstype
+    pub system_filesystem_avail_bytes: GaugeVec, // labels: device, mountpoint, fstype
+    pub system_filesystem_size_bytes: GaugeVec,  // labels: device, mountpoint, fstype
+    pub system_filesystem_files: GaugeVec,       // labels: device, mountpoint, fstype
+    pub system_filesystem_files_free: GaugeVec,  // labels: device, mountpoint, fstype
 
     // ========== TCP Connection Metrics (eBPF) ==========
     #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled

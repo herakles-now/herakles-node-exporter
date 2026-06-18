@@ -43,12 +43,12 @@ pub fn command_uninstall(skip_confirm: bool) -> Result<(), Box<dyn std::error::E
         println!("   • BPF maps: /sys/fs/bpf/herakles/");
         println!("   • Kernel parameter config: /etc/sysctl.d/99-herakles-ebpf.conf");
         println!("\nAre you sure you want to continue? (yes/no): ");
-        
+
         io::stdout().flush()?;
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         let input = input.trim().to_lowercase();
-        
+
         if input != "yes" && input != "y" {
             println!("❌ Uninstallation cancelled.");
             std::process::exit(0);
@@ -61,13 +61,13 @@ pub fn command_uninstall(skip_confirm: bool) -> Result<(), Box<dyn std::error::E
     if service_exists() {
         println!("🛑 Stopping systemd service...");
         stop_systemd_service();
-        
+
         println!("❌ Disabling systemd service...");
         disable_systemd_service();
-        
+
         println!("🗑️  Removing systemd service file...");
         remove_systemd_service()?;
-        
+
         println!("🔄 Reloading systemd...");
         systemd_daemon_reload()?;
     } else {
@@ -111,7 +111,7 @@ fn stop_systemd_service() {
     let result = Command::new("systemctl")
         .args(["stop", "herakles-node-exporter.service"])
         .status();
-    
+
     match result {
         Ok(status) if status.success() => {
             println!("   ✅ Service stopped");
@@ -127,7 +127,7 @@ fn disable_systemd_service() {
     let result = Command::new("systemctl")
         .args(["disable", "herakles-node-exporter.service"])
         .status();
-    
+
     match result {
         Ok(status) if status.success() => {
             println!("   ✅ Service disabled");
@@ -141,14 +141,14 @@ fn disable_systemd_service() {
 /// Remove the systemd service unit file
 fn remove_systemd_service() -> Result<(), Box<dyn std::error::Error>> {
     let service_path = "/etc/systemd/system/herakles-node-exporter.service";
-    
+
     if Path::new(service_path).exists() {
         fs::remove_file(service_path)?;
         println!("   ✅ Service file removed");
     } else {
         println!("   ℹ️  Service file not found, skipping");
     }
-    
+
     Ok(())
 }
 
@@ -162,28 +162,28 @@ fn systemd_daemon_reload() -> Result<(), Box<dyn std::error::Error>> {
 /// Remove the binary from /opt/herakles/bin
 fn remove_binary() -> Result<(), Box<dyn std::error::Error>> {
     let binary_path = "/opt/herakles/bin/herakles-node-exporter";
-    
+
     if Path::new(binary_path).exists() {
         fs::remove_file(binary_path)?;
         println!("   ✅ Binary removed: {}", binary_path);
     } else {
         println!("   ⚠️  Binary not found, skipping");
     }
-    
+
     Ok(())
 }
 
 /// Remove configuration directory and files
 fn remove_config() -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = "/etc/herakles";
-    
+
     if Path::new(config_dir).exists() {
         fs::remove_dir_all(config_dir)?;
         println!("   ✅ Configuration removed: {}", config_dir);
     } else {
         println!("   ℹ️  Configuration directory not found, skipping");
     }
-    
+
     Ok(())
 }
 
@@ -210,14 +210,14 @@ fn remove_directories() -> Result<(), Box<dyn std::error::Error>> {
             println!("   ℹ️  Directory not found: {} (skipping)", dir);
         }
     }
-    
+
     Ok(())
 }
 
 /// Remove the persistent sysctl configuration
 fn remove_sysctl_config() -> Result<(), Box<dyn std::error::Error>> {
     let sysctl_path = "/etc/sysctl.d/99-herakles-ebpf.conf";
-    
+
     if Path::new(sysctl_path).exists() {
         fs::remove_file(sysctl_path)?;
         println!("   ✅ Sysctl configuration removed: {}", sysctl_path);
@@ -231,7 +231,7 @@ fn remove_sysctl_config() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!("   ℹ️  Sysctl configuration not found, skipping");
     }
-    
+
     Ok(())
 }
 

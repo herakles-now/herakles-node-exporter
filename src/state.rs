@@ -72,7 +72,7 @@ impl AppState {
 
         *self.config.write().unwrap() = new_config;
         *self.buffer_config.write().unwrap() = new_buffer_config;
-        
+
         tracing::info!("Exporter configuration reloaded successfully");
         Ok(())
     }

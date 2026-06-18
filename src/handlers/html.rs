@@ -1220,9 +1220,8 @@ pub async fn html_dashboard_handler(State(state): State<SharedState>) -> impl In
         ));
     }
     if hot_process_rows.is_empty() {
-        hot_process_rows.push_str(
-            r#"<tr><td colspan="5"><em>No process data available yet.</em></td></tr>"#,
-        );
+        hot_process_rows
+            .push_str(r#"<tr><td colspan="5"><em>No process data available yet.</em></td></tr>"#);
     }
 
     let success_rate = state.health_stats.get_scan_success_rate();
@@ -1240,7 +1239,11 @@ pub async fn html_dashboard_handler(State(state): State<SharedState>) -> impl In
         "trend-down"
     };
     let scan_detail = if scan_count > 0 {
-        format!("Last scan {:.2} ms at {}", last_scan_duration * 1000.0, last_scan_time)
+        format!(
+            "Last scan {:.2} ms at {}",
+            last_scan_duration * 1000.0,
+            last_scan_time
+        )
     } else {
         "No scan completed yet".to_string()
     };

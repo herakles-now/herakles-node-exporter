@@ -12,7 +12,9 @@ pub mod memory;
 pub mod scanner;
 
 // Re-export commonly used types
-pub use classifier::{classify_process_raw, classify_process_with_config, reload_subgroups, SUBGROUPS};
+pub use classifier::{
+    classify_process_raw, classify_process_with_config, reload_subgroups, SUBGROUPS,
+};
 pub use cpu::{get_cpu_stat_for_pid, parse_start_time_seconds, CpuEntry, CpuStat, CLK_TCK};
 pub use memory::{
     parse_memory_for_process, read_block_io, read_vmswap, resolve_buffer_config, BufferConfig,
