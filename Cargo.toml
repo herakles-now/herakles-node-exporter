@@ -63,6 +63,13 @@ libbpf-rs = { version = "0.24", optional = true }
 libbpf-sys = { version = "1.4", optional = true }
 regex = "1.10"
 
+# System user/group management for install command
+nix = { version = "0.29", features = ["user", "process", "fs"] }
+
+# Error handling derive macros
+thiserror = "1.0"
+
+
 [build-dependencies]
 vergen = { version = "8.0", features = ["build", "git", "gitcl"] }
 which = "6.0"

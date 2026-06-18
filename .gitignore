@@ -13,3 +13,5 @@ _codeql_detected_source_root
 test_metrics.db/
 *.db
 
+# Local temporary guide files
+/PUSH_GUIDE.md

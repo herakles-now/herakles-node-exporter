@@ -42,6 +42,7 @@ use cache::{MetricsCache, ProcMem};
 use cli::{Args, Commands, LogLevel};
 use commands::{
     command_check, command_config, command_generate_testdata, command_subgroups, command_test,
+    command_install, command_uninstall,
 };
 use config::{
     resolve_config, show_config, validate_effective_config, Config, DEFAULT_BIND_ADDR,
@@ -672,6 +673,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle subcommands
     if let Some(command) = &args.command {
+        // Intercept install/uninstall early since they don't require config validation
+        match command {
+            Commands::Install { no_service, force } => {
+                return command_install(*no_service, *force);
+            }
+            Commands::Uninstall { yes } => {
+                return command_uninstall(*yes);
+            }
+            _ => {}
+        }
+
         let config = resolve_config(&args)?;
         if let Err(e) = validate_effective_config(&config) {
             eprintln!("❌ Configuration invalid: {}", e);
@@ -698,6 +710,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 command_generate_testdata(output.clone(), *min_per_subgroup, *others_count, &config)
             }
+            Commands::Install { .. } => unreachable!("Install handled above"),
+            Commands::Uninstall { .. } => unreachable!("Uninstall handled above"),
         };
     }
 

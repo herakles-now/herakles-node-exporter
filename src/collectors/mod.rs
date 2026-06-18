@@ -6,3 +6,4 @@
 pub mod diskstats;
 pub mod netdev;
 pub mod thermal;
+pub mod filesystem;

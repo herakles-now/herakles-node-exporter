@@ -41,6 +41,22 @@ pub struct ProcessBlkioStats {
     pub write_ops: u64,
 }
 
+/// TCP connection statistics from eBPF.
+#[derive(Debug, Clone, Default)]
+pub struct TcpStats {
+    pub established: u64,
+    pub syn_sent: u64,
+    pub syn_recv: u64,
+    pub fin_wait1: u64,
+    pub fin_wait2: u64,
+    pub time_wait: u64,
+    pub close: u64,
+    pub close_wait: u64,
+    pub last_ack: u64,
+    pub listen: u64,
+    pub closing: u64,
+}
+
 /// Performance statistics for eBPF programs.
 #[derive(Debug, Clone, Copy)]
 pub struct EbpfPerfStats {
@@ -378,6 +394,76 @@ impl EbpfManager {
         }
 
         Ok(Vec::new())
+    }
+
+    /// Reads TCP connection statistics from eBPF maps.
+    pub fn read_tcp_stats(&self) -> Result<TcpStats, anyhow::Error> {
+        if !self.enabled {
+            return Ok(TcpStats::default());
+        }
+
+        #[cfg(feature = "ebpf")]
+        {
+            let inner = self.inner.lock().unwrap();
+            if let Some(ref inner) = *inner {
+                let map = Self::find_map(&inner.object, "tcp_state_map")
+                    .ok_or_else(|| anyhow::anyhow!("tcp_state_map not found"))?;
+
+                // TCP states from include/net/tcp_states.h
+                const TCP_ESTABLISHED: u32 = 1;
+                const TCP_SYN_SENT: u32 = 2;
+                const TCP_SYN_RECV: u32 = 3;
+                const TCP_FIN_WAIT1: u32 = 4;
+                const TCP_FIN_WAIT2: u32 = 5;
+                const TCP_TIME_WAIT: u32 = 6;
+                const TCP_CLOSE: u32 = 7;
+                const TCP_CLOSE_WAIT: u32 = 8;
+                const TCP_LAST_ACK: u32 = 9;
+                const TCP_LISTEN: u32 = 10;
+                const TCP_CLOSING: u32 = 11;
+
+                let mut tcp_stats = TcpStats::default();
+
+                for state in [
+                    TCP_ESTABLISHED,
+                    TCP_SYN_SENT,
+                    TCP_SYN_RECV,
+                    TCP_FIN_WAIT1,
+                    TCP_FIN_WAIT2,
+                    TCP_TIME_WAIT,
+                    TCP_CLOSE,
+                    TCP_CLOSE_WAIT,
+                    TCP_LAST_ACK,
+                    TCP_LISTEN,
+                    TCP_CLOSING,
+                ] {
+                    let key = state.to_ne_bytes();
+                    if let Some(value) = map.lookup(&key, MapFlags::ANY).ok().flatten() {
+                        if value.len() >= 8 {
+                            let count = u64::from_ne_bytes(value[0..8].try_into().unwrap());
+                            match state {
+                                TCP_ESTABLISHED => tcp_stats.established = count,
+                                TCP_SYN_SENT => tcp_stats.syn_sent = count,
+                                TCP_SYN_RECV => tcp_stats.syn_recv = count,
+                                TCP_FIN_WAIT1 => tcp_stats.fin_wait1 = count,
+                                TCP_FIN_WAIT2 => tcp_stats.fin_wait2 = count,
+                                TCP_TIME_WAIT => tcp_stats.time_wait = count,
+                                TCP_CLOSE => tcp_stats.close = count,
+                                TCP_CLOSE_WAIT => tcp_stats.close_wait = count,
+                                TCP_LAST_ACK => tcp_stats.last_ack = count,
+                                TCP_LISTEN => tcp_stats.listen = count,
+                                TCP_CLOSING => tcp_stats.closing = count,
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                return Ok(tcp_stats);
+            }
+        }
+
+        Ok(TcpStats::default())
     }
 
     /// Resolves device name from major:minor numbers.

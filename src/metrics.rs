@@ -41,6 +41,36 @@ pub struct MemoryMetrics {
     pub system_net_tx_errors_total: GaugeVec, // labels: iface
     pub system_net_drops_total: GaugeVec,     // labels: iface, direction
 
+    // ========== Filesystem System Metrics ==========
+    pub system_filesystem_avail_bytes: GaugeVec,  // labels: device, mountpoint, fstype
+    pub system_filesystem_size_bytes: GaugeVec,   // labels: device, mountpoint, fstype
+    pub system_filesystem_files: GaugeVec,        // labels: device, mountpoint, fstype
+    pub system_filesystem_files_free: GaugeVec,   // labels: device, mountpoint, fstype
+
+    // ========== TCP Connection Metrics (eBPF) ==========
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_established: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_syn_sent: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_syn_recv: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_fin_wait1: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_fin_wait2: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_time_wait: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_close: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_close_wait: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_last_ack: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_listen: Gauge,
+    #[cfg_attr(not(feature = "ebpf"), allow(dead_code))] // Used when eBPF feature is enabled
+    pub system_tcp_connections_closing: Gauge,
+
     // ========== Hardware/Host Metrics ==========
     pub system_cpu_temp_celsius: GaugeVec, // labels: sensor
     pub system_uptime_seconds: Gauge,
@@ -212,6 +242,82 @@ impl MemoryMetrics {
             &["iface", "direction"],
         )?;
 
+        // ========== Filesystem System Metrics ==========
+        let system_filesystem_avail_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_system_filesystem_avail_bytes",
+                "Filesystem space available to non-root users in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let system_filesystem_size_bytes = GaugeVec::new(
+            Opts::new(
+                "herakles_system_filesystem_size_bytes",
+                "Filesystem total size in bytes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let system_filesystem_files = GaugeVec::new(
+            Opts::new(
+                "herakles_system_filesystem_files",
+                "Filesystem total file nodes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+        let system_filesystem_files_free = GaugeVec::new(
+            Opts::new(
+                "herakles_system_filesystem_files_free",
+                "Filesystem free file nodes",
+            ),
+            &["device", "mountpoint", "fstype"],
+        )?;
+
+        // ========== TCP Connection Metrics (eBPF) ==========
+        let system_tcp_connections_established = Gauge::new(
+            "herakles_system_tcp_connections_established",
+            "Number of TCP connections in ESTABLISHED state",
+        )?;
+        let system_tcp_connections_syn_sent = Gauge::new(
+            "herakles_system_tcp_connections_syn_sent",
+            "Number of TCP connections in SYN_SENT state",
+        )?;
+        let system_tcp_connections_syn_recv = Gauge::new(
+            "herakles_system_tcp_connections_syn_recv",
+            "Number of TCP connections in SYN_RECV state",
+        )?;
+        let system_tcp_connections_fin_wait1 = Gauge::new(
+            "herakles_system_tcp_connections_fin_wait1",
+            "Number of TCP connections in FIN_WAIT1 state",
+        )?;
+        let system_tcp_connections_fin_wait2 = Gauge::new(
+            "herakles_system_tcp_connections_fin_wait2",
+            "Number of TCP connections in FIN_WAIT2 state",
+        )?;
+        let system_tcp_connections_time_wait = Gauge::new(
+            "herakles_system_tcp_connections_time_wait",
+            "Number of TCP connections in TIME_WAIT state",
+        )?;
+        let system_tcp_connections_close = Gauge::new(
+            "herakles_system_tcp_connections_close",
+            "Number of TCP connections in CLOSE state",
+        )?;
+        let system_tcp_connections_close_wait = Gauge::new(
+            "herakles_system_tcp_connections_close_wait",
+            "Number of TCP connections in CLOSE_WAIT state",
+        )?;
+        let system_tcp_connections_last_ack = Gauge::new(
+            "herakles_system_tcp_connections_last_ack",
+            "Number of TCP connections in LAST_ACK state",
+        )?;
+        let system_tcp_connections_listen = Gauge::new(
+            "herakles_system_tcp_connections_listen",
+            "Number of TCP connections in LISTEN state",
+        )?;
+        let system_tcp_connections_closing = Gauge::new(
+            "herakles_system_tcp_connections_closing",
+            "Number of TCP connections in CLOSING state",
+        )?;
+
         // ========== Hardware/Host Metrics ==========
         let system_cpu_temp_celsius = GaugeVec::new(
             Opts::new(
@@ -379,6 +485,25 @@ impl MemoryMetrics {
         registry.register(Box::new(system_net_tx_errors_total.clone()))?;
         registry.register(Box::new(system_net_drops_total.clone()))?;
 
+        // Filesystem System
+        registry.register(Box::new(system_filesystem_avail_bytes.clone()))?;
+        registry.register(Box::new(system_filesystem_size_bytes.clone()))?;
+        registry.register(Box::new(system_filesystem_files.clone()))?;
+        registry.register(Box::new(system_filesystem_files_free.clone()))?;
+
+        // TCP Connections
+        registry.register(Box::new(system_tcp_connections_established.clone()))?;
+        registry.register(Box::new(system_tcp_connections_syn_sent.clone()))?;
+        registry.register(Box::new(system_tcp_connections_syn_recv.clone()))?;
+        registry.register(Box::new(system_tcp_connections_fin_wait1.clone()))?;
+        registry.register(Box::new(system_tcp_connections_fin_wait2.clone()))?;
+        registry.register(Box::new(system_tcp_connections_time_wait.clone()))?;
+        registry.register(Box::new(system_tcp_connections_close.clone()))?;
+        registry.register(Box::new(system_tcp_connections_close_wait.clone()))?;
+        registry.register(Box::new(system_tcp_connections_last_ack.clone()))?;
+        registry.register(Box::new(system_tcp_connections_listen.clone()))?;
+        registry.register(Box::new(system_tcp_connections_closing.clone()))?;
+
         // Hardware/Host
         registry.register(Box::new(system_cpu_temp_celsius.clone()))?;
         registry.register(Box::new(system_uptime_seconds.clone()))?;
@@ -437,6 +562,21 @@ impl MemoryMetrics {
             system_net_rx_errors_total,
             system_net_tx_errors_total,
             system_net_drops_total,
+            system_filesystem_avail_bytes,
+            system_filesystem_size_bytes,
+            system_filesystem_files,
+            system_filesystem_files_free,
+            system_tcp_connections_established,
+            system_tcp_connections_syn_sent,
+            system_tcp_connections_syn_recv,
+            system_tcp_connections_fin_wait1,
+            system_tcp_connections_fin_wait2,
+            system_tcp_connections_time_wait,
+            system_tcp_connections_close,
+            system_tcp_connections_close_wait,
+            system_tcp_connections_last_ack,
+            system_tcp_connections_listen,
+            system_tcp_connections_closing,
             system_cpu_temp_celsius,
             system_uptime_seconds,
             system_boot_time_seconds,
@@ -474,6 +614,12 @@ impl MemoryMetrics {
         self.system_net_rx_errors_total.reset();
         self.system_net_tx_errors_total.reset();
         self.system_net_drops_total.reset();
+
+        // Filesystem System
+        self.system_filesystem_avail_bytes.reset();
+        self.system_filesystem_size_bytes.reset();
+        self.system_filesystem_files.reset();
+        self.system_filesystem_files_free.reset();
 
         // Hardware/Host
         self.system_cpu_temp_celsius.reset();

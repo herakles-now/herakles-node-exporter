@@ -190,6 +190,10 @@ pub struct Config {
     pub enable_telemetry: Option<bool>,
     pub enable_default_collectors: Option<bool>,
     pub enable_pprof: Option<bool>,
+    #[serde(alias = "enable-filesystem-collector")]
+    pub enable_filesystem_collector: Option<bool>,
+    #[serde(alias = "enable-thermal-collector")]
+    pub enable_thermal_collector: Option<bool>,
 
     // Logging
     pub log_level: Option<String>,
@@ -274,6 +278,8 @@ impl Default for Config {
             enable_telemetry: Some(true),
             enable_default_collectors: Some(true),
             enable_pprof: Some(false),
+            enable_filesystem_collector: Some(true),
+            enable_thermal_collector: Some(true),
             log_level: Some("info".into()),
             enable_file_logging: Some(false),
             log_file: None,

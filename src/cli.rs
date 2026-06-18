@@ -274,4 +274,22 @@ pub enum Commands {
         #[arg(long, default_value_t = 12)]
         others_count: usize,
     },
+
+    /// Install system-wide with systemd service
+    Install {
+        /// Skip systemd service enable/start
+        #[arg(long)]
+        no_service: bool,
+
+        /// Force reinstall (overwrite existing)
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Uninstall system-wide installation
+    Uninstall {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
 }

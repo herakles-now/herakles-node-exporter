@@ -375,20 +375,58 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 }
             }
 
-            // ========== PHASE 7: Hardware/Host Metrics ==========
-            // Thermal sensors
-            match collectors::thermal::collect_temperatures() {
-                Ok(temperatures) => {
-                    for (sensor, temp) in temperatures {
-                        state
-                            .metrics
-                            .system_cpu_temp_celsius
-                            .with_label_values(&[&sensor])
-                            .set(temp);
+            // ========== PHASE 6.5: System-Level Filesystem Metrics ==========
+            if cfg.enable_filesystem_collector.unwrap_or(true) {
+                match collectors::filesystem::read_filesystem_stats() {
+                    Ok(filesystems) => {
+                        for fs in filesystems {
+                            state
+                                .metrics
+                                .system_filesystem_avail_bytes
+                                .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                                .set(fs.available_bytes as f64);
+
+                            state
+                                .metrics
+                                .system_filesystem_size_bytes
+                                .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                                .set(fs.size_bytes as f64);
+
+                            state
+                                .metrics
+                                .system_filesystem_files
+                                .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                                .set(fs.files_total as f64);
+
+                            state
+                                .metrics
+                                .system_filesystem_files_free
+                                .with_label_values(&[&fs.device, &fs.mount_point, &fs.fstype])
+                                .set(fs.files_free as f64);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to read filesystem statistics: {}", e);
                     }
                 }
-                Err(e) => {
-                    warn!("Failed to read thermal sensors: {}", e);
+            }
+
+            // ========== PHASE 7: Hardware/Host Metrics ==========
+            // Thermal sensors
+            if cfg.enable_thermal_collector.unwrap_or(true) {
+                match collectors::thermal::collect_temperatures() {
+                    Ok(temperatures) => {
+                        for (sensor, temp) in temperatures {
+                            state
+                                .metrics
+                                .system_cpu_temp_celsius
+                                .with_label_values(&[&sensor])
+                                .set(temp);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to read thermal sensors: {}", e);
+                    }
                 }
             }
 
@@ -511,6 +549,31 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 // connection state tracking which is not yet implemented.
                 // The metric group_net_connections_total{proto="tcp/udp"} will be
                 // added in a future enhancement.
+            }
+
+            // ========== PHASE 10.5: TCP Connection Statistics (eBPF) ==========
+            #[cfg(feature = "ebpf")]
+            if let Some(ebpf) = &state.ebpf {
+                if cfg.enable_tcp_tracking.unwrap_or(true) {
+                    match ebpf.read_tcp_stats() {
+                        Ok(tcp_stats) => {
+                            state.metrics.system_tcp_connections_established.set(tcp_stats.established as f64);
+                            state.metrics.system_tcp_connections_syn_sent.set(tcp_stats.syn_sent as f64);
+                            state.metrics.system_tcp_connections_syn_recv.set(tcp_stats.syn_recv as f64);
+                            state.metrics.system_tcp_connections_fin_wait1.set(tcp_stats.fin_wait1 as f64);
+                            state.metrics.system_tcp_connections_fin_wait2.set(tcp_stats.fin_wait2 as f64);
+                            state.metrics.system_tcp_connections_time_wait.set(tcp_stats.time_wait as f64);
+                            state.metrics.system_tcp_connections_close.set(tcp_stats.close as f64);
+                            state.metrics.system_tcp_connections_close_wait.set(tcp_stats.close_wait as f64);
+                            state.metrics.system_tcp_connections_last_ack.set(tcp_stats.last_ack as f64);
+                            state.metrics.system_tcp_connections_listen.set(tcp_stats.listen as f64);
+                            state.metrics.system_tcp_connections_closing.set(tcp_stats.closing as f64);
+                        }
+                        Err(e) => {
+                            warn!("Failed to read TCP connection statistics: {}", e);
+                        }
+                    }
+                }
             }
 
             // ========== PHASE 11: Encode and Return Metrics ==========
