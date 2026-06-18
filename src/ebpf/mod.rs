@@ -42,6 +42,7 @@ pub struct ProcessBlkioStats {
 }
 
 /// TCP connection statistics from eBPF.
+#[cfg(feature = "ebpf")]
 #[derive(Debug, Clone, Default)]
 pub struct TcpStats {
     pub established: u64,
@@ -397,6 +398,7 @@ impl EbpfManager {
     }
 
     /// Reads TCP connection statistics from eBPF maps.
+    #[cfg(feature = "ebpf")]
     pub fn read_tcp_stats(&self) -> Result<TcpStats, anyhow::Error> {
         if !self.enabled {
             return Ok(TcpStats::default());
