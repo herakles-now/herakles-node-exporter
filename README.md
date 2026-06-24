@@ -1,7 +1,7 @@
 # Herakles Node Exporter
 
 [![Rust](https://img.shields.io/badge/rust-stable-orange)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Prometheus](https://img.shields.io/badge/prometheus-compatible-red)](https://prometheus.io/)
 
 A Prometheus exporter for Linux system metrics that aggregates per-process resource usage into named process groups —
@@ -756,7 +756,7 @@ Commands:
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.
+Licensed under the [Apache 2.0](LICENSE) license.
 
 ## Author
 
