@@ -10,16 +10,16 @@
 pub mod check;
 pub mod config;
 pub mod generate;
+pub mod install;
 pub mod subgroups;
 pub mod test;
-pub mod install;
 pub mod uninstall;
 
 // Re-export command functions
 pub use check::command_check;
 pub use config::command_config;
 pub use generate::command_generate_testdata;
+pub use install::command_install;
 pub use subgroups::command_subgroups;
 pub use test::command_test;
-pub use install::command_install;
 pub use uninstall::command_uninstall;

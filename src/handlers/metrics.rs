@@ -92,9 +92,7 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
             let mut exported_count = 0usize;
 
             for p in &processes_vec {
-                if let Some((group, subgroup)) =
-                    classify_process_with_config(&p.name, cfg)
-                {
+                if let Some((group, subgroup)) = classify_process_with_config(&p.name, cfg) {
                     exported_count += 1;
 
                     let entry = group_aggregations
@@ -557,17 +555,50 @@ pub async fn metrics_handler(State(state): State<SharedState>) -> Result<String,
                 if cfg.enable_tcp_tracking.unwrap_or(true) {
                     match ebpf.read_tcp_stats() {
                         Ok(tcp_stats) => {
-                            state.metrics.system_tcp_connections_established.set(tcp_stats.established as f64);
-                            state.metrics.system_tcp_connections_syn_sent.set(tcp_stats.syn_sent as f64);
-                            state.metrics.system_tcp_connections_syn_recv.set(tcp_stats.syn_recv as f64);
-                            state.metrics.system_tcp_connections_fin_wait1.set(tcp_stats.fin_wait1 as f64);
-                            state.metrics.system_tcp_connections_fin_wait2.set(tcp_stats.fin_wait2 as f64);
-                            state.metrics.system_tcp_connections_time_wait.set(tcp_stats.time_wait as f64);
-                            state.metrics.system_tcp_connections_close.set(tcp_stats.close as f64);
-                            state.metrics.system_tcp_connections_close_wait.set(tcp_stats.close_wait as f64);
-                            state.metrics.system_tcp_connections_last_ack.set(tcp_stats.last_ack as f64);
-                            state.metrics.system_tcp_connections_listen.set(tcp_stats.listen as f64);
-                            state.metrics.system_tcp_connections_closing.set(tcp_stats.closing as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_established
+                                .set(tcp_stats.established as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_syn_sent
+                                .set(tcp_stats.syn_sent as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_syn_recv
+                                .set(tcp_stats.syn_recv as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_fin_wait1
+                                .set(tcp_stats.fin_wait1 as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_fin_wait2
+                                .set(tcp_stats.fin_wait2 as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_time_wait
+                                .set(tcp_stats.time_wait as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_close
+                                .set(tcp_stats.close as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_close_wait
+                                .set(tcp_stats.close_wait as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_last_ack
+                                .set(tcp_stats.last_ack as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_listen
+                                .set(tcp_stats.listen as f64);
+                            state
+                                .metrics
+                                .system_tcp_connections_closing
+                                .set(tcp_stats.closing as f64);
                         }
                         Err(e) => {
                             warn!("Failed to read TCP connection statistics: {}", e);

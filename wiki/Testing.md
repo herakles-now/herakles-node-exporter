@@ -70,7 +70,7 @@ The generated file follows this JSON schema:
   "metadata": {
     "generated_at": "2024-01-15T10:30:00Z",
     "generator": "herakles-node-exporter",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "processes": [
     {

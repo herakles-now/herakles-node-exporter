@@ -36,7 +36,7 @@ pub enum ConfigFormat {
                   on Linux systems. Provides detailed RSS, PSS, USS memory metrics and CPU usage \
                   with intelligent process classification.",
     author = "Michael Moll <exporter@herakles.now> - Herakles",
-    version = "0.1.0",
+    version = env!("CARGO_PKG_VERSION"),
     propagate_version = true,
     after_help = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now"
 )]

@@ -267,7 +267,9 @@ fn configure_kernel_parameters() -> Result<(), Box<dyn std::error::Error>> {
          kernel.perf_event_paranoid = 2\n";
 
     match fs::write("/etc/sysctl.d/99-herakles-ebpf.conf", sysctl_config) {
-        Ok(_) => println!("   ✅ Persistent configuration written to /etc/sysctl.d/99-herakles-ebpf.conf"),
+        Ok(_) => println!(
+            "   ✅ Persistent configuration written to /etc/sysctl.d/99-herakles-ebpf.conf"
+        ),
         Err(e) => {
             eprintln!("   ❌ Failed to write persistent config: {}", e);
             all_ok = false;

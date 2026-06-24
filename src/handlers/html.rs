@@ -1042,7 +1042,10 @@ pub async fn html_index_handler(State(state): State<SharedState>) -> impl IntoRe
 
     html.push_str("<h2>Overview</h2>\n");
     html.push_str(r#"<div class="metric-grid">"#);
-    html.push_str(r#"<div class="metric"><span class="metric-label">Version:</span> <span class="metric-value">0.1.0</span></div>"#);
+    html.push_str(&format!(
+        r#"<div class="metric"><span class="metric-label">Version:</span> <span class="metric-value">{}</span></div>"#,
+        env!("CARGO_PKG_VERSION")
+    ));
     html.push_str(&format!(
         r#"<div class="metric"><span class="metric-label">Hostname:</span> <span class="metric-value">{}</span></div>"#,
         hostname
@@ -1220,9 +1223,8 @@ pub async fn html_dashboard_handler(State(state): State<SharedState>) -> impl In
         ));
     }
     if hot_process_rows.is_empty() {
-        hot_process_rows.push_str(
-            r#"<tr><td colspan="5"><em>No process data available yet.</em></td></tr>"#,
-        );
+        hot_process_rows
+            .push_str(r#"<tr><td colspan="5"><em>No process data available yet.</em></td></tr>"#);
     }
 
     let success_rate = state.health_stats.get_scan_success_rate();
@@ -1240,7 +1242,11 @@ pub async fn html_dashboard_handler(State(state): State<SharedState>) -> impl In
         "trend-down"
     };
     let scan_detail = if scan_count > 0 {
-        format!("Last scan {:.2} ms at {}", last_scan_duration * 1000.0, last_scan_time)
+        format!(
+            "Last scan {:.2} ms at {}",
+            last_scan_duration * 1000.0,
+            last_scan_time
+        )
     } else {
         "No scan completed yet".to_string()
     };
