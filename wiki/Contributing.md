@@ -379,7 +379,7 @@ Brief description of the changes.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same dual license as the project (MIT OR Apache-2.0).
+By contributing, you agree that your contributions will be licensed under the same dual license as the project (Apache-2.0).
 
 ## Next Steps
 

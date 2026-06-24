@@ -7,8 +7,8 @@ This document provides a complete reference for all configuration options in the
 Configuration values are loaded and merged in the following order (later sources override earlier ones):
 
 1. **Built-in defaults** - Hardcoded default values
-2. **System config file** - `/etc/herakles/config.yaml`
-3. **User config file** - `~/.config/herakles/config.yaml`
+2. **System config file** - `/etc/herakles/herakles-node-exporter.yaml`
+3. **User config file** - `~/.config/herakles/herakles-node-exporter.yaml`
 4. **Local config file** - `./herakles-node-exporter.yaml`
 5. **CLI-specified config** - `-c /path/to/config.yaml`
 6. **CLI flags** - Command-line arguments override all config files
@@ -20,8 +20,8 @@ The exporter searches for configuration files in the following locations:
 
 | Location | Description |
 |----------|-------------|
-| `/etc/herakles/config.yaml` | System-wide configuration |
-| `~/.config/herakles/config.yaml` | User-specific configuration |
+| `/etc/herakles/herakles-node-exporter.yaml` | System-wide configuration |
+| `~/.config/herakles/herakles-node-exporter.yaml` | User-specific configuration |
 | `./herakles-node-exporter.yaml` | Local directory configuration |
 | CLI `-c /path/to/file` | Explicitly specified configuration |
 

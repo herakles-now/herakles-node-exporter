@@ -64,7 +64,10 @@ jobs:
           echo "FAIL_ON_WARNINGS=${FAIL_ON_WARNINGS}"
           echo "github.ref_name=${{ github.ref_name }}"
           echo "default_branch=${{ github.event.repository.default_branch }}"
-          if [[ "${AUTOFIX_MODE}" == "commit" && "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
+          if [[ \
+            "${AUTOFIX_MODE}" == "commit" && \
+            "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" \
+          ]]; then
             echo "Refusing to auto-commit directly to the default branch."
             exit 1
           fi
@@ -132,7 +135,8 @@ jobs:
             echo "- \`cargo fmt --all\`"
             echo "- \`npx markdownlint-cli2 --fix \"**/*.md\" \"#target/**\"\`"
             echo
-            echo "Run: [${{ github.workflow }} #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo "Run: [${{ github.workflow }} #${{ github.run_number }}]("
+            echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             echo
             echo "<details>"
             echo "<summary>Rust autofix report</summary>"
@@ -161,7 +165,9 @@ jobs:
           echo "body_file=${BODY_FILE}" >> "${GITHUB_OUTPUT}"
 
       - name: Commit autofixes to branch
-        if: always() && steps.changes.outputs.has_changes == 'true' && env.AUTOFIX_MODE == 'commit'
+        if: >-
+          always() && steps.changes.outputs.has_changes == 'true' &&
+          env.AUTOFIX_MODE == 'commit'
         shell: bash
         run: |
           set -euo pipefail
@@ -172,7 +178,9 @@ jobs:
           git push origin "HEAD:${{ github.ref_name }}"
 
       - name: Create autofix PR
-        if: always() && steps.changes.outputs.has_changes == 'true' && env.AUTOFIX_MODE == 'pull_request'
+        if: >-
+          always() && steps.changes.outputs.has_changes == 'true' &&
+          env.AUTOFIX_MODE == 'pull_request'
         uses: peter-evans/create-pull-request@v8
         with:
           # Keep the branch name stable so repeated runs update the same autofix PR.
@@ -183,7 +191,9 @@ jobs:
           body-path: ${{ steps.pr_body.outputs.body_file }}
 
       - name: Close stale autofix PR
-        if: always() && steps.changes.outputs.has_changes != 'true' && env.AUTOFIX_MODE == 'pull_request'
+        if: >-
+          always() && steps.changes.outputs.has_changes != 'true' &&
+          env.AUTOFIX_MODE == 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -208,7 +218,8 @@ jobs:
           gh pr close "${pr_number}" \
             --repo "${{ github.repository }}" \
             --delete-branch \
-            --comment "Closing stale autofix PR because the latest lint-autofix run produced no changes."
+            --comment \
+            "Closing stale autofix PR because the latest lint-autofix run produced no changes."
 
       - name: Report no changes
         if: always() && steps.changes.outputs.has_changes != 'true'

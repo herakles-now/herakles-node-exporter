@@ -1,7 +1,7 @@
 # Herakles Node Exporter
 
 [![Rust](https://img.shields.io/badge/rust-stable-orange)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Prometheus](https://img.shields.io/badge/prometheus-compatible-red)](https://prometheus.io/)
 
 A Prometheus exporter for Linux system metrics that aggregates per-process resource usage into named process groups —
@@ -26,29 +26,101 @@ The separation is architectural and deliberate. See [Why this architecture?](#wh
 ## Quick Start
 
 ```bash
-# Clone and build (eBPF enabled by default)
-git clone https://github.com/herakles-now/herakles-node-exporter.git
-cd herakles-node-exporter
-make release
-
-# Run (root required for full /proc coverage)
-sudo ./binary/herakles-node-exporter
-
-# Verify
-curl http://localhost:9215/metrics | grep herakles_group_memory_rss
-curl http://localhost:9215/html/details
+curl -fsSL https://github.com/herakles-now/herakles-node-exporter/releases/latest/download/install.sh | sudo sh
 ```
 
-Prometheus scrape config:
+<details>
 
-```yaml
-scrape_configs:
-  - job_name: 'herakles'
-    static_configs:
-      - targets: ['localhost:9215']
-    scrape_interval: 60s
-    scrape_timeout: 30s
+<summary>Expected output</summary>
+
+### Installed With `systemd` Service
+
+```text
+Installing herakles-node-exporter v0.1.1 for x86_64-linux-gnu
+Running system installation
+🚀 Herakles Node Exporter - System Installation
+===============================================
+
+📁 Creating directory structure...
+   ✅ Directory structure created with root ownership
+📦 Installing binary...
+   ✅ Binary installed to /opt/herakles/bin/herakles-node-exporter
+🔗 Installing CLI symlink...
+   ✅ Symlink installed to /usr/local/bin/herakles-node-exporter
+⚙  Generating default configuration...
+   ✅ Config written to /etc/herakles/herakles-node-exporter.yaml
+🔧 Installing systemd service...
+   ✅ systemd unit installed
+🔄 Reloading systemd...
+✅ Enabling service...
+Created symlink '/etc/systemd/system/multi-user.target.wants/herakles-node-exporter.service' → '/etc/systemd/system/herakles-node-exporter.service'.
+🚀 Starting service...
+
+🔧 Configuring kernel parameters for eBPF...
+   ✅ kernel.unprivileged_bpf_disabled = 1
+   ✅ kernel.perf_event_paranoid = 2
+   ✅ Persistent configuration written to /etc/sysctl.d/99-herakles-ebpf.conf
+
+✅ Installation complete!
+
+Next steps:
+  • Check status: systemctl status herakles-node-exporter
+  • View logs:    journalctl -u herakles-node-exporter -f
+  • Access:       http://localhost:9215/metrics
 ```
+
+</details>
+
+Open [http://localhost:9215/html/dashboard](http://localhost:9215/html/dashboard) to see the dashboard.
+
+<details>
+
+<summary>Dashboard screenshot</summary>
+
+[![Dashboard screenshot](wiki/images/builtin-dashboard.png "Dashboard screenshot")](wiki/images/builtin-dashboard.png)
+
+</details>
+
+The [Installation Guide](https://github.com/herakles-now/herakles-node-exporter/blob/main/wiki/Installation.md#installation-guide)
+shows other installation methods and [how to uninstall](https://github.com/herakles-now/herakles-node-exporter/blob/main/wiki/Installation.md#uninstall).
+
+Prometheus scrape config: [prometheus.yml](prometheus/prometheus.yml)
+
+---
+
+## Grafana Dashboard Stack
+
+This adds a Grafana dashboard backed by Prometheus in docker-compose.
+
+`herakles-now-exporter` must be running on the host on port `9215`.
+
+### Download The Grafana Dashboard Stack
+
+```bash
+# Download and unpack herakles-node-exporter-dashboard.tar.gz
+curl -LO \
+  https://github.com/herakles-now/herakles-node-exporter/releases/latest/download/herakles-node-exporter-dashboard.tar.gz
+tar -xzf herakles-node-exporter-dashboard.tar.gz
+````
+
+### Start Docker Compose
+
+```bash
+cd herakles-node-exporter-dashboard
+# Run docker compose with docker-compose.yml
+docker compose up -d
+# Or use the older docker-compose command with:
+# docker-compose up -d
+```
+
+### View Grafana Dashboard
+
+1. Open [http://localhost:3000](http://localhost:3000)
+2. Login with user `admin` and password `admin`
+
+### View Prometheus console
+
+Open [http://localhost:9090/targets](http://localhost:9090/targets)
 
 ---
 
@@ -386,42 +458,6 @@ Always registered. Only updated when the `ebpf` feature is compiled in and eBPF 
 
 ## Installation
 
-### Build
-
-The `ebpf` feature is enabled by default. Building with eBPF requires `clang`, `bpftool`, and a kernel with BTF
-support (`/sys/kernel/btf/vmlinux`).
-
-```bash
-# Install build dependencies (Debian/Ubuntu)
-sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) bpftool
-
-# Release build with eBPF
-make release
-
-# Release build without eBPF (smaller binary, no clang/bpftool dependency)
-make release CARGOFLAGS='--no-default-features'
-
-# Binary lands in binary/herakles-node-exporter regardless of build profile
-```
-
-### System-wide installation
-
-```bash
-# Install binary + systemd service (requires root)
-sudo ./binary/herakles-node-exporter install
-
-# Install without starting the service
-sudo ./binary/herakles-node-exporter install --no-service
-
-# Force reinstall over existing installation
-sudo ./binary/herakles-node-exporter install --force
-
-# Uninstall
-sudo ./binary/herakles-node-exporter uninstall
-```
-
-Installation places the binary at `/opt/herakles/bin/`, configuration at `/etc/herakles/`, and the systemd service at `/etc/systemd/system/herakles-node-exporter.service`.
-
 ### Docker
 
 The image expects a pre-built statically linked musl binary and runs as the `herakles` user (uid=1000). `--pid=host`
@@ -445,7 +481,7 @@ docker run -d \
 Configuration is loaded from the first file found in this order, then merged with CLI flags (CLI takes precedence):
 
 1. `--config <path>` if specified
-2. `/etc/herakles/node-exporter.yaml` (also `.yml`, `.json`)
+2. `/etc/herakles/herakles-node-exporter.yaml` (also `.yml`, `.json`)
 3. `./herakles-node-exporter.yaml` (also `.yml`, `.json`)
 
 Use `--no-config` to ignore all config files. Use `--show-config` to print the effective merged configuration.
@@ -574,14 +610,14 @@ The `ebpf` feature is compiled in by default and provides:
 
 ### Requirements
 
-| Requirement | Detail |
-|---|---|
-| Linux kernel | ≥ 4.18 with BTF enabled |
+| Requirement | Detail                               |
+|---|--------------------------------------|
+| Linux kernel | ≥ 4.18 with BTF enabled              |
 | BTF | `/sys/kernel/btf/vmlinux` must exist |
-| Capabilities | `CAP_BPF` + `CAP_PERFMON`, or root |
-| Build: clang | ≥ 10 |
-| Build: bpftool | any recent version |
-| Build: libbpf | pulled automatically by Cargo |
+| Capabilities | `CAP_BPF` + `CAP_PERFMON`, and root  |
+| Build: clang | ≥ 10                                 |
+| Build: llvm | any recent version                   |
+| Build: libbpf | pulled automatically by Cargo        |
 
 ### Graceful degradation
 
@@ -606,10 +642,10 @@ uname -r
 capsh --print | grep -E 'cap_bpf|cap_perfmon'
 
 # Build tools
-clang --version && bpftool version
+clang --version && llvm-strip --version
 
 # Runtime requirement check
-herakles-node-exporter check-requirements --ebpf
+herakles-node-exporter check --all
 
 # eBPF status at runtime
 curl http://localhost:9215/health
@@ -718,76 +754,9 @@ Commands:
 
 ---
 
-## Running as Root
-
-Reading `/proc/<pid>/smaps_rollup` for processes owned by other users requires root privileges. This file provides
-accurate USS (Unique Set Size) figures. Without root, USS data for root-owned processes is unavailable and those
-processes are silently excluded from group memory metrics.
-
-After eBPF programs are loaded and pinned, the process attempts to drop to the `herakles` system user if it exists
-(`drop_privileges()` in `src/main.rs`). If the `herakles` user does not exist, the process continues as root — which
-is the recommended production configuration for complete multi-user system monitoring.
-
-Check effective user before debugging missing processes:
-
-```bash
-ps aux | grep herakles-node-exporter
-# Should show: root ... herakles-node-exporter
-```
-
----
-
-## Systemd Service
-
-```ini
-[Unit]
-Description=Herakles Node Exporter
-Documentation=https://github.com/herakles-now/herakles-node-exporter
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/local/bin/herakles-node-exporter
-Restart=on-failure
-RestartSec=5s
-ProtectSystem=strict
-ReadOnlyPaths=/proc
-PrivateTmp=true
-NoNewPrivileges=false
-
-[Install]
-WantedBy=multi-user.target
-```
-
----
-
-## Docker Compose
-
-```yaml
-services:
-  herakles-node-exporter:
-    image: herakles-node-exporter:latest
-    container_name: herakles-node-exporter
-    pid: host
-    volumes:
-      - /proc:/proc:ro
-    ports:
-      - "9215:9215"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9215/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-```
-
----
-
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.
+Licensed under the [Apache 2.0](LICENSE) license.
 
 ## Author
 

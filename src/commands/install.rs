@@ -3,6 +3,7 @@
 //! This module implements the `install` subcommand which sets up:
 //! - Directory structure with proper permissions
 //! - Binary installation to /opt/herakles/bin
+//! - CLI symlink in /usr/local/bin
 //! - Default configuration file
 //! - systemd service with eBPF capabilities
 //! - Automatic service enablement and start
@@ -115,11 +116,15 @@ pub fn command_install(no_service: bool, force: bool) -> Result<(), Box<dyn std:
     println!("📦 Installing binary...");
     install_binary()?;
 
-    // 5. Generate default config
+    // 5. Install CLI symlink
+    println!("🔗 Installing CLI symlink...");
+    install_cli_symlink()?;
+
+    // 6. Generate default config
     println!("⚙️  Generating default configuration...");
     generate_default_config()?;
 
-    // 6. Install systemd service
+    // 7. Install systemd service
     if !no_service {
         println!("🔧 Installing systemd service...");
         install_systemd_service()?;
@@ -134,7 +139,7 @@ pub fn command_install(no_service: bool, force: bool) -> Result<(), Box<dyn std:
         systemd_start_service()?;
     }
 
-    // 7. Configure kernel parameters
+    // 8. Configure kernel parameters
     configure_kernel_parameters()?;
 
     println!("\n✅ Installation complete!");
@@ -190,6 +195,21 @@ fn install_binary() -> Result<(), Box<dyn std::error::Error>> {
     set_permissions(target, 0o755)?;
 
     println!("   ✅ Binary installed to {}", target);
+    Ok(())
+}
+
+/// Install a symlink into /usr/local/bin so the CLI is on PATH
+fn install_cli_symlink() -> Result<(), Box<dyn std::error::Error>> {
+    let link_path = Path::new("/usr/local/bin/herakles-node-exporter");
+    let target = Path::new("/opt/herakles/bin/herakles-node-exporter");
+
+    if link_path.exists() || link_path.is_symlink() {
+        fs::remove_file(link_path)?;
+    }
+
+    std::os::unix::fs::symlink(target, link_path)?;
+
+    println!("   ✅ Symlink installed to {}", link_path.display());
     Ok(())
 }
 

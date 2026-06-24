@@ -259,8 +259,7 @@ rate(herakles_top_blkio_process_write_bytes_total[5m]) / rate(herakles_top_blkio
 
 ## Network Metrics
 
-These metrics require **eBPF support** to be enabled. See the [eBPF
-Configuration](../README.md#-ebpf-configuration-optional-advanced-feature) section for setup requirements.
+These metrics require **eBPF support** to be enabled.
 
 ### herakles_top_net_process_rx_bytes_total
 
@@ -589,7 +588,7 @@ If `herakles_top_net_process_*` metrics are missing:
 3. **Check permissions:**
    ```bash
    # Run with capabilities
-   sudo setcap cap_bpf,cap_perfmon=ep /usr/local/bin/herakles-node-exporter
+   sudo setcap cap_bpf,cap_perfmon=ep /opt/herakles/bin/herakles-node-exporter
    ```
 
 4. **Review logs:**

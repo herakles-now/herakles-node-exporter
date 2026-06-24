@@ -27,6 +27,12 @@ fn compile_ebpf_programs() {
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let bpf_src = PathBuf::from("src/ebpf/bpf");
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not set");
+    let bpf_target_arch_define = match target_arch.as_str() {
+        "x86_64" => "__TARGET_ARCH_x86",
+        "aarch64" => "__TARGET_ARCH_arm64",
+        other => panic!("unsupported target arch for eBPF build: {}", other),
+    };
 
     // Check for required tools
     check_tool("clang", "--version");
@@ -45,7 +51,7 @@ fn compile_ebpf_programs() {
         "-O2".to_string(),
         "-target".to_string(),
         "bpf".to_string(),
-        "-D__TARGET_ARCH_x86".to_string(),
+        format!("-D{}", bpf_target_arch_define),
         "-D__BPF_TRACING__".to_string(), // Important for BPF_CORE_READ macros
         "-I".to_string(),
         bpf_src.to_str().unwrap().to_string(),

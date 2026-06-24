@@ -45,6 +45,11 @@ jobs:
         continue-on-error: true
         uses: rhysd/actionlint@v1.7.12
 
+      - name: Lint YAML
+        id: yamllint
+        continue-on-error: true
+        uses: ibiqlik/action-yamllint@v3
+
       - name: Lint Markdown
         id: markdown
         continue-on-error: true
@@ -74,30 +79,31 @@ jobs:
         shell: bash
         run: taplo fmt --check --diff .
 
-      - name: Lint Dockerfile
-        id: hadolint
+      - name: Lint docker-compose.yml
+        id: docker-compose
         continue-on-error: true
-        uses: hadolint/hadolint-action@v3.3.0
-        with:
-          dockerfile: Dockerfile
+        shell: bash
+        run: docker compose config -q
 
       - name: Summarize non-Rust lint failures
         if: |
           always() &&
           (
             steps.actionlint.outcome == 'failure' ||
+            steps.yamllint.outcome == 'failure' ||
             steps.markdown.outcome == 'failure' ||
             steps.shellcheck.outcome == 'failure' ||
             steps.taplo.outcome == 'failure' ||
-            steps.hadolint.outcome == 'failure'
+            steps.docker-compose.outcome == 'failure'
           )
         run: |
           failed_steps=()
           [[ "${{ steps.actionlint.outcome }}" == "failure" ]] && failed_steps+=("Lint GitHub Actions workflows")
+          [[ "${{ steps.yamllint.outcome }}" == "failure" ]] && failed_steps+=("Lint YAML")
           [[ "${{ steps.markdown.outcome }}" == "failure" ]] && failed_steps+=("Lint Markdown")
           [[ "${{ steps.shellcheck.outcome }}" == "failure" ]] && failed_steps+=("Lint shell scripts")
           [[ "${{ steps.taplo.outcome }}" == "failure" ]] && failed_steps+=("Check TOML formatting")
-          [[ "${{ steps.hadolint.outcome }}" == "failure" ]] && failed_steps+=("Lint Dockerfile")
+          [[ "${{ steps.docker-compose.outcome }}" == "failure" ]] && failed_steps+=("Lint docker-compose.yml")
           echo "Non-Rust lint failures:"
           for step in "${failed_steps[@]}"; do
             echo "- ${step}"

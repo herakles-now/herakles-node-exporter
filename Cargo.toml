@@ -3,7 +3,7 @@ name = "herakles-node-exporter"
 version = "0.1.0"
 description = "Comprehensive Prometheus exporter for Linux system metrics including per-process memory/CPU, disk I/O, filesystem, and network statistics"
 authors = ["Michael Moll <exporter@herakles.now>"]
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 edition = "2021"
 repository = "https://github.com/herakles-now/herakles-node-exporter"
 readme = "README.md"
@@ -14,6 +14,8 @@ categories = ["command-line-utilities", "monitoring"]
 default = ["ebpf"]
 # Enable eBPF-based metrics collection
 ebpf = ["libbpf-rs", "libbpf-sys"]
+# Enable eBPF with vendored libelf/zlib for musl/static builds
+ebpf-vendored = ["ebpf", "libbpf-sys/vendored"]
 
 [dependencies]
 axum = { version = "0.8", features = ["http1", "macros", "tokio"] }
@@ -51,24 +53,17 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # TLS support
 axum-server = { version = "0.8", features = ["tls-rustls"] }
-tokio-rustls = "0.26"
 
 # eBPF support (optional - feature gated)
 libbpf-rs = { version = "0.26", optional = true }
 libbpf-sys = { version = "1.4", optional = true }
-regex = "1.10"
 
 # System user/group management for install command
 nix = { version = "0.31", features = ["user", "process", "fs"] }
 
-# Error handling derive macros
-thiserror = "2.0"
-
-
 [build-dependencies]
 vergen = { version = "10.0.0", features = ["build"] }
 vergen-gitcl = { version = "10.0.0", features = ["build"] }
-which = "8.0"
 
 [profile.dev]
 opt-level = 0
@@ -83,37 +78,3 @@ strip = true
 
 [dev-dependencies]
 tempfile = "3.23.0"
-
-[package.metadata.deb]
-name = "herakles-node-exporter"
-maintainer = "Michael Moll <exporter@herakles.now>"
-copyright = "2024, Herakles IO"
-depends = "$auto"
-section = "utils"
-priority = "optional"
-assets = [
-  [
-    "target/release/herakles-node-exporter",
-    "usr/bin/",
-    "755",
-  ],
-  [
-    "examples/herakles-node-exporter.yaml",
-    "/etc/herakles-node-exporter/",
-    "644",
-  ],
-  [
-    "examples/systemd.service",
-    "/lib/systemd/system/",
-    "644",
-  ],
-]
-extended-description = """\
-Comprehensive Prometheus exporter for Linux system monitoring providing:\
-- Per-process memory metrics (RSS, PSS, USS)\
-- Per-process CPU metrics\
-- Disk I/O statistics\
-- Filesystem usage and inode statistics\
-- Network interface statistics\
-Ideal for containerized environments and detailed system analysis.\
-"""

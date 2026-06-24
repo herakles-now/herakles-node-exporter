@@ -1,4 +1,0 @@
-# Ignore Alpine package pinning to avoid errors like
-# Dockerfile:8 DL3018 warning: Pin versions in apk add. Instead of `apk add <package>` use `apk add <package>=<version>`
-ignored:
-  - DL3018

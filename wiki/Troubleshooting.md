@@ -22,7 +22,7 @@ Error: Permission denied reading /proc/1234/smaps
 
 2. **Add capability (recommended):**
    ```bash
-   sudo setcap cap_dac_read_search+ep /usr/local/bin/herakles-node-exporter
+   sudo setcap cap_dac_read_search+ep /opt/herakles/bin/herakles-node-exporter
    ```
 
 3. **Use systemd with capabilities:**

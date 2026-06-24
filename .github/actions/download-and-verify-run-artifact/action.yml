@@ -1,24 +1,17 @@
 name: Download And Verify Run Artifact
-description: Download a run artifact and verify a file inside it against the expected SHA-256.
+description: Download release artifacts and verify their SHA-256 checksums.
 
 inputs:
-  artifact-name:
-    description: Name of the uploaded artifact bundle.
+  artifact-pattern:
+    description: Glob pattern for the uploaded artifact bundles.
+    required: true
+  sha-map-file:
+    description: JSON file mapping target suffixes to expected SHA-256 digests.
     required: true
   target-dir:
     description: Directory where the artifact should be downloaded.
     required: false
-    default: dist
-  file-path:
-    description: Relative path to the file inside target-dir that should be verified.
-    required: true
-  expected-sha256:
-    description: Expected SHA-256 digest of the file being verified.
-    required: true
-  checksum-file:
-    description: Optional relative path to a checksum file inside target-dir for an additional sha256sum -c check.
-    required: false
-    default: ""
+    default: release
 
 runs:
   using: composite
@@ -26,28 +19,34 @@ runs:
     - name: Download run artifact
       uses: actions/download-artifact@v4
       with:
-        name: ${{ inputs.artifact-name }}
+        pattern: ${{ inputs.artifact-pattern }}
         path: ${{ inputs.target-dir }}
+        merge-multiple: "true"
 
-    - name: Verify artifact checksum
+    - name: Verify artifact checksums
       shell: bash
       run: |
         set -euo pipefail
-        actual_sha256="$(sha256sum "${{ inputs.target-dir }}/${{ inputs.file-path }}" | awk '{print $1}')"
-        expected_sha256="${{ inputs.expected-sha256 }}"
-        test -n "${expected_sha256}" || {
-          echo "missing artifact sha256"
+        sha_map_file="$(realpath "${{ inputs.sha-map-file }}")"
+        cd "${{ inputs.target-dir }}"
+        found=0
+        # Verify every artifact listed in the JSON map; the map keys define the target set.
+        for target in $(jq -r 'keys[]' "${sha_map_file}"); do
+          expected_sha="$(jq -r --arg target "${target}" '.[$target] // empty' "${sha_map_file}")"
+          test -n "${expected_sha}" || {
+            echo "missing artifact sha for ${target}"
+            exit 1
+          }
+          actual_sha="$(sha256sum "herakles-node-exporter-${target}" | awk '{print $1}')"
+          test "${actual_sha}" = "${expected_sha}" || {
+            echo "artifact sha mismatch for ${target}"
+            echo "expected: ${expected_sha}"
+            echo "actual:   ${actual_sha}"
+            exit 1
+          }
+          found=1
+        done
+        test "${found}" -eq 1 || {
+          echo "no release artifacts found"
           exit 1
         }
-        test "${actual_sha256}" = "${expected_sha256}" || {
-          echo "artifact sha256 mismatch"
-          echo "expected: ${expected_sha256}"
-          echo "actual:   ${actual_sha256}"
-          exit 1
-        }
-        if [ -n "${{ inputs.checksum-file }}" ]; then
-          (
-            cd "${{ inputs.target-dir }}"
-            sha256sum -c "${{ inputs.checksum-file }}"
-          )
-        fi
