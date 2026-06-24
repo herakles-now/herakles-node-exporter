@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Herakles
+    orgId: 1
+    folder: Herakles
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

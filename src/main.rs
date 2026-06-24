@@ -753,7 +753,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let buffer_config = crate::process::resolve_buffer_config(&config, &args);
+    let buffer_config = process::resolve_buffer_config(&config, &args);
 
     // Initialize Prometheus metrics registry
     let registry = Registry::new();
@@ -855,7 +855,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Initialize ringbuffer manager
-    let initial_subgroup_count = SUBGROUPS.read().unwrap().len().max(1); // Prevent division by zero
+    let initial_subgroup_count = SUBGROUPS.read()?.len().max(1); // Prevent division by zero
     let ringbuffer_manager = Arc::new(RingbufferManager::new(
         config.ringbuffer.clone(),
         initial_subgroup_count,
@@ -995,7 +995,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 info!("SIGHUP received, reloading configuration and subgroups...");
 
                 // 1. Reload subgroups
-                crate::process::reload_subgroups();
+                process::reload_subgroups();
 
                 // 2. Reload general config
                 match state_clone.reload_config() {

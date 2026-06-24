@@ -3,6 +3,7 @@
 //! This module implements the `uninstall` subcommand which removes:
 //! - systemd service (stop, disable, remove unit file)
 //! - Installed binary from /opt/herakles/bin
+//! - CLI symlink from /usr/local/bin
 //! - Configuration file from /etc/herakles
 //! - Directory structure with proper safety checks
 //!
@@ -38,6 +39,7 @@ pub fn command_uninstall(skip_confirm: bool) -> Result<(), Box<dyn std::error::E
         println!("⚠️  This will remove:");
         println!("   • systemd service (stopped and disabled)");
         println!("   • Binary: /opt/herakles/bin/herakles-node-exporter");
+        println!("   • CLI symlink: /usr/local/bin/herakles-node-exporter");
         println!("   • Configuration: /etc/herakles/");
         println!("   • Directories: /opt/herakles/, /var/lib/herakles/, /run/herakles/");
         println!("   • BPF maps: /sys/fs/bpf/herakles/");
@@ -78,15 +80,19 @@ pub fn command_uninstall(skip_confirm: bool) -> Result<(), Box<dyn std::error::E
     println!("🗑️  Removing binary...");
     remove_binary()?;
 
-    // 6. Remove configuration
+    // 6. Remove CLI symlink
+    println!("🗑️  Removing CLI symlink...");
+    remove_cli_symlink()?;
+
+    // 7. Remove configuration
     println!("🗑️  Removing configuration...");
     remove_config()?;
 
-    // 7. Remove directories
+    // 8. Remove directories
     println!("🗑️  Removing directories...");
     remove_directories()?;
 
-    // 8. Remove kernel parameter configuration
+    // 9. Remove kernel parameter configuration
     println!("🗑️  Removing kernel parameter configuration...");
     remove_sysctl_config()?;
 
@@ -168,6 +174,20 @@ fn remove_binary() -> Result<(), Box<dyn std::error::Error>> {
         println!("   ✅ Binary removed: {}", binary_path);
     } else {
         println!("   ⚠️  Binary not found, skipping");
+    }
+
+    Ok(())
+}
+
+/// Remove the CLI symlink from /usr/local/bin
+fn remove_cli_symlink() -> Result<(), Box<dyn std::error::Error>> {
+    let symlink_path = "/usr/local/bin/herakles-node-exporter";
+
+    if Path::new(symlink_path).exists() {
+        fs::remove_file(symlink_path)?;
+        println!("   ✅ CLI symlink removed: {}", symlink_path);
+    } else {
+        println!("   ℹ️  CLI symlink not found, skipping");
     }
 
     Ok(())

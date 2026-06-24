@@ -137,7 +137,7 @@ pub fn command_check(
 
     // Check subgroups configuration
     println!("\n📊 Checking subgroups configuration...");
-    let subgroups_guard = SUBGROUPS.read().unwrap();
+    let subgroups_guard = SUBGROUPS.read()?;
     if subgroups_guard.is_empty() {
         println!("   ⚠️  No subgroups configured");
     } else {

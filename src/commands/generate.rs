@@ -4,7 +4,7 @@
 
 use ahash::AHashMap as HashMap;
 use chrono::Utc;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -129,7 +129,7 @@ pub fn command_generate_testdata(
     // Collect unique (group, subgroup) pairs with their associated process name matches
     let mut subgroup_matches: HashMap<(String, String), Vec<String>> = HashMap::new();
 
-    let subgroups_guard = SUBGROUPS.read().unwrap();
+    let subgroups_guard = SUBGROUPS.read()?;
     for (process_name, (group, subgroup)) in subgroups_guard.iter() {
         let key = (group.to_string(), subgroup.to_string());
         subgroup_matches

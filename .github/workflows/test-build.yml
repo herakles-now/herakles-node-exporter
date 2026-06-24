@@ -3,19 +3,28 @@ name: Test
 on:
   workflow_call:
     inputs:
-      upload-release-binary:
-        description: Upload the tested release binary as a workflow artifact.
+      upload-release-binaries:
+        description: Upload the tested release binaries as a workflow artifact.
         required: false
         type: boolean
         default: false
     outputs:
-      release-binary-sha256:
-        description: SHA-256 of the tested release binary.
-        value: ${{ jobs.build-and-test.outputs.release-binary-sha256 }}
+      release-binary-sha256-x86_64-linux-gnu:
+        description: SHA-256 of the tested glibc release binary.
+        value: ${{ jobs.build-and-test.outputs.release-binary-sha256-x86_64-linux-gnu }}
+      release-binary-sha256-x86_64-linux-musl:
+        description: SHA-256 of the tested musl release binary.
+        value: ${{ jobs.build-and-test.outputs.release-binary-sha256-x86_64-linux-musl }}
+      release-binary-sha256-aarch64-linux-gnu:
+        description: SHA-256 of the tested ARM64 glibc release binary.
+        value: ${{ jobs.build-and-test.outputs.release-binary-sha256-aarch64-linux-gnu }}
+      release-binary-sha256-aarch64-linux-musl:
+        description: SHA-256 of the tested ARM64 musl release binary.
+        value: ${{ jobs.build-and-test.outputs.release-binary-sha256-aarch64-linux-musl }}
   workflow_dispatch:
     inputs:
-      upload-release-binary:
-        description: Upload the tested release binary as a workflow artifact.
+      upload-release-binaries:
+        description: Upload the tested release binaries as a workflow artifact.
         required: false
         type: boolean
         default: false
@@ -38,9 +47,29 @@ jobs:
     uses: ./.github/workflows/lint.yml
 
   build-and-test:
-    runs-on: ubuntu-latest
+    name: Build and test (${{ matrix.artifact-suffix }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust-target: x86_64-unknown-linux-gnu
+            artifact-suffix: x86_64-linux-gnu
+            runner: ubuntu-latest
+          - rust-target: x86_64-unknown-linux-musl
+            artifact-suffix: x86_64-linux-musl
+            runner: ubuntu-latest
+          - rust-target: aarch64-unknown-linux-gnu
+            artifact-suffix: aarch64-linux-gnu
+            runner: ubuntu-24.04-arm
+          - rust-target: aarch64-unknown-linux-musl
+            artifact-suffix: aarch64-linux-musl
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     outputs:
-      release-binary-sha256: ${{ steps.prepare-release-artifact-bundle.outputs.binary_sha256 }}
+      release-binary-sha256-x86_64-linux-gnu: ${{ steps.out-sha-x86_64-linux-gnu.outputs.sha256 }}
+      release-binary-sha256-x86_64-linux-musl: ${{ steps.out-sha-x86_64-linux-musl.outputs.sha256 }}
+      release-binary-sha256-aarch64-linux-gnu: ${{ steps.out-sha-aarch64-linux-gnu.outputs.sha256 }}
+      release-binary-sha256-aarch64-linux-musl: ${{ steps.out-sha-aarch64-linux-musl.outputs.sha256 }}
     permissions:
       contents: read
       attestations: write
@@ -51,32 +80,62 @@ jobs:
 
       - name: Build and Test eBPF Binary
         uses: ./.github/actions/build-and-test
+        with:
+          rust-target: ${{ matrix.rust-target }}
+          binary-path: ./target/${{ matrix.rust-target }}/release/herakles-node-exporter
 
       - name: Prepare release artifact bundle
         id: prepare-release-artifact-bundle
-        if: ${{ inputs.upload-release-binary }}
+        if: ${{ inputs.upload-release-binaries }}
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cp target/release/herakles-node-exporter dist/herakles-node-exporter
-          (
-            cd dist
-            sha256sum herakles-node-exporter > herakles-node-exporter.sha256
-          )
-          echo "binary_sha256=$(sha256sum dist/herakles-node-exporter | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          mkdir -p release
+          cp target/${{ matrix.rust-target }}/release/herakles-node-exporter \
+            "release/herakles-node-exporter-${{ matrix.artifact-suffix }}"
+
+      - name: Export release binary SHA (glibc)
+        id: out-sha-x86_64-linux-gnu
+        if: ${{ inputs.upload-release-binaries && matrix.artifact-suffix == 'x86_64-linux-gnu' }}
+        run: |
+          set -euo pipefail
+          sha256="$(sha256sum release/herakles-node-exporter-x86_64-linux-gnu | awk '{print $1}')"
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
+
+      - name: Export release binary SHA (musl)
+        id: out-sha-x86_64-linux-musl
+        if: ${{ inputs.upload-release-binaries && matrix.artifact-suffix == 'x86_64-linux-musl' }}
+        run: |
+          set -euo pipefail
+          sha256="$(sha256sum release/herakles-node-exporter-x86_64-linux-musl | awk '{print $1}')"
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
+
+      - name: Export release binary SHA (arm64 glibc)
+        id: out-sha-aarch64-linux-gnu
+        if: ${{ inputs.upload-release-binaries && matrix.artifact-suffix == 'aarch64-linux-gnu' }}
+        run: |
+          set -euo pipefail
+          sha256="$(sha256sum release/herakles-node-exporter-aarch64-linux-gnu | awk '{print $1}')"
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
+
+      - name: Export release binary SHA (arm64 musl)
+        id: out-sha-aarch64-linux-musl
+        if: ${{ inputs.upload-release-binaries && matrix.artifact-suffix == 'aarch64-linux-musl' }}
+        run: |
+          set -euo pipefail
+          sha256="$(sha256sum release/herakles-node-exporter-aarch64-linux-musl | awk '{print $1}')"
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
 
       - name: Generate build provenance attestation
-        if: ${{ inputs.upload-release-binary }}
+        if: ${{ inputs.upload-release-binaries }}
         uses: actions/attest@v4
         with:
-          subject-path: dist/herakles-node-exporter
+          subject-path: release/herakles-node-exporter-${{ matrix.artifact-suffix }}
 
       - name: Upload tested release binary
-        if: ${{ inputs.upload-release-binary }}
+        if: ${{ inputs.upload-release-binaries }}
         uses: actions/upload-artifact@v7
         with:
-          name: herakles-node-exporter-release-binary
+          name: herakles-node-exporter-release-binary-${{ matrix.artifact-suffix }}
           path: |
-            dist/herakles-node-exporter
-            dist/herakles-node-exporter.sha256
+            release/herakles-node-exporter-${{ matrix.artifact-suffix }}
           if-no-files-found: error

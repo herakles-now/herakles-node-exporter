@@ -11,7 +11,7 @@ use tracing::{debug, instrument};
 use crate::state::SharedState;
 
 /// Footer text for human-readable HTTP endpoints.
-pub const FOOTER_TEXT: &str = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now";
+pub const FOOTER_TEXT: &str = "Project: https://github.com/herakles-now/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now";
 
 /// Handler for the /health endpoint.
 #[instrument(skip(state))]

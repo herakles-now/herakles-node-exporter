@@ -60,8 +60,8 @@ CONFIGURATION
 Config file locations (in order):
 1. CLI specified: -c /path/to/config.yaml
 2. Current directory: ./herakles-node-exporter.yaml
-3. User config: ~/.config/herakles/config.yaml
-4. System config: /etc/herakles/config.yaml
+3. User config: ~/.config/herakles/herakles-node-exporter.yaml
+4. System config: /etc/herakles/herakles-node-exporter.yaml
 
 Key configuration options:
 - port: HTTP listen port (default: 9215)
@@ -78,12 +78,12 @@ TLS/SSL Configuration:
 
 CLI COMMANDS
 ------------
-herakles-node-exporter                    - Start the exporter
-herakles-node-exporter check --all        - Validate system requirements
+herakles-node-exporter                       - Start the exporter
+herakles-node-exporter check --all           - Validate system requirements
 herakles-node-exporter config -o config.yaml - Generate config file
-herakles-node-exporter test               - Test metrics collection
-herakles-node-exporter subgroups          - List available subgroups
-herakles-node-exporter --help             - Show all CLI options
+herakles-node-exporter test                  - Test metrics collection
+herakles-node-exporter subgroups             - List available subgroups
+herakles-node-exporter --help                - Show all CLI options
 
 EXAMPLE USAGE
 -------------
@@ -127,7 +127,7 @@ scrape_configs:
 
 MORE INFORMATION
 ----------------
-GitHub: https://github.com/cansp-dev/herakles-node-exporter
+GitHub: https://github.com/herakles-now/herakles-node-exporter
 Documentation: See /config and /subgroups endpoints for runtime info
 
 {}

@@ -188,7 +188,7 @@ mod tests {
         // Example: utime=1000, stime=500 -> total = 1500 ticks
         // If CLK_TCK is 100, then CPU time = 15.0 seconds
         let stat_content = "1234 (test_process) S 1 1234 1234 0 -1 4194304 100 0 0 0 1000 500 0 0 20 0 1 0 12345 12345678 1234 18446744073709551615 4194304 4238788 140736466511168 0 0 0 0 0 0 0 0 0 17 1 0 0 0 0 0";
-        std::fs::write(&stat_path, stat_content).expect("Failed to write stat file");
+        fs::write(&stat_path, stat_content).expect("Failed to write stat file");
 
         let result = parse_cpu_time_seconds(dir.path());
         assert!(result.is_ok());
@@ -210,7 +210,7 @@ mod tests {
         let stat_path = dir.path().join("stat");
 
         // Invalid stat file with not enough fields
-        std::fs::write(&stat_path, "1234 (test) S 1 2 3").expect("Failed to write stat file");
+        fs::write(&stat_path, "1234 (test) S 1 2 3").expect("Failed to write stat file");
 
         let result = parse_cpu_time_seconds(dir.path());
         assert!(result.is_err());
@@ -232,7 +232,7 @@ mod tests {
 
         // utime=0, stime=0
         let stat_content = "1234 (idle_process) S 1 1234 1234 0 -1 4194304 0 0 0 0 0 0 0 0 20 0 1 0 12345 12345678 1234 18446744073709551615 4194304 4238788 140736466511168 0 0 0 0 0 0 0 0 0 17 1 0 0 0 0 0";
-        std::fs::write(&stat_path, stat_content).expect("Failed to write stat file");
+        fs::write(&stat_path, stat_content).expect("Failed to write stat file");
 
         let result = parse_cpu_time_seconds(dir.path());
         assert!(result.is_ok());

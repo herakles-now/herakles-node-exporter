@@ -10,6 +10,11 @@ config:
   MD031: false
   # MD032 - Lists should be surrounded by blank lines
   MD032: false
+  # MD033 - Inline HTML (allow collapsible sections)
+  MD033:
+    allowed_elements:
+      - details
+      - summary
   # MD040 - Fenced code blocks should have a language specified
   MD040: false
   # MD060 - Table column style

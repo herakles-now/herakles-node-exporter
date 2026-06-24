@@ -320,7 +320,7 @@ impl EbpfManager {
                         if value.len() >= 40 {
                             let mut data = [0u64; 5];
                             for (i, chunk) in value.chunks_exact(8).take(5).enumerate() {
-                                data[i] = u64::from_ne_bytes(chunk.try_into().unwrap());
+                                data[i] = u64::from_ne_bytes(chunk.try_into()?);
                             }
 
                             let comm = Self::read_process_name(pid)
@@ -369,7 +369,7 @@ impl EbpfManager {
                             if value.len() >= 32 {
                                 let mut data = [0u64; 4];
                                 for (i, chunk) in value.chunks_exact(8).take(4).enumerate() {
-                                    data[i] = u64::from_ne_bytes(chunk.try_into().unwrap());
+                                    data[i] = u64::from_ne_bytes(chunk.try_into()?);
                                 }
 
                                 let comm = Self::read_process_name(pid)
@@ -439,7 +439,7 @@ impl EbpfManager {
                     let key = state.to_ne_bytes();
                     if let Some(value) = map.lookup(&key, MapFlags::ANY).ok().flatten() {
                         if value.len() >= 8 {
-                            let count = u64::from_ne_bytes(value[0..8].try_into().unwrap());
+                            let count = u64::from_ne_bytes(value[0..8].try_into()?);
                             match state {
                                 TCP_ESTABLISHED => tcp_stats.established = count,
                                 TCP_SYN_SENT => tcp_stats.syn_sent = count,

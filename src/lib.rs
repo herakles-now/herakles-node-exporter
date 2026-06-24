@@ -36,10 +36,6 @@
 //! }
 //! ```
 //!
-//! # Feature Flags
-//!
-//! - `health-actix`: Enables actix-web integration example (see examples/health_server.rs)
-
 pub mod health;
 pub mod health_config;
 pub mod health_stats;

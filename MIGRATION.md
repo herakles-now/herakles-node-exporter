@@ -216,7 +216,7 @@ curl -s http://localhost:9215/metrics | grep "herakles_exporter_scrape_duration_
 If you encounter any issues during migration:
 
 1. Check the [Metrics Overview](wiki/Metrics-Overview.md) documentation
-2. Open an issue on [GitHub](https://github.com/cansp-dev/herakles-node-exporter/issues)
+2. Open an issue on [GitHub](https://github.com/herakles-now/herakles-node-exporter/issues)
 3. Join our community discussions
 
 ## Rollback

@@ -38,7 +38,7 @@ pub enum ConfigFormat {
     author = "Michael Moll <exporter@herakles.now> - Herakles",
     version = "0.1.0",
     propagate_version = true,
-    after_help = "Project: https://github.com/cansp-dev/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now"
+    after_help = "Project: https://github.com/herakles-now/herakles-node-exporter — More info: https://www.herakles.now — Support: exporter@herakles.now"
 )]
 pub struct Args {
     #[command(subcommand)]

@@ -16,7 +16,7 @@ pub fn command_subgroups(
 
     let mut groups_map: HashMap<&str, Vec<(&str, &str)>> = HashMap::new();
 
-    let subgroups_guard = SUBGROUPS.read().unwrap();
+    let subgroups_guard = SUBGROUPS.read()?;
 
     for (process_name, (group, subgroup)) in subgroups_guard.iter() {
         groups_map

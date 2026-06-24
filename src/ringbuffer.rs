@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_entry_size() {
         // Verify the entry is exactly 256 bytes
-        assert_eq!(std::mem::size_of::<RingbufferEntry>(), ENTRY_SIZE_BYTES);
+        assert_eq!(size_of::<RingbufferEntry>(), ENTRY_SIZE_BYTES);
     }
 
     #[test]

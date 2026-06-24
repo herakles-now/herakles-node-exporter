@@ -66,12 +66,12 @@ impl AppState {
     }
 
     /// Reloads configuration file and regenerates buffer configuration
-    pub fn reload_config(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn reload_config(&self) -> Result<(), Box<dyn std::error::Error + '_>> {
         let new_config = crate::config::resolve_config(&self.args)?;
         let new_buffer_config = crate::process::resolve_buffer_config(&new_config, &self.args);
 
-        *self.config.write().unwrap() = new_config;
-        *self.buffer_config.write().unwrap() = new_buffer_config;
+        *self.config.write()? = new_config;
+        *self.buffer_config.write()? = new_buffer_config;
 
         tracing::info!("Exporter configuration reloaded successfully");
         Ok(())

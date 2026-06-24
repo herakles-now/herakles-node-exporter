@@ -15,10 +15,7 @@ pub fn command_config(
     commented: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::default();
-    let output = match output {
-        Some(path) => path,
-        None => PathBuf::from("herakles-node-exporter.yaml"),
-    };
+    let output = output.unwrap_or_else(|| PathBuf::from("herakles-node-exporter.yaml"));
 
     let content = match format {
         ConfigFormat::Json => serde_json::to_string_pretty(&config)?,

@@ -464,4 +464,4 @@ sum by (subgroup) (herakles_mem_process_rss_bytes{group="services"})
 
 ## 🔗 Project & Support
 
-Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>
+Project: <https://github.com/herakles-now/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>

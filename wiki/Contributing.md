@@ -14,7 +14,7 @@ Thank you for considering contributing to the Herakles Process Memory Exporter! 
 
 ```bash
 # Clone the repository
-git clone https://github.com/cansp-dev/herakles-node-exporter.git
+git clone https://github.com/herakles-now/herakles-node-exporter.git
 cd herakles-node-exporter
 
 # Build debug version
@@ -389,4 +389,4 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ## 🔗 Project & Support
 
-Project: <https://github.com/cansp-dev/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>
+Project: <https://github.com/herakles-now/herakles-node-exporter> — More info: <https://www.herakles.now> — Support: <exporter@herakles.now>
