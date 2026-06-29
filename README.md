@@ -189,6 +189,8 @@ INFO    - TCP state tracking enabled
 WARN ⚠️  Failed to initialize eBPF: [reason] - running without eBPF metrics
 ```
 
+Linux syscall tracepoint availability can differ between kernel versions and architectures. During startup, the exporter checks each required tracepoint under `/sys/kernel/tracing/events` and `/sys/kernel/debug/tracing/events` before attaching the matching eBPF program. Unavailable tracepoints are skipped and logged, while the remaining eBPF programs continue to run.
+
 **Note:** When eBPF is not available or fails to initialize, the exporter gracefully continues with all standard metrics.
 
 
@@ -910,6 +912,14 @@ Check the `/health` endpoint for eBPF status:
 ```bash
 curl http://localhost:9215/health | grep -i ebpf
 ```
+
+If only some eBPF metrics are missing, start with debug logging and check whether the kernel exposes the matching tracepoints:
+```bash
+RUST_LOG=debug sudo herakles-node-exporter --enable-ebpf
+ls /sys/kernel/tracing/events/syscalls/sys_enter_recvfrom/id
+```
+
+Missing syscall tracepoints are not fatal. The exporter skips unavailable tracepoint programs and keeps exporting metrics from the eBPF programs that could be attached.
 
 **4. Performance issues with eBPF**
 
