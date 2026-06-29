@@ -39,6 +39,14 @@ pub struct CpuStat {
     pub steal: u64,
 }
 
+fn parse_kb_line(line: &str) -> Option<u64> {
+    line.split_whitespace()
+        .nth(1)?
+        .parse::<u64>()
+        .ok()
+        .map(|kb| kb * 1024)
+}
+
 impl CpuStat {
     /// Calculate total CPU time (all fields).
     pub fn total(&self) -> u64 {
@@ -108,47 +116,17 @@ pub fn read_extended_memory_info() -> Result<ExtendedMemoryInfo, String> {
 
     for line in content.lines() {
         if line.starts_with("MemTotal:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<u64>() {
-                    total_bytes = Some(kb * 1024);
-                }
-            }
+            total_bytes = parse_kb_line(line);
         } else if line.starts_with("MemAvailable:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<u64>() {
-                    available_bytes = Some(kb * 1024);
-                }
-            }
+            available_bytes = parse_kb_line(line);
         } else if line.starts_with("Cached:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<u64>() {
-                    cached_bytes = Some(kb * 1024);
-                }
-            }
+            cached_bytes = parse_kb_line(line);
         } else if line.starts_with("Buffers:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<u64>() {
-                    buffers_bytes = Some(kb * 1024);
-                }
-            }
+            buffers_bytes = parse_kb_line(line);
         } else if line.starts_with("SwapTotal:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<u64>() {
-                    swap_total_bytes = Some(kb * 1024);
-                }
-            }
+            swap_total_bytes = parse_kb_line(line);
         } else if line.starts_with("SwapFree:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<u64>() {
-                    swap_free_bytes = Some(kb * 1024);
-                }
-            }
+            swap_free_bytes = parse_kb_line(line);
         }
 
         if total_bytes.is_some()

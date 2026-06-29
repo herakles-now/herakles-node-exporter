@@ -10,6 +10,8 @@ use tracing::debug;
 #[cfg(feature = "ebpf")]
 use std::collections::HashSet;
 #[cfg(feature = "ebpf")]
+use std::path::Path;
+#[cfg(feature = "ebpf")]
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "ebpf")]
 use std::time::Instant;
@@ -88,6 +90,61 @@ struct EbpfInner {
 #[cfg(feature = "ebpf")]
 unsafe impl Send for EbpfInner {}
 
+#[cfg(feature = "ebpf")]
+fn tracepoint_exists(section: &str) -> bool {
+    let Some(event_path) = section.strip_prefix("tracepoint/") else {
+        return true;
+    };
+    let Some((category, event)) = event_path.split_once('/') else {
+        return true;
+    };
+
+    [
+        "/sys/kernel/tracing/events",
+        "/sys/kernel/debug/tracing/events",
+    ]
+    .iter()
+    .any(|root| {
+        Path::new(root)
+            .join(category)
+            .join(event)
+            .join("id")
+            .exists()
+    })
+}
+
+#[cfg(feature = "ebpf")]
+fn syscall_name(program_name: &str) -> String {
+    program_name
+        .replace("trace_", "")
+        .replace("_enter", "")
+        .replace("_exit", "")
+}
+
+#[cfg(feature = "ebpf")]
+fn categorize_program(
+    program_name: &str,
+    rx_syscalls: &mut HashSet<String>,
+    tx_syscalls: &mut HashSet<String>,
+    read_syscalls: &mut HashSet<String>,
+    write_syscalls: &mut HashSet<String>,
+    other_programs: &mut HashSet<String>,
+) {
+    let syscall = syscall_name(program_name);
+
+    if program_name.contains("recv") {
+        rx_syscalls.insert(syscall);
+    } else if program_name.contains("send") {
+        tx_syscalls.insert(syscall);
+    } else if program_name.contains("read") {
+        read_syscalls.insert(syscall);
+    } else if program_name.contains("write") {
+        write_syscalls.insert(syscall);
+    } else {
+        other_programs.insert(syscall);
+    }
+}
+
 impl EbpfManager {
     /// Creates a new eBPF manager.
     ///
@@ -147,37 +204,41 @@ impl EbpfManager {
         let mut write_syscalls = HashSet::new();
         let mut other_programs = HashSet::new();
         let mut failed_programs = Vec::new();
+        let mut skipped_programs = Vec::new();
 
         for prog in obj.progs_mut() {
             let name = prog.name().to_string_lossy().to_string();
+            let section = prog.section().to_string_lossy().to_string();
+
+            if !tracepoint_exists(&section) {
+                skipped_programs.push(name);
+                continue;
+            }
 
             match prog.attach() {
                 Ok(link) => {
-                    // Categorize by functionality
-                    // Extract syscall name (remove trace_, _enter, _exit)
-                    let syscall_name = name
-                        .replace("trace_", "")
-                        .replace("_enter", "")
-                        .replace("_exit", "");
-
-                    if name.contains("recv") {
-                        rx_syscalls.insert(syscall_name);
-                    } else if name.contains("send") {
-                        tx_syscalls.insert(syscall_name);
-                    } else if name.contains("read") {
-                        read_syscalls.insert(syscall_name);
-                    } else if name.contains("write") {
-                        write_syscalls.insert(syscall_name);
-                    } else {
-                        other_programs.insert(syscall_name);
-                    }
-
+                    categorize_program(
+                        &name,
+                        &mut rx_syscalls,
+                        &mut tx_syscalls,
+                        &mut read_syscalls,
+                        &mut write_syscalls,
+                        &mut other_programs,
+                    );
                     links.push(link);
                 }
                 Err(_e) => {
                     failed_programs.push(name);
                 }
             }
+        }
+
+        if !skipped_programs.is_empty() {
+            skipped_programs.sort();
+            debug!(
+                "Skipping unavailable eBPF tracepoints: {}",
+                skipped_programs.join(", ")
+            );
         }
 
         // Convert HashSets to sorted Vecs for consistent output
