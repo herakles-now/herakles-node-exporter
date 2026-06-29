@@ -1,6 +1,6 @@
 [package]
 name = "herakles-node-exporter"
-version = "0.2.0"
+version = "0.2.1"
 description = "Comprehensive Prometheus exporter for Linux system metrics including per-process memory/CPU, disk I/O, filesystem, and network statistics"
 authors = ["Michael Moll <exporter@herakles.now>"]
 license = "MIT OR Apache-2.0"

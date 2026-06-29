@@ -1,4 +1,4 @@
-//! herakles-node-exporter - version 0.2.0
+//! herakles-node-exporter - version 0.2.1
 //!
 //! Professional memory metrics exporter with tracing logging.
 //! This is the main entry point that initializes the server and handles subcommands.
