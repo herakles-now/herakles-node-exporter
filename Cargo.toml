@@ -55,7 +55,7 @@ chrono = { version = "0.4", features = ["serde"] }
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 
 # eBPF support (optional - feature gated)
-libbpf-rs = { version = "0.26", optional = true }
+libbpf-rs = { version = "0.27", optional = true }
 libbpf-sys = { version = "1.4", optional = true }
 
 # System user/group management for install command
